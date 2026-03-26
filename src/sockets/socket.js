@@ -43,13 +43,32 @@ export const initWebSocket = (server) => {
    
       console.log(`✅ User connected: ${userId}`);
    
-      // Send connection confirmation
+      // Send connection confirmation - TEST DIRECT SEND
       const deployMarker = "DEPLOY_TEST_" + Date.now();
       console.log(`[DEPLOY_MARKER] ${deployMarker}`);
+      
+      // Try direct send WITHOUT using sendMessage function
+      try {
+        const connMsg = JSON.stringify({
+          type: "CONNECTION_ESTABLISHED",
+          payload: {
+            message: `Welcome ${userId}!`,
+            timestamp: Date.now(),
+            deployMarker: deployMarker,
+          },
+        });
+        console.log(`[DIRECT_SEND] About to call ws.send() directly...`);
+        ws.send(connMsg);
+        console.log(`[DIRECT_SEND] ✅ ws.send() returned successfully`);
+      } catch (err) {
+        console.error(`[DIRECT_SEND] ❌ Error:`, err.message);
+      }
+      
+      // Also try sendMessage
       sendMessage(ws, {
         type: "CONNECTION_ESTABLISHED",
         payload: {
-          message: `Welcome ${userId}!`,
+          message: `Welcome ${userId}! (via sendMessage)`,
           timestamp: Date.now(),
           deployMarker: deployMarker,
         },
@@ -88,6 +107,21 @@ export const initWebSocket = (server) => {
       ws.on("pong", () => {
         ws.isAlive = true;
       });
+
+      // Try sending a message after 1 second delay as well
+      setTimeout(() => {
+        try {
+          console.log(`[DELAYED_SEND] Sending delayed test message to ${userId}`);
+          ws.send(JSON.stringify({
+            type: "TEST_DELAY",
+            message: "This is a delayed test message",
+            timestamp: Date.now()
+          }));
+          console.log(`[DELAYED_SEND] ✅ Delayed send completed`);
+        } catch (err) {
+          console.error(`[DELAYED_SEND] ❌ Error:`, err.message);
+        }
+      }, 1000);
    
       ws.on("close", () => {
         const connections = userConnections.get(userId);
