@@ -46,6 +46,7 @@ export const initWebSocket = (server) => {
       // Send connection confirmation - TEST DIRECT SEND
       const deployMarker = "DEPLOY_TEST_" + Date.now();
       console.log(`[DEPLOY_MARKER] ${deployMarker}`);
+      console.log(`[CONNECTION] ws.readyState = ${ws.readyState} (0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED)`);
       
       // Try direct send WITHOUT using sendMessage function
       try {
@@ -57,7 +58,7 @@ export const initWebSocket = (server) => {
             deployMarker: deployMarker,
           },
         });
-        console.log(`[DIRECT_SEND] About to call ws.send() directly...`);
+        console.log(`[DIRECT_SEND] ready=${ws.readyState}, About to call ws.send()...`);
         ws.send(connMsg);
         console.log(`[DIRECT_SEND] ✅ ws.send() returned successfully`);
       } catch (err) {
