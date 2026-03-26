@@ -7,19 +7,20 @@ const userConnections = new Map();
 // Helper to send JSON message safely - DEFINED FIRST
 const sendMessage = (ws, data) => {
   try {
-    if (!ws || !ws.readyState) {
-      console.error("❌ WebSocket not available");
-      return;
+    if (!ws) {
+      console.error("❌ [sendMessage] WebSocket object is null");
+      return false;
     }
-    if (ws.readyState === 1) { // OPEN
-      const jsonStr = JSON.stringify(data);
-      ws.send(jsonStr);
-      console.log(`✅ Sent to ${ws.userId}:`, data.type);
-    } else {
-      console.error(`❌ WebSocket not open. State: ${ws.readyState}`, data.type);
-    }
+    
+    console.log(`[sendMessage] Attempting to send ${data.type}, readyState: ${ws.readyState}`);
+    
+    const jsonStr = JSON.stringify(data);
+    ws.send(jsonStr);
+    console.log(`✅ [sendMessage] Sent to ${ws.userId}:`, data.type);
+    return true;
   } catch (error) {
-    console.error(`❌ Error sending message:`, error);
+    console.error(`❌ [sendMessage] Error sending message:`, error.message);
+    return false;
   }
 };
  

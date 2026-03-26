@@ -61,10 +61,15 @@ async function testSocket() {
   });
 
   ws.on("message", (data) => {
-    console.log(
-      `\n📥 Received:`,
-      JSON.stringify(JSON.parse(data), null, 2)
-    );
+    try {
+      const parsed = JSON.parse(data);
+      console.log(
+        `\n📥 Received:`,
+        JSON.stringify(parsed, null, 2)
+      );
+    } catch (e) {
+      console.log(`\n📥 Received (raw):`, data);
+    }
   });
 
   ws.on("error", (error) => {
