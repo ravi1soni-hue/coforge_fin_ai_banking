@@ -4,6 +4,10 @@ import { handleMessageToSender } from "../services/message.handler.js";
 const userConnections = new Map(); 
 // userId -> Set<ws>
 
+let activeConnections = 0;
+export const getActiveConnectionCount = () => activeConnections;
+export let websocketsReady = false;
+
 // Helper to send JSON message safely (with readyState guard) - DEFINED FIRST
 const sendMessage = (ws, data) => {
   try {
@@ -23,6 +27,7 @@ const sendMessage = (ws, data) => {
 export const initWebSocket = (server) => {
   console.log("[WebSocket] 🔌 Initializing WebSocket server...");
   const wss = new WebSocketServer({ server, perMessageDeflate: false });
+  websocketsReady = true;
   console.log("[WebSocket] ✅ WebSocketServer created");
 
   // periodic server heartbeat broadcast for diagnostics
@@ -41,6 +46,7 @@ export const initWebSocket = (server) => {
   }, 15000);
 
   wss.on("close", () => {
+    websocketsReady = false;
     clearInterval(debugBroadcast);
   });
  
@@ -57,16 +63,15 @@ export const initWebSocket = (server) => {
    
       ws.userId = userId;
       ws.isAlive = true;
-   
+      activeConnections++;
+
       // Store connection
       if (!userConnections.has(userId)) {
         userConnections.set(userId, new Set());
       }
       userConnections.get(userId).add(ws);
-   
-      console.log(`✅ User connected: ${userId}`);
-   
-      // Send connection confirmation - TEST DIRECT SEND
+
+      console.log(`✅ User connected: ${userId} (activeConnections=${activeConnections})`);
       const deployMarker = "DEPLOY_TEST_" + Date.now();
       console.log(`[DEPLOY_MARKER] ${deployMarker}`);
       console.log(`[CONNECTION] ws.readyState = ${ws.readyState} (0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED)`);
@@ -150,11 +155,12 @@ export const initWebSocket = (server) => {
       ws.on("close", () => {
         const connections = userConnections.get(userId);
         connections?.delete(ws);
+        activeConnections = Math.max(0, activeConnections - 1);
    
         if (connections?.size === 0) {
           userConnections.delete(userId);
         }
-        console.log(`❌ User disconnected: ${userId}`);
+        console.log(`❌ User disconnected: ${userId} (activeConnections=${activeConnections})`);
       });
     } catch (error) {
       console.error("❌ Connection error:", error);

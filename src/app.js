@@ -3,7 +3,8 @@ import express from "express";
 import cors from "cors";
 
 import healthRoutes from "./routes/health.route.js";
- 
+import { websocketsReady, getActiveConnectionCount } from "./sockets/socket.js";
+
 const app = express();
  
 app.use(cors());
@@ -18,6 +19,13 @@ app.use((req, res, next) => {
 });
  
 app.use("/health", healthRoutes);
+
+app.get("/ws-status", (req, res) => {
+  res.status(200).json({
+    websocketsReady,
+    activeConnections: getActiveConnectionCount(),
+  });
+});
 
 // Version / deployment diagnostics endpoint
 app.get("/version", (req, res) => {
