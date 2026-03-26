@@ -44,11 +44,14 @@ export const initWebSocket = (server) => {
       console.log(`✅ User connected: ${userId}`);
    
       // Send connection confirmation
+      const deployMarker = "DEPLOY_TEST_" + Date.now();
+      console.log(`[DEPLOY_MARKER] ${deployMarker}`);
       sendMessage(ws, {
         type: "CONNECTION_ESTABLISHED",
         payload: {
           message: `Welcome ${userId}!`,
           timestamp: Date.now(),
+          deployMarker: deployMarker,
         },
       });
    
