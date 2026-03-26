@@ -27,8 +27,8 @@ app.use("/api", ingestionRoutes);
 // Initialize WebSocket
 initWebSocket(server);
 
-// Start server
-server.listen(ENV.PORT, () => {
+// Start server - bind to 0.0.0.0 for Railway compatibility
+server.listen(ENV.PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${ENV.PORT}`);
 });
 
