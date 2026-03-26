@@ -1,0 +1,11 @@
+### Upload JSON Stream
+POST http://localhost:3000/api/upload/json
+Content-Type: application/json
+
+{
+    "streamName": "user_activity_logs",
+    "data": [
+        { "id": 1, "action": "login", "timestamp": "2024-03-20T10:00:00Z" },
+        { "id": 2, "action": "view_page", "timestamp": "2024-03-20T10:05:00Z" }
+    ]
+}

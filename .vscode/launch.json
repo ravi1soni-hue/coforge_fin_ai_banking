@@ -1,0 +1,15 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "type": "node",
+        "request": "launch",
+        "name": "Debug Fin AI Server",
+        "program": "${workspaceFolder}/src/server.js",
+        "cwd": "${workspaceFolder}",
+        "console": "integratedTerminal",
+        "envFile": "${workspaceFolder}/.env",
+        "skipFiles": ["<node_internals>/**"]
+      }
+    ]
+  }
