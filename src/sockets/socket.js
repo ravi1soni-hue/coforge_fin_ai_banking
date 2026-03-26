@@ -3,6 +3,25 @@ import { handleMessageToSender } from "../services/message.handler.js";
  
 const userConnections = new Map(); 
 // userId -> Set<ws>
+
+// Helper to send JSON message safely - DEFINED FIRST
+const sendMessage = (ws, data) => {
+  try {
+    if (!ws || !ws.readyState) {
+      console.error("❌ WebSocket not available");
+      return;
+    }
+    if (ws.readyState === 1) { // OPEN
+      const jsonStr = JSON.stringify(data);
+      ws.send(jsonStr);
+      console.log(`✅ Sent to ${ws.userId}:`, data.type);
+    } else {
+      console.error(`❌ WebSocket not open. State: ${ws.readyState}`, data.type);
+    }
+  } catch (error) {
+    console.error(`❌ Error sending message:`, error);
+  }
+};
  
 export const initWebSocket = (server) => {
   const wss = new WebSocketServer({ server, perMessageDeflate: false });
@@ -40,12 +59,16 @@ export const initWebSocket = (server) => {
    
       ws.on("message", async (message) => {
         try {
-          console.log(`📨 Message from ${userId}:`, message.toString());
+          const msgStr = message.toString();
+          console.log(`📨 Message event fired for ${userId}`);
+          console.log(`📨 Message from ${userId}:`, msgStr);
           
           // Send response back to sender
-          await handleMessageToSender(ws, message.toString());
+          console.log(`📨 Calling handleMessageToSender...`);
+          await handleMessageToSender(ws, msgStr);
+          console.log(`📨 handleMessageToSender completed`);
         } catch (error) {
-          console.error(`❌ Error handling message from ${userId}:`, error);
+          console.error(`❌ Error in message handler for ${userId}:`, error.message, error.stack);
           sendMessage(ws, {
             type: "ERROR",
             payload: {
@@ -117,17 +140,5 @@ export const sendToUser = (userId, message) => {
         sendMessage(ws, message);
       }
     });
-  }
-};
-
-// Helper to send JSON message safely
-const sendMessage = (ws, data) => {
-  try {
-    if (ws.readyState === 1) { // OPEN
-      ws.send(JSON.stringify(data));
-      console.log(`✅ Sent to ${ws.userId}:`, data.type);
-    }
-  } catch (error) {
-    console.error(`❌ Error sending message:`, error);
   }
 };

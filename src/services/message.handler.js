@@ -13,6 +13,8 @@ let responseIndex = 0;
 
 export const handleMessageToSender = async (ws, rawMessage) => {
   try {
+    console.log("[MessageHandler] Received raw message:", rawMessage);
+    
     const clientMessage = JSON.parse(rawMessage);
     console.log("[MessageHandler] Parsed message:", clientMessage);
 
@@ -29,10 +31,12 @@ export const handleMessageToSender = async (ws, rawMessage) => {
       },
     };
 
-    console.log("[MessageHandler] Sending response:", serverMessage);
+    console.log("[MessageHandler] Created server message:", serverMessage);
+    console.log("[MessageHandler] WebSocket state:", ws.readyState, "Expected OPEN: 1");
+    
     send(ws, serverMessage);
   } catch (error) {
-    console.error("[MessageHandler] Error:", error);
+    console.error("[MessageHandler] Error:", error.message, error.stack);
     send(ws, {
       type: "ERROR",
       payload: {
@@ -47,13 +51,22 @@ export const handleMessageToSender = async (ws, rawMessage) => {
 
 const send = (ws, data) => {
   try {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(data));
-      console.log(`✅ Response sent: ${data.type}`);
+    console.log("[Send] Starting send, ws.readyState:", ws.readyState);
+    
+    if (!ws) {
+      console.error("[Send] ❌ WebSocket object is null");
+      return;
+    }
+    
+    // WebSocket.OPEN = 1, but we'll check numerically to be safe
+    if (ws.readyState === 1) { 
+      const jsonStr = JSON.stringify(data);
+      ws.send(jsonStr);
+      console.log(`[Send] ✅ Response sent: ${data.type}`);
     } else {
-      console.error(`❌ WebSocket not open. State: ${ws.readyState}`);
+      console.error(`[Send] ❌ WebSocket not open. State: ${ws.readyState} (1=OPEN, 0=CONNECTING, 2=CLOSING, 3=CLOSED)`);
     }
   } catch (error) {
-    console.error(`❌ Error sending response:`, error);
+    console.error(`[Send] ❌ Error sending response:`, error.message);
   }
 };
