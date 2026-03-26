@@ -7,20 +7,12 @@ const userConnections = new Map();
 // Helper to send JSON message safely - DEFINED FIRST
 const sendMessage = (ws, data) => {
   try {
-    if (!ws) {
-      console.error("❌ [sendMessage] WebSocket object is null");
-      return false;
-    }
-    
-    console.log(`[sendMessage] Attempting to send ${data.type}, readyState: ${ws.readyState}`);
-    
     const jsonStr = JSON.stringify(data);
+    console.log(`[sendMessage] Calling ws.send() with`, data.type);
     ws.send(jsonStr);
-    console.log(`✅ [sendMessage] Sent to ${ws.userId}:`, data.type);
-    return true;
+    console.log(`[sendMessage] ✅ ws.send() completed for`, data.type);
   } catch (error) {
-    console.error(`❌ [sendMessage] Error sending message:`, error.message);
-    return false;
+    console.error(`[sendMessage] ❌ Exception in ws.send():`, error.message);
   }
 };
  
@@ -60,36 +52,29 @@ export const initWebSocket = (server) => {
         },
       });
    
-      ws.on("message", async (message) => {
+      ws.on("message", (message) => {
         try {
           const msgStr = message.toString();
-          console.log(`📨 Message event fired for ${userId}`);
-          console.log(`📨 Raw message from ${userId}:`, msgStr);
+          console.log(`[ws.on("message")] ✅ Message event fired for user ${userId}`);
+          console.log(`[ws.on("message")] Raw data:`, msgStr.substring(0, 100));
           
-          // ECHO BACK IMMEDIATELY FOR TESTING
-          console.log(`[DEBUG] About to send echo back...`);
+          // SIMPLE ECHO - no logic, just send back immediately
+          console.log(`[ws.on("message")] Sending echo response...`);
           sendMessage(ws, {
-            type: "ECHO_RESPONSE",
+            type: "ECHO",
             payload: {
               echo: msgStr,
-              timestamp: Date.now()
+              received_at: Date.now()
             }
           });
+          console.log(`[ws.on("message")] Echo sent, now calling handleMessageToSender...`);
           
-          // Then call handler
-          console.log(`📨 Calling handleMessageToSender...`);
-          await handleMessageToSender(ws, msgStr);
-          console.log(`📨 handleMessageToSender completed`);
-        } catch (error) {
-          console.error(`❌ Error in message handler for ${userId}:`, error.message, error.stack);
-          sendMessage(ws, {
-            type: "ERROR",
-            payload: {
-              message: "Error processing message",
-              error: error.message,
-              timestamp: Date.now(),
-            },
+          // Then call the actual handler
+          handleMessageToSender(ws, msgStr).catch(err => {
+            console.error(`[handleMessageToSender] Caught error:`, err.message);
           });
+        } catch (error) {
+          console.error(`[ws.on("message")] ❌ Exception:`, error.message, error.stack);
         }
       });
    
