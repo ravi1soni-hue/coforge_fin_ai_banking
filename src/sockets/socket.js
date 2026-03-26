@@ -4,15 +4,19 @@ import { handleMessageToSender } from "../services/message.handler.js";
 const userConnections = new Map(); 
 // userId -> Set<ws>
 
-// Helper to send JSON message safely - DEFINED FIRST
+// Helper to send JSON message safely (with readyState guard) - DEFINED FIRST
 const sendMessage = (ws, data) => {
   try {
+    if (ws.readyState !== 1) {
+      console.warn(`[sendMessage] ⚠️ ws.readyState is not OPEN (${ws.readyState}), message ${data.type} dropped`);
+      return;
+    }
     const jsonStr = JSON.stringify(data);
-    console.log(`[sendMessage] Calling ws.send() with`, data.type);
+    console.log(`[sendMessage] Calling ws.send() with`, data.type, `->`, jsonStr);
     ws.send(jsonStr);
     console.log(`[sendMessage] ✅ ws.send() completed for`, data.type);
   } catch (error) {
-    console.error(`[sendMessage] ❌ Exception in ws.send():`, error.message);
+    console.error(`[sendMessage] ❌ Exception in ws.send():`, error.message, error.stack);
   }
 };
  
@@ -20,6 +24,25 @@ export const initWebSocket = (server) => {
   console.log("[WebSocket] 🔌 Initializing WebSocket server...");
   const wss = new WebSocketServer({ server, perMessageDeflate: false });
   console.log("[WebSocket] ✅ WebSocketServer created");
+
+  // periodic server heartbeat broadcast for diagnostics
+  const debugBroadcast = setInterval(() => {
+    wss.clients.forEach((client) => {
+      if (client.readyState === 1) {
+        sendMessage(client, {
+          type: "SERVER_HEARTBEAT",
+          payload: {
+            message: "server heartbeat",
+            timestamp: Date.now(),
+          },
+        });
+      }
+    });
+  }, 15000);
+
+  wss.on("close", () => {
+    clearInterval(debugBroadcast);
+  });
  
   wss.on("connection", (ws, req) => {
     try {

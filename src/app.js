@@ -19,6 +19,17 @@ app.use((req, res, next) => {
  
 app.use("/health", healthRoutes);
 
+// Version / deployment diagnostics endpoint
+app.get("/version", (req, res) => {
+  res.status(200).json({
+    service: "fin-ai-assistance-server",
+    version: process.env.npm_package_version || "unknown",
+    commit: process.env.COMMIT_SHA || "unknown",
+    nodeEnv: process.env.NODE_ENV || "unknown",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Global error handler
 app.use((err, req, res, next) => {
   console.error("❌ Error:", err.message);
