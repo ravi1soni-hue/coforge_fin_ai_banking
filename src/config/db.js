@@ -12,7 +12,7 @@ pool.on("connect", () => {
 
 pool.on("error", (err) => {
   console.error("❌ PostgreSQL error", err);
-  process.exit(1);
+  // Don't exit - connection pool will retry
 });
 
 export default pool;

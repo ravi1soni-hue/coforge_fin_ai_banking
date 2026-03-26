@@ -3,28 +3,40 @@ import "./config/db.js";
 
 import app from "./app.js";
 
-import { ENV } from "./config/env.js";
+import { ENV, validateEnv } from "./config/env.js";
 
 import { initWebSocket } from "./sockets/socket.js";
-
-import { testDb } from "./utils/testDb.js";
 
 
 import ingestionRoutes from "./routes/ingestion.route.js";
 
  
+// Validate env before starting
+validateEnv();
+
 const server = http.createServer(app);
-
-
 
 app.use("/api", ingestionRoutes);
  
 // Initialize WebSocket
 initWebSocket(server);
- 
+
+// Start server
 server.listen(ENV.PORT, () => {
-
   console.log(`🚀 Server running on port ${ENV.PORT}`);
+});
 
+// Graceful shutdown
+process.on("SIGTERM", () => {
+  console.log("SIGTERM received, shutting down gracefully");
+  server.close(() => {
+    console.log("Server closed");
+    process.exit(0);
+  });
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("❌ Uncaught exception:", err);
+  process.exit(1);
 });
  
