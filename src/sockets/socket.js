@@ -5,47 +5,91 @@ const userConnections = new Map();
 // userId -> Set<ws>
  
 export const initWebSocket = (server) => {
-  const wss = new WebSocketServer({ server });
+  const wss = new WebSocketServer({ server, perMessageDeflate: false });
  
   wss.on("connection", (ws, req) => {
-    const url = new URL(req.url, "http://localhost");
-    const userId = url.searchParams.get("userId");
- 
-    if (!userId) {
-      ws.close();
-      return;
-    }
- 
-    ws.userId = userId;
- 
-    // Store connection
-    if (!userConnections.has(userId)) {
-      userConnections.set(userId, new Set());
-    }
-    userConnections.get(userId).add(ws);
- 
-    console.log(`✅ User connected: ${userId}`);
- 
-    ws.on("message", async (message) => {
-      console.log(`📨 Message from ${userId}:`, message.toString());
-      
-      // Send response back to sender
-      await handleMessageToSender(ws, message.toString());
-      
-      // Broadcast to all users (optional)
-      broadcastMessage(userId, message.toString());
-    });
- 
-    ws.on("close", () => {
-      const connections = userConnections.get(userId);
-      connections?.delete(ws);
- 
-      if (connections?.size === 0) {
-        userConnections.delete(userId);
+    try {
+      const url = new URL(req.url, "http://localhost");
+      const userId = url.searchParams.get("userId");
+   
+      if (!userId) {
+        console.log("❌ No userId provided");
+        ws.close(1008, "userId required");
+        return;
       }
-      console.log(`❌ User disconnected: ${userId}`);
-    });
+   
+      ws.userId = userId;
+      ws.isAlive = true;
+   
+      // Store connection
+      if (!userConnections.has(userId)) {
+        userConnections.set(userId, new Set());
+      }
+      userConnections.get(userId).add(ws);
+   
+      console.log(`✅ User connected: ${userId}`);
+   
+      // Send connection confirmation
+      sendMessage(ws, {
+        type: "CONNECTION_ESTABLISHED",
+        payload: {
+          message: `Welcome ${userId}!`,
+          timestamp: Date.now(),
+        },
+      });
+   
+      ws.on("message", async (message) => {
+        try {
+          console.log(`📨 Message from ${userId}:`, message.toString());
+          
+          // Send response back to sender
+          await handleMessageToSender(ws, message.toString());
+        } catch (error) {
+          console.error(`❌ Error handling message from ${userId}:`, error);
+          sendMessage(ws, {
+            type: "ERROR",
+            payload: {
+              message: "Error processing message",
+              error: error.message,
+              timestamp: Date.now(),
+            },
+          });
+        }
+      });
+   
+      ws.on("error", (error) => {
+        console.error(`❌ WebSocket error for ${userId}:`, error);
+      });
+
+      ws.on("pong", () => {
+        ws.isAlive = true;
+      });
+   
+      ws.on("close", () => {
+        const connections = userConnections.get(userId);
+        connections?.delete(ws);
+   
+        if (connections?.size === 0) {
+          userConnections.delete(userId);
+        }
+        console.log(`❌ User disconnected: ${userId}`);
+      });
+    } catch (error) {
+      console.error("❌ Connection error:", error);
+      ws.close(1011, "Server error");
+    }
   });
+
+  // Heartbeat to keep connections alive
+  const heartbeat = setInterval(() => {
+    wss.clients.forEach((ws) => {
+      if (ws.isAlive === false) return ws.terminate();
+      ws.isAlive = false;
+      ws.ping();
+    });
+  }, 30000);
+
+  wss.on("close", () => clearInterval(heartbeat));
 };
 
 // Broadcast message to all connected users
@@ -53,12 +97,12 @@ const broadcastMessage = (senderId, message) => {
   userConnections.forEach((connections, userId) => {
     connections.forEach((ws) => {
       if (ws.readyState === 1) { // 1 = OPEN
-        ws.send(JSON.stringify({
+        sendMessage(ws, {
           type: "BROADCAST",
           from: senderId,
           message: message,
           timestamp: Date.now()
-        }));
+        });
       }
     });
   });
@@ -70,8 +114,20 @@ export const sendToUser = (userId, message) => {
   if (connections) {
     connections.forEach((ws) => {
       if (ws.readyState === 1) {
-        ws.send(JSON.stringify(message));
+        sendMessage(ws, message);
       }
     });
+  }
+};
+
+// Helper to send JSON message safely
+const sendMessage = (ws, data) => {
+  try {
+    if (ws.readyState === 1) { // OPEN
+      ws.send(JSON.stringify(data));
+      console.log(`✅ Sent to ${ws.userId}:`, data.type);
+    }
+  } catch (error) {
+    console.error(`❌ Error sending message:`, error);
   }
 };
