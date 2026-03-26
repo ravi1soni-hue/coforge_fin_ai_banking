@@ -25,7 +25,9 @@ const sendMessage = (ws, data) => {
 };
  
 export const initWebSocket = (server) => {
+  console.log("[WebSocket] 🔌 Initializing WebSocket server...");
   const wss = new WebSocketServer({ server, perMessageDeflate: false });
+  console.log("[WebSocket] ✅ WebSocketServer created");
  
   wss.on("connection", (ws, req) => {
     try {

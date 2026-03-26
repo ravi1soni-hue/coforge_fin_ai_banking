@@ -14,6 +14,12 @@ import ingestionRoutes from "./routes/ingestion.route.js";
 // Validate env before starting
 validateEnv();
 
+console.log("========================================");
+console.log("🚀 COFORGE FIN-AI SERVER STARTING");
+console.log(`📍 Environment: ${ENV.NODE_ENV}`);
+console.log(`⏰ Timestamp: ${new Date().toISOString()}`);
+console.log("========================================");
+
 const server = http.createServer(app);
 
 app.use("/api", ingestionRoutes);
