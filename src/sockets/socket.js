@@ -1,5 +1,5 @@
 import { WebSocketServer } from "ws";
-// import { handleChatMessage } from "../modules/chat/chat.controller.js";
+import { handleMessageToSender } from "../services/message.handler.js";
  
 const userConnections = new Map(); 
 // userId -> Set<ws>
@@ -24,10 +24,16 @@ export const initWebSocket = (server) => {
     }
     userConnections.get(userId).add(ws);
  
-    console.log(`User connected: ${userId}`);
+    console.log(`✅ User connected: ${userId}`);
  
     ws.on("message", async (message) => {
-      //await handleChatMessage(ws, message.toString());
+      console.log(`📨 Message from ${userId}:`, message.toString());
+      
+      // Send response back to sender
+      await handleMessageToSender(ws, message.toString());
+      
+      // Broadcast to all users (optional)
+      broadcastMessage(userId, message.toString());
     });
  
     ws.on("close", () => {
@@ -37,6 +43,35 @@ export const initWebSocket = (server) => {
       if (connections?.size === 0) {
         userConnections.delete(userId);
       }
+      console.log(`❌ User disconnected: ${userId}`);
     });
   });
+};
+
+// Broadcast message to all connected users
+const broadcastMessage = (senderId, message) => {
+  userConnections.forEach((connections, userId) => {
+    connections.forEach((ws) => {
+      if (ws.readyState === 1) { // 1 = OPEN
+        ws.send(JSON.stringify({
+          type: "BROADCAST",
+          from: senderId,
+          message: message,
+          timestamp: Date.now()
+        }));
+      }
+    });
+  });
+};
+
+// Helper to send message to specific user
+export const sendToUser = (userId, message) => {
+  const connections = userConnections.get(userId);
+  if (connections) {
+    connections.forEach((ws) => {
+      if (ws.readyState === 1) {
+        ws.send(JSON.stringify(message));
+      }
+    });
+  }
 };
