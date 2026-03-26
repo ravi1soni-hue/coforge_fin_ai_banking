@@ -62,9 +62,19 @@ export const initWebSocket = (server) => {
         try {
           const msgStr = message.toString();
           console.log(`📨 Message event fired for ${userId}`);
-          console.log(`📨 Message from ${userId}:`, msgStr);
+          console.log(`📨 Raw message from ${userId}:`, msgStr);
           
-          // Send response back to sender
+          // ECHO BACK IMMEDIATELY FOR TESTING
+          console.log(`[DEBUG] About to send echo back...`);
+          sendMessage(ws, {
+            type: "ECHO_RESPONSE",
+            payload: {
+              echo: msgStr,
+              timestamp: Date.now()
+            }
+          });
+          
+          // Then call handler
           console.log(`📨 Calling handleMessageToSender...`);
           await handleMessageToSender(ws, msgStr);
           console.log(`📨 handleMessageToSender completed`);
