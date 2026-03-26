@@ -30,7 +30,7 @@ export const initWebSocket = (server) => {
   websocketsReady = true;
   console.log("[WebSocket] ✅ WebSocketServer created");
 
-  // periodic server heartbeat broadcast for diagnostics
+  // periodic server heartbeat broadcast - keep Railway proxy from dropping idle connections
   const debugBroadcast = setInterval(() => {
     wss.clients.forEach((client) => {
       if (client.readyState === 1) {
@@ -43,7 +43,7 @@ export const initWebSocket = (server) => {
         });
       }
     });
-  }, 15000);
+  }, 5000);
 
   wss.on("close", () => {
     websocketsReady = false;
