@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Banking Data Viewer</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #dbe3ef;
+      --brand: #0a66c2;
+      --brand-2: #1f9d8b;
+      --danger: #c2410c;
+      --shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background:
+        radial-gradient(circle at 8% 10%, #dbeafe 0%, transparent 24%),
+        radial-gradient(circle at 92% 8%, #d1fae5 0%, transparent 20%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    .header {
+      background: linear-gradient(120deg, #0a66c2, #1f9d8b);
+      color: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .header h1 {
+      font-size: 24px;
+      margin-bottom: 6px;
+    }
+
+    .header p {
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 14px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 2fr 2fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .control label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .control input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      color: var(--text);
+      background: #fff;
+    }
+
+    .control input:focus {
+      outline: 2px solid #bfdbfe;
+      border-color: #93c5fd;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      padding: 11px 16px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      color: #fff;
+      background: linear-gradient(120deg, var(--brand), #0ea5e9);
+      min-width: 140px;
+    }
+
+    .btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    .status {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 10px;
+      min-height: 20px;
+    }
+
+    .status.error {
+      color: var(--danger);
+      font-weight: 600;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap: 10px;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      background: #fff;
+    }
+
+    .card .k {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+      font-weight: 700;
+    }
+
+    .card .v {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #0b3a6e;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      min-width: 700px;
+    }
+
+    th, td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #1e3a5f;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .mono {
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media (max-width: 900px) {
+      .controls {
+        grid-template-columns: 1fr;
+      }
+
+      .btn {
+        width: 100%;
+      }
+
+      .grid {
+        grid-template-columns: repeat(2, minmax(120px, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <h1>User Banking Data</h1>
+      <p>Fetch and view seeded banking data from PostgreSQL</p>
+    </div>
+
+    <div class="panel">
+      <div class="controls">
+        <div class="control">
+          <label for="baseUrl">API Base URL</label>
+          <input id="baseUrl" type="text" placeholder="https://coforgefinaibanking-development-ebdd.up.railway.app">
+        </div>
+        <div class="control">
+          <label for="userId">User ID</label>
+          <input id="userId" type="text" value="usr_uk_001">
+        </div>
+        <button class="btn" id="fetchBtn">Fetch Data</button>
+      </div>
+      <div id="status" class="status"></div>
+    </div>
+
+    <div id="summaryPanel" class="panel hidden">
+      <div class="section-title">Summary</div>
+      <div class="grid">
+        <div class="card"><div class="k">Accounts</div><div class="v" id="cAccounts">0</div></div>
+        <div class="card"><div class="k">Investments</div><div class="v" id="cInvestments">0</div></div>
+        <div class="card"><div class="k">Loans</div><div class="v" id="cLoans">0</div></div>
+        <div class="card"><div class="k">Subscriptions</div><div class="v" id="cSubscriptions">0</div></div>
+        <div class="card"><div class="k">Transactions</div><div class="v" id="cTxns">0</div></div>
+      </div>
+    </div>
+
+    <div id="userPanel" class="panel hidden">
+      <div class="section-title">User</div>
+      <div class="mono" id="userMeta"></div>
+    </div>
+
+    <div id="accountsPanel" class="panel hidden">
+      <div class="section-title">Accounts</div>
+      <div class="table-wrap"><table id="accountsTable"></table></div>
+    </div>
+
+    <div id="investmentsPanel" class="panel hidden">
+      <div class="section-title">Investments</div>
+      <div class="table-wrap"><table id="investmentsTable"></table></div>
+    </div>
+
+    <div id="loansPanel" class="panel hidden">
+      <div class="section-title">Loans</div>
+      <div class="table-wrap"><table id="loansTable"></table></div>
+    </div>
+
+    <div id="subscriptionsPanel" class="panel hidden">
+      <div class="section-title">Subscriptions</div>
+      <div class="table-wrap"><table id="subscriptionsTable"></table></div>
+    </div>
+
+    <div id="txnsPanel" class="panel hidden">
+      <div class="section-title">Recent Transactions</div>
+      <div class="table-wrap"><table id="txnsTable"></table></div>
+    </div>
+  </div>
+
+  <script>
+    const el = {
+      baseUrl: document.getElementById('baseUrl'),
+      userId: document.getElementById('userId'),
+      fetchBtn: document.getElementById('fetchBtn'),
+      status: document.getElementById('status'),
+      summaryPanel: document.getElementById('summaryPanel'),
+      userPanel: document.getElementById('userPanel'),
+      accountsPanel: document.getElementById('accountsPanel'),
+      investmentsPanel: document.getElementById('investmentsPanel'),
+      loansPanel: document.getElementById('loansPanel'),
+      subscriptionsPanel: document.getElementById('subscriptionsPanel'),
+      txnsPanel: document.getElementById('txnsPanel'),
+      cAccounts: document.getElementById('cAccounts'),
+      cInvestments: document.getElementById('cInvestments'),
+      cLoans: document.getElementById('cLoans'),
+      cSubscriptions: document.getElementById('cSubscriptions'),
+      cTxns: document.getElementById('cTxns'),
+      userMeta: document.getElementById('userMeta'),
+      accountsTable: document.getElementById('accountsTable'),
+      investmentsTable: document.getElementById('investmentsTable'),
+      loansTable: document.getElementById('loansTable'),
+      subscriptionsTable: document.getElementById('subscriptionsTable'),
+      txnsTable: document.getElementById('txnsTable'),
+    };
+
+    const setStatus = (msg, isError = false) => {
+      el.status.textContent = msg;
+      el.status.className = isError ? 'status error' : 'status';
+    };
+
+    const showPanels = () => {
+      el.summaryPanel.classList.remove('hidden');
+      el.userPanel.classList.remove('hidden');
+      el.accountsPanel.classList.remove('hidden');
+      el.investmentsPanel.classList.remove('hidden');
+      el.loansPanel.classList.remove('hidden');
+      el.subscriptionsPanel.classList.remove('hidden');
+      el.txnsPanel.classList.remove('hidden');
+    };
+
+    const fmtMoney = (value, currency = 'GBP') => {
+      const n = Number(value || 0);
+      return new Intl.NumberFormat('en-GB', {
+        style: 'currency',
+        currency,
+      }).format(n);
+    };
+
+    const renderTable = (table, headers, rows) => {
+      const thead = '<tr>' + headers.map((h) => `<th>${h}</th>`).join('') + '</tr>';
+      const body = rows.length
+        ? rows.map((row) => '<tr>' + row.map((col) => `<td>${col ?? ''}</td>`).join('') + '</tr>').join('')
+        : `<tr><td colspan="${headers.length}">No records</td></tr>`;
+      table.innerHTML = thead + body;
+    };
+
+    const normalizeBase = () => {
+      const input = el.baseUrl.value.trim();
+      if (input) {
+        return input.replace(/\/$/, '');
+      }
+      return window.location.origin;
+    };
+
+    const fetchData = async () => {
+      const userId = el.userId.value.trim();
+      if (!userId) {
+        setStatus('Please enter user ID.', true);
+        return;
+      }
+
+      const baseUrl = normalizeBase();
+      const url = `${baseUrl}/api/data/user/${encodeURIComponent(userId)}`;
+
+      el.fetchBtn.disabled = true;
+      setStatus('Fetching data...');
+
+      try {
+        const res = await fetch(url);
+        const json = await res.json();
+
+        if (!res.ok || !json.ok) {
+          throw new Error(json.error || `Request failed (${res.status})`);
+        }
+
+        const d = json.data;
+        showPanels();
+
+        el.cAccounts.textContent = d.counts.accounts;
+        el.cInvestments.textContent = d.counts.investments;
+        el.cLoans.textContent = d.counts.loans;
+        el.cSubscriptions.textContent = d.counts.subscriptions;
+        el.cTxns.textContent = d.counts.transactionsShown;
+
+        el.userMeta.textContent = `${d.user.name} | ${d.user.user_id} | ${d.user.country} | ${d.user.currency} | Created: ${new Date(d.user.created_at).toLocaleDateString()}`;
+
+        renderTable(
+          el.accountsTable,
+          ['Account ID', 'Type', 'Sub Type', 'Nickname', 'Servicer', 'Balance'],
+          d.accounts.map((a) => [
+            a.account_id,
+            a.account_type,
+            a.sub_type,
+            a.nickname,
+            a.servicer_name,
+            fmtMoney(a.balance_amount, a.currency || d.user.currency),
+          ])
+        );
+
+        renderTable(
+          el.investmentsTable,
+          ['Investment ID', 'Type', 'Provider', 'Name', 'Invested', 'Current'],
+          d.investments.map((i) => [
+            i.investment_id,
+            i.product_type,
+            i.provider,
+            i.name,
+            fmtMoney(i.invested_amount, d.user.currency),
+            fmtMoney(i.current_value, d.user.currency),
+          ])
+        );
+
+        renderTable(
+          el.loansTable,
+          ['Loan ID', 'Type', 'Provider', 'Principal', 'Outstanding', 'EMI', 'Next Payment'],
+          d.loans.map((l) => [
+            l.loan_id,
+            l.loan_type,
+            l.provider,
+            fmtMoney(l.principal, d.user.currency),
+            fmtMoney(l.outstanding_balance, d.user.currency),
+            fmtMoney(l.emi, d.user.currency),
+            new Date(l.next_payment_date).toLocaleDateString(),
+          ])
+        );
+
+        renderTable(
+          el.subscriptionsTable,
+          ['Subscription ID', 'Provider', 'Amount', 'Cycle'],
+          d.subscriptions.map((s) => [
+            s.subscription_id,
+            s.provider,
+            fmtMoney(s.amount, d.user.currency),
+            s.cycle,
+          ])
+        );
+
+        renderTable(
+          el.txnsTable,
+          ['Txn ID', 'Account', 'Type', 'Category', 'Merchant', 'Amount', 'Booked At'],
+          d.recentTransactions.map((t) => [
+            t.transaction_id,
+            t.account_id,
+            t.credit_debit_indicator,
+            t.category,
+            t.merchant,
+            fmtMoney(t.amount, t.currency || d.user.currency),
+            new Date(t.booking_datetime).toLocaleString(),
+          ])
+        );
+
+        setStatus(`Loaded data for ${d.user.user_id} from ${baseUrl}`);
+      } catch (err) {
+        setStatus(err.message || 'Failed to fetch data.', true);
+      } finally {
+        el.fetchBtn.disabled = false;
+      }
+    };
+
+    el.baseUrl.value = window.location.origin;
+    el.fetchBtn.addEventListener('click', fetchData);
+  </script>
+</body>
+</html>
