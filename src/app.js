@@ -20,6 +20,7 @@ app.use((req, res, next) => {
 });
  
 app.use("/health", healthRoutes);
+app.use("/admin", adminRoutes);
 
 app.get("/ws-status", (req, res) => {
   res.status(200).json({
