@@ -40,6 +40,8 @@ app.get("/version", (req, res) => {
   });
 });
 
+app.use("/admin", adminRoutes);
+
 // Global error handler
 app.use((err, req, res, next) => {
   console.error("❌ Error:", err.message);
