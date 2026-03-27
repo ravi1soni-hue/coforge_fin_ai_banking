@@ -256,6 +256,19 @@
             color: #4338ca;
             margin-bottom: 15px;
         }
+
+        .data-preview {
+            background: #f8fafc;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 12px;
+            line-height: 1.5;
+            max-height: 280px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+        }
     </style>
 </head>
 <body>
@@ -317,6 +330,15 @@
             </div>
             <button class="btn-primary" id="sendBtn" disabled>Send Message</button>
         </div>
+
+        <!-- Data Fetch Section -->
+        <div class="section">
+            <div class="section-title">Fetch DB Data</div>
+            <div class="button-group">
+                <button class="btn-primary" id="fetchDataBtn">Fetch User Data</button>
+            </div>
+            <div class="data-preview" id="dataPreview" style="margin-top: 10px;">No data fetched yet.</div>
+        </div>
         
         <!-- Messages Display -->
         <div class="section">
@@ -360,6 +382,8 @@
                     messagePayload: document.getElementById('messagePayload'),
                     userId: document.getElementById('userId'),
                     serverDomain: document.getElementById('serverDomain'),
+                    fetchDataBtn: document.getElementById('fetchDataBtn'),
+                    dataPreview: document.getElementById('dataPreview'),
                     totalMessages: document.getElementById('totalMessages'),
                     connectionTime: document.getElementById('connectionTime'),
                     sentCount: document.getElementById('sentCount'),
@@ -375,6 +399,7 @@
                 this.elements.sendBtn.addEventListener('click', () => this.sendMessage());
                 this.elements.clearBtn.addEventListener('click', () => this.clearMessages());
                 this.elements.serverDomain.addEventListener('change', () => this.updateDomainDisplay());
+                this.elements.fetchDataBtn.addEventListener('click', () => this.fetchUserData());
                 this.updateDomainDisplay();
             }
             
@@ -441,6 +466,42 @@
             updateDomainDisplay() {
                 const domain = this.elements.serverDomain.value;
                 document.getElementById('currentDomain').textContent = domain;
+            }
+
+            getHttpBaseUrl() {
+                const wsDomain = this.elements.serverDomain.value;
+                if (wsDomain.startsWith('wss://')) {
+                    return wsDomain.replace('wss://', 'https://');
+                }
+                return wsDomain.replace('ws://', 'http://');
+            }
+
+            async fetchUserData() {
+                const userId = this.elements.userId.value || 'usr_uk_001';
+                this.elements.userId.value = userId;
+
+                const baseUrl = this.getHttpBaseUrl();
+                const url = `${baseUrl}/api/data/user/${encodeURIComponent(userId)}`;
+
+                this.elements.fetchDataBtn.disabled = true;
+                this.elements.dataPreview.textContent = 'Loading data...';
+
+                try {
+                    const response = await fetch(url);
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        this.elements.dataPreview.textContent = `Error ${response.status}: ${data.error || 'Failed to fetch data'}`;
+                        return;
+                    }
+
+                    const pretty = JSON.stringify(data, null, 2);
+                    this.elements.dataPreview.textContent = pretty;
+                } catch (error) {
+                    this.elements.dataPreview.textContent = `Request failed: ${error.message}`;
+                } finally {
+                    this.elements.fetchDataBtn.disabled = false;
+                }
             }
             
             sendMessage() {
