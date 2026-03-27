@@ -1,33 +1,74 @@
-import WebSocket from "ws";
-
-// Static responses for testing (will replace with LLM later)
-const STATIC_RESPONSES = [
-  "That's interesting! Tell me more.",
-  "I understand. What would you like to know?",
-  "Got it! How can I help you with that?",
-  "I hear you. Let me help with that.",
-  "Thanks for sharing. What's next?",
-];
-
-let responseIndex = 0;
+import { runAgenticOrchestration } from "./agent.orchestrator.js";
 
 export const handleMessageToSender = async (ws, rawMessage) => {
   try {
     console.log("[MessageHandler] Received raw message:", rawMessage);
-    
+
     const clientMessage = JSON.parse(rawMessage);
     console.log("[MessageHandler] Parsed message:", clientMessage);
 
-    // 🔧 TEMPORARY: Static response (will replace with LLM)
-    const staticResponse = STATIC_RESPONSES[responseIndex % STATIC_RESPONSES.length];
-    responseIndex++;
+    if (clientMessage?.type === "PING") {
+      send(ws, {
+        type: "PONG",
+        payload: {
+          ts: Date.now(),
+        },
+      });
+      return;
+    }
+
+    const userText =
+      clientMessage?.payload?.text ||
+      clientMessage?.payload?.message ||
+      clientMessage?.text ||
+      "";
+
+    if (!userText) {
+      send(ws, {
+        type: "ERROR",
+        payload: {
+          message: "No user query found in payload.text or payload.message",
+        },
+      });
+      return;
+    }
+
+    const canonicalContext =
+      clientMessage?.payload?.canonicalContext ||
+      clientMessage?.payload?.contextChunks ||
+      clientMessage?.payload?.documents ||
+      [];
+
+    const history = Array.isArray(clientMessage?.payload?.history)
+      ? clientMessage.payload.history
+          .map((item) => {
+            if (!item || !item.role || !item.content) {
+              return null;
+            }
+            return {
+              role: item.role,
+              content: String(item.content),
+            };
+          })
+          .filter(Boolean)
+      : [];
+
+    const result = await runAgenticOrchestration({
+      userId: clientMessage?.userId || ws.userId,
+      query: userText,
+      history,
+      canonicalContext,
+    });
 
     const serverMessage = {
       type: "SERVER_MESSAGE",
       payload: {
         from: "server",
-        text: `Server: "${staticResponse}" (You said: "${clientMessage?.payload?.text || 'no text'}")`,
+        text: result.text,
         timestamp: Date.now(),
+        model: result.model,
+        toolCallsUsed: result.toolCallsUsed,
+        usage: result.usage,
       },
     };
 

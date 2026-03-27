@@ -272,7 +272,7 @@
         </div>
         
         <div class="info-box">
-            🔌 Server: <strong>ws://localhost:3000?userId=YOUR_ID</strong> | Messages sent: <span id="sentCount">0</span> | Received: <span id="receivedCount">0</span>
+            🔌 Server: <strong id="currentDomain">ws://localhost:3000</strong> | Messages sent: <span id="sentCount">0</span> | Received: <span id="receivedCount">0</span>
         </div>
         
         <!-- Connection Section -->
@@ -284,9 +284,16 @@
             </div>
         </div>
         
-        <!-- User ID Section -->
+        <!-- Configuration Section -->
         <div class="section">
             <div class="section-title">Configuration</div>
+            <div class="form-group">
+                <label for="serverDomain">Server Domain:</label>
+                <select id="serverDomain">
+                    <option value="ws://localhost:3000">Local (ws://localhost:3000)</option>
+                    <option value="wss://coforgefinaibanking-production.up.railway.app">Production (Railway)</option>
+                </select>
+            </div>
             <div class="form-group">
                 <label for="userId">User ID (optional):</label>
                 <input type="text" id="userId" placeholder="e.g., user123" value="">
@@ -335,6 +342,7 @@
         class SocketTest {
             constructor() {
                 this.ws = null;
+                this.keepAliveTimer = null;
                 this.messageCount = 0;
                 this.sentCount = 0;
                 this.receivedCount = 0;
@@ -351,6 +359,7 @@
                     messageType: document.getElementById('messageType'),
                     messagePayload: document.getElementById('messagePayload'),
                     userId: document.getElementById('userId'),
+                    serverDomain: document.getElementById('serverDomain'),
                     totalMessages: document.getElementById('totalMessages'),
                     connectionTime: document.getElementById('connectionTime'),
                     sentCount: document.getElementById('sentCount'),
@@ -365,6 +374,8 @@
                 this.elements.disconnectBtn.addEventListener('click', () => this.disconnect());
                 this.elements.sendBtn.addEventListener('click', () => this.sendMessage());
                 this.elements.clearBtn.addEventListener('click', () => this.clearMessages());
+                this.elements.serverDomain.addEventListener('change', () => this.updateDomainDisplay());
+                this.updateDomainDisplay();
             }
             
             connect() {
@@ -375,14 +386,25 @@
                 const userId = this.elements.userId.value || `user_${Date.now()}`;
                 this.elements.userId.value = userId;
                 
+                const domain = this.elements.serverDomain.value;
+                const wsUrl = `${domain}?userId=${encodeURIComponent(userId)}`;
+                
                 try {
-                    this.ws = new WebSocket(`ws://localhost:3000?userId=${encodeURIComponent(userId)}`);
+                    this.ws = new WebSocket(wsUrl);
                     
                     this.ws.onopen = () => {
                         this.updateStatus('connected');
                         this.connectionTime = new Date();
                         this.updateConnectionTime();
                         this.addMessage('Connected to server', 'system');
+                        // Send first ping quickly, then every 5s to beat Railway proxy idle timeout
+                        const sendPing = () => {
+                            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                                this.ws.send(JSON.stringify({ type: 'PING', payload: { ts: Date.now() } }));
+                            }
+                        };
+                        setTimeout(sendPing, 500);
+                        this.keepAliveTimer = setInterval(sendPing, 5000);
                     };
                     
                     this.ws.onmessage = (event) => {
@@ -397,10 +419,11 @@
                         console.error('WebSocket error:', error);
                     };
                     
-                    this.ws.onclose = () => {
+                    this.ws.onclose = (event) => {
                         this.updateStatus('disconnected');
                         this.ws = null;
-                        this.addMessage('Disconnected from server', 'system');
+                        clearInterval(this.keepAliveTimer);
+                        this.addMessage(`Disconnected from server (code: ${event.code}, reason: ${event.reason || 'none'})`, 'system');
                     };
                 } catch (error) {
                     this.addMessage(`❌ Connection failed: ${error.message}`, 'error');
@@ -413,6 +436,11 @@
                     this.ws.close();
                     this.ws = null;
                 }
+            }
+            
+            updateDomainDisplay() {
+                const domain = this.elements.serverDomain.value;
+                document.getElementById('currentDomain').textContent = domain;
             }
             
             sendMessage() {
