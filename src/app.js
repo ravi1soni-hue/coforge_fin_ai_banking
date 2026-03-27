@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 
 import healthRoutes from "./routes/health.route.js";
+import adminRoutes from "./routes/admin.route.js";
 import { websocketsReady, getActiveConnectionCount } from "./sockets/socket.js";
 
 const app = express();
@@ -37,6 +38,8 @@ app.get("/version", (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+app.use("/admin", adminRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {
