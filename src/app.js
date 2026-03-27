@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 
 import healthRoutes from "./routes/health.route.js";
+import adminRoutes from "./routes/admin.route.js";
 import { websocketsReady, getActiveConnectionCount } from "./sockets/socket.js";
 
 const app = express();
@@ -19,6 +20,7 @@ app.use((req, res, next) => {
 });
  
 app.use("/health", healthRoutes);
+app.use("/admin", adminRoutes);
 
 app.get("/ws-status", (req, res) => {
   res.status(200).json({
