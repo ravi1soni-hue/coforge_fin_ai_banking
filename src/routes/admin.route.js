@@ -13,7 +13,13 @@ const requireAdminToken = (req, res, next) => {
     });
   }
 
-  const incoming = req.headers["x-admin-token"];
+  const directToken = req.headers["x-admin-token"];
+  const authHeader = req.headers.authorization || "";
+  const bearerToken = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7).trim()
+    : "";
+  const incoming = directToken || bearerToken;
+
   if (incoming !== configured) {
     return res.status(401).json({ ok: false, error: "Unauthorized" });
   }
