@@ -1,0 +1,135 @@
+### Upload TEXT Stream
+POST http://localhost:3000/api/upload/text
+Content-Type: text/plain
+
+Stream Name: uk_personal_financial_statement
+
+Consolidated Personal Financial Statement issued for a UK retail banking customer, covering the period 01 January 2025 to 31 December 2025. All amounts are denominated in Pounds Sterling (GBP). This statement summarises account balances, income, expenses, savings, investments, credit facilities, and credit standing.
+
+===== CUSTOMER PROFILE =====
+
+Customer Name: James Edward Thompson  
+Customer ID: UKC-874231  
+Date of Birth: 14 June 1988  
+Residential Address: London, Greater London, United Kingdom  
+Employment Status: Full-time employed  
+Occupation: IT Project Manager  
+Employer: Northbridge Digital Solutions Ltd  
+
+Primary Banking Institution: Barclays Bank UK PLC  
+Account Type: Personal Current Account  
+Sort Code: 20-15-33  
+Account Number: ********  
+
+Secondary Banking Institution: Nationwide Building Society  
+Savings Account Type: Easy Access Savings Account  
+
+Tax Residency: United Kingdom  
+Regulatory Context: FCA-regulated retail banking  
+
+===== CURRENT ACCOUNT SUMMARY =====
+
+Account Opening Balance (01 Jan 2025): GBP 12,450.00  
+Account Closing Balance (31 Dec 2025): GBP 18,920.00  
+
+Average Monthly Balance: GBP 15,600.00  
+
+===== MONTHLY INCOME =====
+
+Primary Salary Credit:
+Employer: Northbridge Digital Solutions Ltd  
+Gross Monthly Salary: GBP 4,500.00  
+Net Monthly Salary (after PAYE and NI): GBP 3,050.00  
+
+Additional Income:
+Annual Performance Bonus (March 2025): GBP 4,250.00 (net)  
+Occasional Freelance Consulting Income: GBP 3,600.00 (annual total)  
+
+Total Net Annual Income (2025): GBP 44,450.00  
+
+===== REGULAR MONTHLY EXPENDITURE =====
+
+Housing Costs:
+Monthly Rent (London Zone 3): GBP 1,350.00  
+Council Tax: GBP 160.00  
+Utilities (Electricity, Gas, Water): GBP 145.00  
+
+Living Expenses:
+Groceries and household items: GBP 420.00  
+Transport (Rail and Travelcard): GBP 220.00  
+Mobile and Broadband Services: GBP 78.00  
+
+Insurance:
+Private Health Insurance: GBP 95.00  
+Contents Insurance: GBP 22.00  
+
+Subscriptions:
+Netflix: GBP 15.99  
+Amazon Prime: GBP 8.99  
+Spotify Premium: GBP 10.99  
+Cloud Storage and Productivity Tools: GBP 12.50  
+
+Average Total Monthly Outgoings: GBP 2,538.00  
+
+===== SAVINGS AND INVESTMENTS =====
+
+Nationwide Easy Access Savings Account:
+Average Monthly Contribution: GBP 600.00  
+Opening Balance (Jan 2025): GBP 9,800.00  
+Closing Balance (Dec 2025): GBP 17,300.00  
+
+Stocks and Shares ISA (Fidelity UK):
+Monthly Contribution: GBP 500.00  
+Funds Held:
+- Vanguard FTSE Global All Cap Index Fund
+- iShares UK Equity Index Fund  
+
+Total Invested Amount (2025): GBP 6,000.00  
+Current Market Value (Dec 2025): GBP 6,720.00  
+
+Pension Contributions:
+Workplace Pension (Employer matched):
+Employee contribution: 5% of gross salary  
+Employer contribution: 5% of gross salary  
+Estimated Pension Pot Value (Dec 2025): GBP 34,500.00  
+
+===== CREDIT FACILITIES =====
+
+Credit Card Provider: Barclaycard  
+Credit Limit: GBP 8,500.00  
+Average Monthly Balance: GBP 1,200.00  
+Repayment Behaviour: Full balance cleared monthly  
+
+Personal Loan:
+Provider: Barclays Bank UK PLC  
+Original Loan Amount: GBP 12,000.00  
+Purpose: Home furnishings and relocation costs  
+Remaining Balance (Dec 2025): GBP 6,400.00  
+Monthly Repayment: GBP 420.00  
+Interest Rate: 6.4% APR  
+Repayment History: No missed payments  
+
+===== CREDIT PROFILE =====
+
+Credit Reference Agency: Experian UK  
+Credit Score (Dec 2025): 901 out of 999  
+
+Payment History:
+- No missed or late payments
+- Stable credit utilisation
+- Long-standing account history  
+
+Overall Credit Risk Assessment: Low risk borrower  
+
+===== ANNUAL FINANCIAL POSITION SUMMARY =====
+
+Total Net Annual Income: GBP 44,450.00  
+Total Annual Living Expenses: GBP 30,456.00  
+Total Annual Savings and Investments: GBP 13,500.00  
+
+Net Savings Rate: Approximately 30% of net income  
+
+Overall Financial Standing:
+The customer demonstrates strong financial stability, consistent savings behaviour, manageable debt levels, and an excellent credit profile under UK lending standards.
+
+===== END OF UK FINANCIAL STATEMENT =====
