@@ -5,6 +5,11 @@ import cors from "cors";
 import healthRoutes from "./routes/health.route.js";
  
 const app = express();
+
+
+// Serve UI
+app.use(express.static("src/public"));
+
  
 app.use(cors());
 

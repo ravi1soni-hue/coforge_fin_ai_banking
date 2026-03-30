@@ -14,11 +14,16 @@ const server = http.createServer(app);
 
 async function start() {
   try {
-    console.log("⏳ Checking database connection...");
+    //console.log("⏳ Checking database connection...");
     //await db.selectFrom("users").selectAll().execute();
 
-    console.log("✅ Database connected");
+    //console.log("✅ Database connected");
 
+    
+
+app.use("/api", ingestionRoutes);
+ 
+// Initialize WebSocket
     initWebSocket(server);
     server.listen(ENV.PORT, () => {
       console.log(`🚀 Server running on port ${ENV.PORT}`);
