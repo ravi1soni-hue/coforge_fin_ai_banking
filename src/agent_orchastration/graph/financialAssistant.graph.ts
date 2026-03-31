@@ -13,7 +13,7 @@ import { synthesisAgent } from "../agents/synthesisAgent.js";
 export const financialAssistantGraph = new StateGraph(GraphState)
   .addNode("intentAgent", intentAgent)
   .addNode("plannerAgent", plannerAgent)
-  .addNode("followUpQuestionAgent", followUpQuestionAgent)
+  //.addNode("followUpQuestionAgent", followUpQuestionAgent)
   .addNode("financeAgent", financeAgent)
   .addNode("researchAgent", researchAgent)
   .addNode("reasoningAgent", reasoningAgent)
@@ -28,13 +28,13 @@ export const financialAssistantGraph = new StateGraph(GraphState)
     "plannerAgent",
     plannerRouter,
     {
-      askUser: "followUpQuestionAgent",
+      askUser: "financeAgent",
       financeAgent: "financeAgent",
     }
   )
 
   // ✅ Ask user → END (wait for reply)
-  .addEdge("followUpQuestionAgent", END)
+  //.addEdge("followUpQuestionAgent", END)
 
   // ✅ Main analysis flow
   .addEdge("financeAgent", "researchAgent")
