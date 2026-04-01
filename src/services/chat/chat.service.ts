@@ -67,12 +67,12 @@ export class ChatService {
     /* ---------------- FOLLOW‑UP CASE ---------------- */
     if (
       Array.isArray(resultState.missingFacts) &&
-      resultState.missingFacts.length > 0 &&
-      !resultState.finalAnswer
+      resultState.missingFacts.length > 0
     ) {
       return {
         type: "FOLLOW_UP",
         message:
+          resultState.finalAnswer ??
           "I need a bit more information to help you better.",
         missingFacts: resultState.missingFacts,
       };

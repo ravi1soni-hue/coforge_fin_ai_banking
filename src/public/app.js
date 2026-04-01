@@ -21,7 +21,9 @@ socket.onmessage = (event) => {
   if (payload.status === "success") {
     addBotMessage(payload.data.message);
   } else {
-    addBotMessage(payload.message || "Something went wrong.");
+    addBotMessage(
+      payload.error?.message || payload.message || "Something went wrong."
+    );
   }
 };
 
@@ -35,7 +37,22 @@ function sendMessage() {
   if (!text) return;
 
   addUserMessage(text);
-  socket.send(text);
+
+  // Send structured payload; server still supports plain-text fallback.
+  socket.send(
+    JSON.stringify({
+      v: 1,
+      type: "CHAT_QUERY",
+      requestId: `ui-${Date.now()}`,
+      sessionId: userId,
+      payload: {
+        message: text,
+      },
+      meta: {
+        platform: "web",
+      },
+    })
+  );
   input.value = "";
 
   addTyping();

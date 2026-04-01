@@ -8,15 +8,17 @@ import { followUpQuestionAgent } from "../agents/followUpQuestionAgent.js";
 import { financeAgent } from "../agents/financeAgent.js";
 import { researchAgent } from "../agents/researchAgent.js";
 import { reasoningAgent } from "../agents/reasoningAgent.js";
+import { productRecommendationAgent } from "../agents/productRecommendationAgent.js";
 import { synthesisAgent } from "../agents/synthesisAgent.js";
 
 export const financialAssistantGraph = new StateGraph(GraphState)
   .addNode("intentAgent", intentAgent)
   .addNode("plannerAgent", plannerAgent)
-  //.addNode("followUpQuestionAgent", followUpQuestionAgent)
+  .addNode("followUpQuestionAgent", followUpQuestionAgent)
   .addNode("financeAgent", financeAgent)
   .addNode("researchAgent", researchAgent)
   .addNode("reasoningAgent", reasoningAgent)
+  .addNode("productRecommendationAgent", productRecommendationAgent)
   .addNode("synthesisAgent", synthesisAgent)
 
   // ✅ Start flow
@@ -28,16 +30,17 @@ export const financialAssistantGraph = new StateGraph(GraphState)
     "plannerAgent",
     plannerRouter,
     {
-      askUser: "financeAgent",
+      askUser: "followUpQuestionAgent",
       financeAgent: "financeAgent",
     }
   )
 
   // ✅ Ask user → END (wait for reply)
-  //.addEdge("followUpQuestionAgent", END)
+  .addEdge("followUpQuestionAgent", END)
 
   // ✅ Main analysis flow
   .addEdge("financeAgent", "researchAgent")
   .addEdge("researchAgent", "reasoningAgent")
-  .addEdge("reasoningAgent", "synthesisAgent")
+  .addEdge("reasoningAgent", "productRecommendationAgent")
+  .addEdge("productRecommendationAgent", "synthesisAgent")
   .addEdge("synthesisAgent", END);

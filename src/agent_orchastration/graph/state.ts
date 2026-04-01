@@ -23,6 +23,17 @@ export const GraphState = z.object({
   financeData: z.any().optional(),
   researchData: z.any().optional(),
   reasoning: z.any().optional(),
+  productRecommendations: z
+    .array(
+      z.object({
+        productCode: z.string(),
+        productName: z.string(),
+        rationale: z.string(),
+        suitabilityScore: z.number(),
+        nextStep: z.string(),
+      })
+    )
+    .optional(),
 
   // ✅ Final user‑facing answer
   finalAnswer: z.string().optional(),
