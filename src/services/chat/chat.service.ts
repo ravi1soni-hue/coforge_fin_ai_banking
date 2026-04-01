@@ -1,5 +1,6 @@
 import type { GraphStateType } from "../../agent_orchastration/graph/state.js";
 import { FinancialAssistantService } from "../../agent_orchastration/services/FinancialAssistantService.js";
+import { Kysely, sql } from "kysely";
 
 /* ---------------- Types ---------------- */
 
@@ -21,6 +22,8 @@ export interface ChatResponse {
 export class ChatService {
 
   private readonly assistantService: FinancialAssistantService;
+  private readonly db: Kysely<unknown>;
+  private financialProfileTableReady?: Promise<void>;
   private readonly sessionKnownFacts = new Map<
     string,
     Record<string, unknown>
@@ -28,10 +31,13 @@ export class ChatService {
 
   constructor({
     assistantService,
+    db,
   }: {
     assistantService: FinancialAssistantService;
+    db: Kysely<unknown>;
   }) {
     this.assistantService = assistantService;
+    this.db = db;
 
     console.log(
       "✅ assistantService REAL instance:",
@@ -49,18 +55,25 @@ export class ChatService {
       request.sessionId
     );
 
+    const persistedProfileFacts =
+      await this.loadFinancialFactsFromDb(request.userId);
     const persistedFacts =
       this.sessionKnownFacts.get(sessionKey) ?? {};
     const extractedFacts = this.extractFactsFromMessage(
       request.message
     );
     const mergedKnownFacts = {
+      ...persistedProfileFacts,
       ...persistedFacts,
       ...(request.knownFacts ?? {}),
       ...extractedFacts,
     };
 
     this.sessionKnownFacts.set(sessionKey, mergedKnownFacts);
+    await this.persistFinancialFactsToDb(
+      request.userId,
+      mergedKnownFacts
+    );
 
     const initialState: GraphStateType = {
       userId: request.userId,
@@ -212,5 +225,210 @@ export class ChatService {
     }
 
     return facts;
+  }
+
+  private normalizeFinancialFacts(
+    source: Record<string, unknown>
+  ): {
+    currentBalance?: number;
+    monthlyIncome?: number;
+    monthlyExpenses?: number;
+    netMonthlySavings?: number;
+    currency?: string;
+  } {
+    const currentBalance = this.parseNumericFact(
+      source.currentBalance ?? source.availableSavings
+    );
+
+    const monthlyIncome = this.parseNumericFact(
+      source.monthlyIncome ?? source.monthlyNetIncome
+    );
+
+    const monthlyExpenses = this.parseNumericFact(
+      source.monthlyExpenses ?? source.monthlyCommittedExpenses
+    );
+
+    const explicitNetSavings = this.parseNumericFact(
+      source.netMonthlySavings
+    );
+
+    const netMonthlySavings =
+      explicitNetSavings ??
+      (monthlyIncome !== undefined && monthlyExpenses !== undefined
+        ? monthlyIncome - monthlyExpenses
+        : undefined);
+
+    const currencyValue = source.currency;
+    const currency =
+      typeof currencyValue === "string" && currencyValue.trim()
+        ? currencyValue.trim().toUpperCase()
+        : undefined;
+
+    return {
+      ...(currentBalance !== undefined
+        ? { currentBalance }
+        : {}),
+      ...(monthlyIncome !== undefined ? { monthlyIncome } : {}),
+      ...(monthlyExpenses !== undefined
+        ? { monthlyExpenses }
+        : {}),
+      ...(netMonthlySavings !== undefined
+        ? { netMonthlySavings }
+        : {}),
+      ...(currency ? { currency } : {}),
+    };
+  }
+
+  private parseNumericFact(
+    value: unknown
+  ): number | undefined {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+
+    if (typeof value === "string") {
+      const normalized = value
+        .replace(/[,\s]/g, "")
+        .replace(/[^\d.-]/g, "");
+
+      if (!normalized) {
+        return undefined;
+      }
+
+      const parsed = Number(normalized);
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+
+    return undefined;
+  }
+
+  private async loadFinancialFactsFromDb(
+    userId: string
+  ): Promise<Record<string, unknown>> {
+    try {
+      await this.ensureFinancialProfileTable();
+
+      const row = await sql<{
+        current_balance: number | null;
+        monthly_income: number | null;
+        monthly_expenses: number | null;
+        net_monthly_savings: number | null;
+        currency: string | null;
+      }>`
+        SELECT
+          current_balance,
+          monthly_income,
+          monthly_expenses,
+          net_monthly_savings,
+          currency
+        FROM user_financial_profiles
+        WHERE user_id = ${userId}
+        LIMIT 1
+      `.execute(this.db);
+
+      const profile = row.rows[0];
+      if (!profile) {
+        return {};
+      }
+
+      return {
+        ...(profile.current_balance !== null
+          ? { currentBalance: Number(profile.current_balance) }
+          : {}),
+        ...(profile.monthly_income !== null
+          ? { monthlyIncome: Number(profile.monthly_income) }
+          : {}),
+        ...(profile.monthly_expenses !== null
+          ? { monthlyExpenses: Number(profile.monthly_expenses) }
+          : {}),
+        ...(profile.net_monthly_savings !== null
+          ? {
+              netMonthlySavings: Number(
+                profile.net_monthly_savings
+              ),
+            }
+          : {}),
+        ...(profile.currency ? { currency: profile.currency } : {}),
+      };
+    } catch (error) {
+      console.warn(
+        "Failed loading user financial profile from DB",
+        error
+      );
+      return {};
+    }
+  }
+
+  private async persistFinancialFactsToDb(
+    userId: string,
+    mergedFacts: Record<string, unknown>
+  ): Promise<void> {
+    const normalized = this.normalizeFinancialFacts(mergedFacts);
+    if (Object.keys(normalized).length === 0) {
+      return;
+    }
+
+    try {
+      await this.ensureFinancialProfileTable();
+
+      await sql`
+        INSERT INTO user_financial_profiles (
+          user_id,
+          current_balance,
+          monthly_income,
+          monthly_expenses,
+          net_monthly_savings,
+          currency,
+          updated_at
+        )
+        VALUES (
+          ${userId},
+          ${normalized.currentBalance ?? null},
+          ${normalized.monthlyIncome ?? null},
+          ${normalized.monthlyExpenses ?? null},
+          ${normalized.netMonthlySavings ?? null},
+          ${normalized.currency ?? null},
+          NOW()
+        )
+        ON CONFLICT (user_id)
+        DO UPDATE SET
+          current_balance = COALESCE(EXCLUDED.current_balance, user_financial_profiles.current_balance),
+          monthly_income = COALESCE(EXCLUDED.monthly_income, user_financial_profiles.monthly_income),
+          monthly_expenses = COALESCE(EXCLUDED.monthly_expenses, user_financial_profiles.monthly_expenses),
+          net_monthly_savings = COALESCE(EXCLUDED.net_monthly_savings, user_financial_profiles.net_monthly_savings),
+          currency = COALESCE(EXCLUDED.currency, user_financial_profiles.currency),
+          updated_at = NOW()
+      `.execute(this.db);
+    } catch (error) {
+      console.warn(
+        "Failed persisting user financial profile to DB",
+        error
+      );
+    }
+  }
+
+  private async ensureFinancialProfileTable(): Promise<void> {
+    if (!this.financialProfileTableReady) {
+      this.financialProfileTableReady = sql`
+        CREATE TABLE IF NOT EXISTS user_financial_profiles (
+          user_id TEXT PRIMARY KEY,
+          current_balance NUMERIC(14, 2),
+          monthly_income NUMERIC(14, 2),
+          monthly_expenses NUMERIC(14, 2),
+          net_monthly_savings NUMERIC(14, 2),
+          currency VARCHAR(10),
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `
+        .execute(this.db)
+        .then(() => undefined)
+        .catch((error) => {
+          this.financialProfileTableReady = undefined;
+          throw error;
+        });
+    }
+
+    await this.financialProfileTableReady;
   }
 }

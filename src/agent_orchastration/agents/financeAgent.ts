@@ -98,7 +98,98 @@ ${facetsToExtract.map(f => `  "${f}": object | number | null`).join(",\n")}
 }
 `);
 
+  const fallbackFinanceData =
+    buildFallbackFinanceData(state.knownFacts ?? {});
+
+  const mergedFinanceData = {
+    ...fallbackFinanceData,
+    ...financeData,
+    cashflow_summary: {
+      ...(fallbackFinanceData.cashflow_summary as Record<
+        string,
+        unknown
+      >),
+      ...((financeData.cashflow_summary as Record<
+        string,
+        unknown
+      >) ?? {}),
+    },
+  };
+
   return {
-    financeData,
+    financeData: mergedFinanceData,
+  };
+};
+
+const parseNumeric = (
+  value: unknown
+): number | undefined => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value
+      .replace(/[,\s]/g, "")
+      .replace(/[^\d.-]/g, "");
+
+    if (!normalized) {
+      return undefined;
+    }
+
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return undefined;
+};
+
+const buildFallbackFinanceData = (
+  knownFacts: Record<string, unknown>
+): Record<string, unknown> => {
+  const monthlyIncome = parseNumeric(
+    knownFacts.monthlyIncome ?? knownFacts.monthlyNetIncome
+  );
+  const monthlyExpenses = parseNumeric(
+    knownFacts.monthlyExpenses ?? knownFacts.monthlyCommittedExpenses
+  );
+  const currentBalance = parseNumeric(
+    knownFacts.currentBalance ?? knownFacts.availableSavings
+  );
+  const explicitNetSavings = parseNumeric(
+    knownFacts.netMonthlySavings
+  );
+
+  const netMonthlySavings =
+    explicitNetSavings ??
+    (monthlyIncome !== undefined && monthlyExpenses !== undefined
+      ? monthlyIncome - monthlyExpenses
+      : undefined);
+
+  return {
+    ...(monthlyIncome !== undefined
+      ? { income: { monthly: monthlyIncome } }
+      : {}),
+    ...(monthlyExpenses !== undefined
+      ? { expenses: { monthly: monthlyExpenses } }
+      : {}),
+    ...(currentBalance !== undefined
+      ? { savings: { currentBalance } }
+      : {}),
+    cashflow_summary: {
+      ...(monthlyIncome !== undefined ? { monthlyIncome } : {}),
+      ...(monthlyExpenses !== undefined
+        ? { monthlyExpenses }
+        : {}),
+      ...(netMonthlySavings !== undefined
+        ? { netMonthlySavings }
+        : {}),
+      ...(currentBalance !== undefined
+        ? { currentBalance }
+        : {}),
+      ...(typeof knownFacts.currency === "string"
+        ? { currency: knownFacts.currency }
+        : {}),
+    },
   };
 };
