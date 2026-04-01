@@ -7,6 +7,200 @@ import {
   validateAssistantAnswer,
 } from "../services/deterministicFinance.service.js";
 
+const parseNumeric = (value: unknown): number | undefined => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.replace(/[\s,]/g, "").replace(/[^\d.-]/g, "");
+    if (!normalized) {
+      return undefined;
+    }
+
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return undefined;
+};
+
+const normalizeCurrency = (value: unknown): string => {
+  if (typeof value !== "string" || !value.trim()) {
+    return "GBP";
+  }
+
+  return value.trim().toUpperCase();
+};
+
+const formatMoney = (value: number, currency: string): string => {
+  const safeCurrency = normalizeCurrency(currency);
+
+  try {
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency: safeCurrency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    return `${safeCurrency} ${value.toLocaleString("en-GB", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })}`;
+  }
+};
+
+const isAffordabilityQuestion = (state: GraphStateType): boolean => {
+  const question = state.question.toLowerCase();
+  const knownQueryType =
+    typeof state.knownFacts?.queryType === "string"
+      ? state.knownFacts.queryType.toLowerCase()
+      : "";
+  const intentAction =
+    typeof state.intent?.action === "string"
+      ? state.intent.action.toLowerCase()
+      : "";
+  const reasoningQueryType =
+    typeof (state.reasoning as Record<string, unknown> | undefined)?.queryType === "string"
+      ? String((state.reasoning as Record<string, unknown>).queryType).toLowerCase()
+      : "";
+
+  return (
+    knownQueryType === "affordability" ||
+    reasoningQueryType === "affordability" ||
+    intentAction.includes("afford") ||
+    intentAction.includes("planning") ||
+    /\bcan i afford\b|\bafford\b|\bbudget\b|\btrip\b|\bholiday\b|\bvacation\b/.test(question)
+  );
+};
+
+const buildAffordabilityReasoningAnswer = (
+  state: GraphStateType
+): string | undefined => {
+  if (!isAffordabilityQuestion(state)) {
+    return undefined;
+  }
+
+  const financeData =
+    state.financeData && typeof state.financeData === "object"
+      ? (state.financeData as Record<string, unknown>)
+      : {};
+  const cashflow =
+    financeData.cashflow_summary && typeof financeData.cashflow_summary === "object"
+      ? (financeData.cashflow_summary as Record<string, unknown>)
+      : {};
+  const reasoning =
+    state.reasoning && typeof state.reasoning === "object"
+      ? (state.reasoning as Record<string, unknown>)
+      : {};
+  const researchData =
+    state.researchData && typeof state.researchData === "object"
+      ? (state.researchData as Record<string, unknown>)
+      : {};
+
+  const currency = normalizeCurrency(
+    cashflow.currency ??
+      (researchData.costs as Record<string, unknown> | undefined)?.currency ??
+      state.knownFacts?.currency
+  );
+
+  const monthlyIncome = parseNumeric(cashflow.monthlyIncome);
+  const monthlyExpenses = parseNumeric(cashflow.monthlyExpenses);
+  const netMonthlySavings =
+    parseNumeric(cashflow.netMonthlySavings) ??
+    (monthlyIncome !== undefined && monthlyExpenses !== undefined
+      ? monthlyIncome - monthlyExpenses
+      : undefined);
+  const estimatedCost = parseNumeric(
+    (researchData.costs as Record<string, unknown> | undefined)?.total ??
+      reasoning.estimatedTripCost ??
+      state.knownFacts?.targetAmount ??
+      state.knownFacts?.budget
+  );
+  const projectedNextMonthSavings = parseNumeric(reasoning.projectedNextMonthSavings);
+  const shortfallAmount = parseNumeric(reasoning.shortfallAmount);
+  const monthsToTarget = parseNumeric(reasoning.monthsToTargetAtCurrentSavingsRate);
+  const affordableNextMonth =
+    typeof reasoning.affordableNextMonth === "boolean"
+      ? reasoning.affordableNextMonth
+      : undefined;
+  const affordable =
+    typeof reasoning.affordable === "boolean" ? reasoning.affordable : undefined;
+
+  const alternativesRaw = Array.isArray(researchData.alternatives)
+    ? (researchData.alternatives as Array<Record<string, unknown>>)
+    : [];
+  const alternativeTotals = alternativesRaw
+    .map((alt) => {
+      const costs = alt.costs;
+      if (!costs || typeof costs !== "object") {
+        return undefined;
+      }
+      return parseNumeric((costs as Record<string, unknown>).total);
+    })
+    .filter((value): value is number => value !== undefined);
+  const comparableCosts = [
+    ...(estimatedCost !== undefined ? [estimatedCost] : []),
+    ...alternativeTotals,
+  ];
+
+  const verdict =
+    affordableNextMonth === true || affordable === true
+      ? "Yes, this looks affordable on your current monthly cashflow."
+      : shortfallAmount !== undefined && shortfallAmount > 0
+      ? "Not comfortably affordable next month at your current run rate."
+      : "This is possible, but it needs a tighter budget to stay comfortable.";
+
+  const evidenceParts: string[] = [];
+  if (monthlyIncome !== undefined) {
+    evidenceParts.push(`${formatMoney(monthlyIncome, currency)} income`);
+  }
+  if (monthlyExpenses !== undefined) {
+    evidenceParts.push(`${formatMoney(monthlyExpenses, currency)} expenses`);
+  }
+  if (netMonthlySavings !== undefined) {
+    evidenceParts.push(`${formatMoney(netMonthlySavings, currency)} free cash`);
+  }
+
+  const lines: string[] = [verdict];
+
+  if (evidenceParts.length > 0) {
+    lines.push(`Based on your ${evidenceParts.join(", ")} each month.`);
+  }
+
+  if (comparableCosts.length >= 2) {
+    const minCost = Math.min(...comparableCosts);
+    const maxCost = Math.max(...comparableCosts);
+    lines.push(
+      `A realistic budget range is around ${formatMoney(minCost, currency)} to ${formatMoney(maxCost, currency)}.`
+    );
+  } else if (estimatedCost !== undefined) {
+    lines.push(`Estimated total cost is about ${formatMoney(estimatedCost, currency)}.`);
+  }
+
+  if (shortfallAmount !== undefined && shortfallAmount > 0) {
+    const monthText =
+      monthsToTarget !== undefined && monthsToTarget > 0
+        ? `, which likely needs around ${Math.ceil(monthsToTarget)} month(s) at your current savings pace`
+        : "";
+    lines.push(
+      `You are short by about ${formatMoney(shortfallAmount, currency)}${monthText}.`
+    );
+    lines.push("Want me to build a lean month-by-month savings plan to close that gap?");
+  } else if (
+    projectedNextMonthSavings !== undefined &&
+    estimatedCost !== undefined &&
+    projectedNextMonthSavings > estimatedCost
+  ) {
+    lines.push(
+      `You should still have around ${formatMoney(projectedNextMonthSavings - estimatedCost, currency)} buffer after funding this.`
+    );
+  }
+
+  return lines.join(" ");
+};
+
 export const synthesisAgent = async (
   state: GraphStateType,
   config: RunnableConfig
@@ -18,6 +212,24 @@ export const synthesisAgent = async (
   }
 
   const snapshot = buildDeterministicSnapshot(state);
+  const reasoningEngineAffordabilityAnswer = buildAffordabilityReasoningAnswer(state);
+  if (reasoningEngineAffordabilityAnswer) {
+    let finalResponse = reasoningEngineAffordabilityAnswer;
+    if (
+      state.isSuggestionIncluded &&
+      state.suggestion &&
+      !/want me to build|month-by-month savings plan/i.test(
+        reasoningEngineAffordabilityAnswer
+      )
+    ) {
+      finalResponse = `${reasoningEngineAffordabilityAnswer} ${state.suggestion}`;
+    }
+
+    return {
+      finalAnswer: finalResponse,
+    };
+  }
+
   const directAnswer = tryBuildDeterministicAnswer(state.question, snapshot);
   if (directAnswer) {
     return {
@@ -26,9 +238,9 @@ export const synthesisAgent = async (
   }
 
   const answer = await llm.generateText(`
-You are a personal banking assistant having a direct one-to-one conversation with a customer.
+You are a financial reasoning engine for personal banking.
 
-CORE RULE: Answer exactly what the user asked. Nothing more.
+CORE RULE: Give a concrete verdict backed by numbers from the provided data.
 
 How to respond based on what the user asked:
 
@@ -42,21 +254,20 @@ How to respond based on what the user asked:
   Give a short summary of inflow, outflow, net. No analysis essays.
 
 - Affordability query ("can I afford X"):
-  Give a direct verdict with the key numbers (cost vs savings capacity).
-  If not affordable, mention the shortfall and realistic months needed.
+  Give a direct verdict, cite monthly cashflow and estimated cost, and state shortfall/timeline if relevant.
 
 - Investment query:
   Give profit/loss figure for the period asked. Brief and factual.
 
 RULES (never break these):
-- Never use sections, headings, labels, or numbered parts in your reply.
+- Use 2-5 sentences and keep each sentence information-dense.
 - Never write an essay when a sentence will do.
 - Never suggest products unless the user is asking how to reach a goal.
 - Never repeat the question back to the user.
 - Never invent data. Only use what is in the inputs below.
-- Speak like a human, not a report generator.
+- Speak like a confident analyst, not a casual chatbot.
 - Plain text only. No markdown, no bold, no bullets.
-- Maximum 3 sentences for simple queries. Up to 6 sentences for affordability/planning queries.
+- Include at least two concrete numbers when available.
 
 User question:
 "${state.question}"
