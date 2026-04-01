@@ -163,10 +163,24 @@ const buildAffordabilityReasoningAnswer = (
   ];
 
   const hasTargetCost = estimatedCost !== undefined;
+  const hasNegativeCashflow =
+    (typeof netMonthlySavings === "number" && netMonthlySavings < 0) ||
+    (typeof monthlyIncome === "number" &&
+      typeof monthlyExpenses === "number" &&
+      monthlyExpenses > monthlyIncome);
+  const hasDeterministicCoverage =
+    isPositiveNumber(estimatedCost) &&
+    typeof projectedNextMonthSavings === "number";
+  const deterministicallyAffordableNextMonth =
+    hasDeterministicCoverage && projectedNextMonthSavings >= estimatedCost;
 
   const verdict =
     !hasTargetCost
       ? "I can assess your affordability accurately once the target amount is provided."
+      : hasNegativeCashflow
+      ? "This purchase is only conditionally affordable because your monthly cashflow is currently negative."
+      : hasDeterministicCoverage && !deterministicallyAffordableNextMonth
+      ? "Not comfortably affordable next month at your current run rate."
       : affordableNextMonth === true || affordable === true
       ? "Yes, this looks affordable on your current monthly cashflow."
       : shortfallAmount !== undefined && shortfallAmount > 0
@@ -230,10 +244,20 @@ const buildAffordabilityReasoningAnswer = (
   } else if (
     projectedNextMonthSavings !== undefined &&
     estimatedCost !== undefined &&
-    projectedNextMonthSavings > estimatedCost
+    projectedNextMonthSavings > estimatedCost &&
+    !hasNegativeCashflow
   ) {
     lines.push(
       `You should still have around ${formatMoney(projectedNextMonthSavings - estimatedCost, currency)} buffer after funding this.`
+    );
+  } else if (
+    projectedNextMonthSavings !== undefined &&
+    estimatedCost !== undefined &&
+    projectedNextMonthSavings > estimatedCost &&
+    hasNegativeCashflow
+  ) {
+    lines.push(
+      "You may still fund this from existing savings, but your ongoing monthly deficit means that buffer can erode quickly."
     );
   }
 
