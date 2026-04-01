@@ -86,7 +86,7 @@ const normalizeSuggestionOptions = (suggestion) => {
         const first = splitOnOr[1].replace(/\.$/, "").trim();
         const second = splitOnOr[2].replace(/\.$/, "").trim();
         if (first && second) {
-            return `Option 1: ${first}. Option 2: ${second}.`;
+            return `Options:\n1. ${first}.\n2. ${second}.`;
         }
     }
     return normalized;
@@ -185,19 +185,19 @@ const buildAffordabilityReasoningAnswer = (state) => {
     if (netMonthlySavings !== undefined) {
         evidenceParts.push(`${formatMoney(netMonthlySavings, currency)} free cash`);
     }
-    const lines = [verdict];
+    const sections = [verdict];
     if (evidenceParts.length > 0) {
-        lines.push(`Based on your ${evidenceParts.join(", ")} each month.`);
+        sections.push(`Monthly snapshot: ${evidenceParts.join(", ")} each month.`);
     }
     if (estimatedCost === undefined) {
-        lines.push("I need the target purchase amount to give a reliable affordability verdict without guessing.");
-        lines.push("Share the expected cost or your budget, and I will compute exact shortfall and timeline from your real cashflow.");
-        return lines.join(" ");
+        sections.push("I need the target purchase amount to give a reliable affordability verdict without guessing.");
+        sections.push("Share the expected cost or your budget, and I will compute exact shortfall and timeline from your real cashflow.");
+        return sections.join("\n\n");
     }
     if (comparableCosts.length >= 2) {
         const minCost = Math.min(...comparableCosts);
         const maxCost = Math.max(...comparableCosts);
-        lines.push(`A realistic budget range is around ${formatMoney(minCost, currency)} to ${formatMoney(maxCost, currency)}.`);
+        sections.push(`A realistic budget range is around ${formatMoney(minCost, currency)} to ${formatMoney(maxCost, currency)}.`);
     }
     else if (estimatedCost !== undefined) {
         const costSourceNote = researchCostSource === "web_search"
@@ -205,28 +205,28 @@ const buildAffordabilityReasoningAnswer = (state) => {
             : researchCostSource === "unverified"
                 ? " (market estimate — confirm price before purchase)"
                 : "";
-        lines.push(`Estimated total cost is about ${formatMoney(estimatedCost, currency)}${costSourceNote}.`);
+        sections.push(`Estimated total cost is about ${formatMoney(estimatedCost, currency)}${costSourceNote}.`);
     }
     if (shortfallAmount !== undefined && shortfallAmount > 0) {
         const monthText = monthsToTarget !== undefined && monthsToTarget > 0
             ? `, which likely needs around ${Math.ceil(monthsToTarget)} month(s) at your current savings pace`
             : "";
-        lines.push(`You are short by about ${formatMoney(shortfallAmount, currency)}${monthText}.`);
-        lines.push("Want me to build a lean month-by-month savings plan to close that gap?");
+        sections.push(`You are short by about ${formatMoney(shortfallAmount, currency)}${monthText}.`);
+        sections.push("Want me to build a lean month-by-month savings plan to close that gap?");
     }
     else if (projectedNextMonthSavings !== undefined &&
         estimatedCost !== undefined &&
         projectedNextMonthSavings > estimatedCost &&
         !hasNegativeCashflow) {
-        lines.push(`You should still have around ${formatMoney(projectedNextMonthSavings - estimatedCost, currency)} buffer after funding this.`);
+        sections.push(`You should still have around ${formatMoney(projectedNextMonthSavings - estimatedCost, currency)} buffer after funding this.`);
     }
     else if (projectedNextMonthSavings !== undefined &&
         estimatedCost !== undefined &&
         projectedNextMonthSavings > estimatedCost &&
         hasNegativeCashflow) {
-        lines.push("You may still fund this from existing savings, but your ongoing monthly deficit means that buffer can erode quickly.");
+        sections.push("You may still fund this from existing savings, but your ongoing monthly deficit means that buffer can erode quickly.");
     }
-    return lines.join(" ");
+    return sections.join("\n\n");
 };
 export const synthesisAgent = async (state, config) => {
     const llm = config.configurable?.llm;
@@ -240,14 +240,14 @@ export const synthesisAgent = async (state, config) => {
         const affordabilityRisk = /conditionally affordable|not comfortably affordable|monthly cashflow is currently negative/i.test(reasoningEngineAffordabilityAnswer);
         const productSupportLine = getTopProductSupportLine(state, affordabilityRisk);
         if (productSupportLine) {
-            finalResponse = `${finalResponse} ${productSupportLine}`;
+            finalResponse = `${finalResponse}\n\n${productSupportLine}`;
         }
         if (state.isSuggestionIncluded &&
             state.suggestion &&
             !/need the target purchase amount|target amount is provided/i.test(reasoningEngineAffordabilityAnswer) &&
             !/want me to build|month-by-month savings plan/i.test(reasoningEngineAffordabilityAnswer)) {
             const normalizedSuggestion = normalizeSuggestionOptions(state.suggestion);
-            finalResponse = `${reasoningEngineAffordabilityAnswer} ${normalizedSuggestion}`;
+            finalResponse = `${finalResponse}\n\n${normalizedSuggestion}`;
         }
         return {
             finalAnswer: finalResponse,

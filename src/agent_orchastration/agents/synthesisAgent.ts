@@ -121,7 +121,7 @@ const normalizeSuggestionOptions = (suggestion: string): string => {
     const second = splitOnOr[2].replace(/\.$/, "").trim();
 
     if (first && second) {
-      return `Option 1: ${first}. Option 2: ${second}.`;
+      return `Options:\n1. ${first}.\n2. ${second}.`;
     }
   }
 
@@ -248,26 +248,26 @@ const buildAffordabilityReasoningAnswer = (
     evidenceParts.push(`${formatMoney(netMonthlySavings, currency)} free cash`);
   }
 
-  const lines: string[] = [verdict];
+  const sections: string[] = [verdict];
 
   if (evidenceParts.length > 0) {
-    lines.push(`Based on your ${evidenceParts.join(", ")} each month.`);
+    sections.push(`Monthly snapshot: ${evidenceParts.join(", ")} each month.`);
   }
 
   if (estimatedCost === undefined) {
-    lines.push(
+    sections.push(
       "I need the target purchase amount to give a reliable affordability verdict without guessing."
     );
-    lines.push(
+    sections.push(
       "Share the expected cost or your budget, and I will compute exact shortfall and timeline from your real cashflow."
     );
-    return lines.join(" ");
+    return sections.join("\n\n");
   }
 
   if (comparableCosts.length >= 2) {
     const minCost = Math.min(...comparableCosts);
     const maxCost = Math.max(...comparableCosts);
-    lines.push(
+    sections.push(
       `A realistic budget range is around ${formatMoney(minCost, currency)} to ${formatMoney(maxCost, currency)}.`
     );
   } else if (estimatedCost !== undefined) {
@@ -277,7 +277,7 @@ const buildAffordabilityReasoningAnswer = (
         : researchCostSource === "unverified"
         ? " (market estimate — confirm price before purchase)"
         : "";
-    lines.push(
+    sections.push(
       `Estimated total cost is about ${formatMoney(estimatedCost, currency)}${costSourceNote}.`
     );
   }
@@ -287,17 +287,17 @@ const buildAffordabilityReasoningAnswer = (
       monthsToTarget !== undefined && monthsToTarget > 0
         ? `, which likely needs around ${Math.ceil(monthsToTarget)} month(s) at your current savings pace`
         : "";
-    lines.push(
+    sections.push(
       `You are short by about ${formatMoney(shortfallAmount, currency)}${monthText}.`
     );
-    lines.push("Want me to build a lean month-by-month savings plan to close that gap?");
+    sections.push("Want me to build a lean month-by-month savings plan to close that gap?");
   } else if (
     projectedNextMonthSavings !== undefined &&
     estimatedCost !== undefined &&
     projectedNextMonthSavings > estimatedCost &&
     !hasNegativeCashflow
   ) {
-    lines.push(
+    sections.push(
       `You should still have around ${formatMoney(projectedNextMonthSavings - estimatedCost, currency)} buffer after funding this.`
     );
   } else if (
@@ -306,12 +306,12 @@ const buildAffordabilityReasoningAnswer = (
     projectedNextMonthSavings > estimatedCost &&
     hasNegativeCashflow
   ) {
-    lines.push(
+    sections.push(
       "You may still fund this from existing savings, but your ongoing monthly deficit means that buffer can erode quickly."
     );
   }
 
-  return lines.join(" ");
+  return sections.join("\n\n");
 };
 
 export const synthesisAgent = async (
@@ -335,7 +335,7 @@ export const synthesisAgent = async (
     const productSupportLine = getTopProductSupportLine(state, affordabilityRisk);
 
     if (productSupportLine) {
-      finalResponse = `${finalResponse} ${productSupportLine}`;
+      finalResponse = `${finalResponse}\n\n${productSupportLine}`;
     }
 
     if (
@@ -349,7 +349,7 @@ export const synthesisAgent = async (
       )
     ) {
       const normalizedSuggestion = normalizeSuggestionOptions(state.suggestion);
-      finalResponse = `${reasoningEngineAffordabilityAnswer} ${normalizedSuggestion}`;
+      finalResponse = `${finalResponse}\n\n${normalizedSuggestion}`;
     }
 
     return {
