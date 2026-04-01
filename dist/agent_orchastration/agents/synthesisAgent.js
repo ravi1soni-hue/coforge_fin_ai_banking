@@ -64,7 +64,7 @@ const getTopProductSupportLine = (state, forAffordabilityRisk) => {
     if (!top || top.suitabilityScore < 0.5) {
         return undefined;
     }
-    const nextStep = (top.nextStep ?? "").trim();
+    const nextStep = (top.nextStep ?? "").trim().replace(/[.!?]+$/, "");
     const productName = (top.productName ?? "").trim();
     const prefix = productName ? `${productName}` : "a support option";
     return nextStep
@@ -76,8 +76,15 @@ const normalizeSuggestionOptions = (suggestion) => {
     if (!normalized) {
         return normalized;
     }
-    // Keep explicit option formatting if already present.
+    // Keep explicit option formatting if already present, but normalize into multi-line layout.
     if (/option\s*1\s*:/i.test(normalized) || /option\s*2\s*:/i.test(normalized)) {
+        const opt1Match = normalized.match(/option\s*1\s*:\s*(.*?)(?=option\s*2\s*:|$)/i);
+        const opt2Match = normalized.match(/option\s*2\s*:\s*(.*)$/i);
+        if (opt1Match?.[1] && opt2Match?.[1]) {
+            const option1 = opt1Match[1].trim().replace(/[.!?]+$/, "");
+            const option2 = opt2Match[1].trim().replace(/[.!?]+$/, "");
+            return `Your options:\n1. ${option1}.\n2. ${option2}.`;
+        }
         return normalized;
     }
     // If the model merged two choices with "or", split into explicit options.
@@ -86,7 +93,7 @@ const normalizeSuggestionOptions = (suggestion) => {
         const first = splitOnOr[1].replace(/\.$/, "").trim();
         const second = splitOnOr[2].replace(/\.$/, "").trim();
         if (first && second) {
-            return `Options:\n1. ${first}.\n2. ${second}.`;
+            return `Your options:\n1. ${first}.\n2. ${second}.`;
         }
     }
     return normalized;
@@ -167,7 +174,7 @@ const buildAffordabilityReasoningAnswer = (state) => {
     const verdict = !hasTargetCost
         ? "I can assess your affordability accurately once the target amount is provided."
         : hasNegativeCashflow
-            ? "This purchase is only conditionally affordable because your monthly cashflow is currently negative."
+            ? "This can still be done, but it needs caution because your monthly cashflow is currently negative."
             : hasDeterministicCoverage && !deterministicallyAffordableNextMonth
                 ? "Not comfortably affordable next month at your current run rate."
                 : affordableNextMonth === true || affordable === true
@@ -175,19 +182,19 @@ const buildAffordabilityReasoningAnswer = (state) => {
                     : shortfallAmount !== undefined && shortfallAmount > 0
                         ? "Not comfortably affordable next month at your current run rate."
                         : "This is possible, but it needs a tighter budget to stay comfortable.";
-    const evidenceParts = [];
+    const snapshotLines = [];
     if (monthlyIncome !== undefined) {
-        evidenceParts.push(`${formatMoney(monthlyIncome, currency)} income`);
+        snapshotLines.push(`- Income: ${formatMoney(monthlyIncome, currency)}`);
     }
     if (monthlyExpenses !== undefined) {
-        evidenceParts.push(`${formatMoney(monthlyExpenses, currency)} expenses`);
+        snapshotLines.push(`- Expenses: ${formatMoney(monthlyExpenses, currency)}`);
     }
     if (netMonthlySavings !== undefined) {
-        evidenceParts.push(`${formatMoney(netMonthlySavings, currency)} free cash`);
+        snapshotLines.push(`- Free cash: ${formatMoney(netMonthlySavings, currency)} per month`);
     }
     const sections = [verdict];
-    if (evidenceParts.length > 0) {
-        sections.push(`Monthly snapshot: ${evidenceParts.join(", ")} each month.`);
+    if (snapshotLines.length > 0) {
+        sections.push(`Quick snapshot:\n${snapshotLines.join("\n")}`);
     }
     if (estimatedCost === undefined) {
         sections.push("I need the target purchase amount to give a reliable affordability verdict without guessing.");
@@ -197,7 +204,7 @@ const buildAffordabilityReasoningAnswer = (state) => {
     if (comparableCosts.length >= 2) {
         const minCost = Math.min(...comparableCosts);
         const maxCost = Math.max(...comparableCosts);
-        sections.push(`A realistic budget range is around ${formatMoney(minCost, currency)} to ${formatMoney(maxCost, currency)}.`);
+        sections.push(`Price planning range: ${formatMoney(minCost, currency)} to ${formatMoney(maxCost, currency)}.`);
     }
     else if (estimatedCost !== undefined) {
         const costSourceNote = researchCostSource === "web_search"
@@ -205,7 +212,7 @@ const buildAffordabilityReasoningAnswer = (state) => {
             : researchCostSource === "unverified"
                 ? " (market estimate — confirm price before purchase)"
                 : "";
-        sections.push(`Estimated total cost is about ${formatMoney(estimatedCost, currency)}${costSourceNote}.`);
+        sections.push(`A practical cost to plan for is about ${formatMoney(estimatedCost, currency)}${costSourceNote}.`);
     }
     if (shortfallAmount !== undefined && shortfallAmount > 0) {
         const monthText = monthsToTarget !== undefined && monthsToTarget > 0
@@ -224,7 +231,7 @@ const buildAffordabilityReasoningAnswer = (state) => {
         estimatedCost !== undefined &&
         projectedNextMonthSavings > estimatedCost &&
         hasNegativeCashflow) {
-        sections.push("You may still fund this from existing savings, but your ongoing monthly deficit means that buffer can erode quickly.");
+        sections.push("You may still fund this from existing savings, but the current monthly deficit means that buffer could reduce quickly over the next few months.");
     }
     return sections.join("\n\n");
 };
