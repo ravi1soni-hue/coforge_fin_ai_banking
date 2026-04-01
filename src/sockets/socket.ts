@@ -4,7 +4,7 @@ import crypto from "crypto";
 import { container } from "../config/di.container.js";
 import type { ChatService } from "../services/chat/chat.service.js";
 import {
-  ClientSocketMessageSchema,
+  parseClientSocketMessage,
   type ServerSocketMessage,
 } from "./socket.dto.js";
 
@@ -82,7 +82,7 @@ const parseIncomingMessage = (rawMessage: string) => {
   }
 
   const parsedJson = JSON.parse(trimmed);
-  const parsedMessage = ClientSocketMessageSchema.parse(parsedJson);
+  const parsedMessage = parseClientSocketMessage(parsedJson);
 
   return {
     requestId: parsedMessage.requestId ?? crypto.randomUUID(),
