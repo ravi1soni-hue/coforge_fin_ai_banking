@@ -63,6 +63,59 @@ function buildWsUrl() {
   return `${protocol}://${host}${normalizedPath}?userId=${userId}`;
 }
 
+function normalizeWebSocketUrl(rawUrl) {
+  if (!rawUrl) {
+    throw new Error("WebSocket URL is empty");
+  }
+
+  let value = rawUrl.trim();
+  if (!value) {
+    throw new Error("WebSocket URL is empty");
+  }
+
+  if (value.startsWith("/")) {
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    value = `${protocol}://${window.location.host}${value}`;
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`Invalid URL format: ${value}`);
+  }
+
+  // Convert accidental HTTP(S) inputs into WebSocket schemes.
+  if (parsed.protocol === "https:") {
+    parsed.protocol = "wss:";
+  } else if (parsed.protocol === "http:") {
+    parsed.protocol = "ws:";
+  }
+
+  if (parsed.protocol !== "ws:" && parsed.protocol !== "wss:") {
+    throw new Error(`Unsupported protocol ${parsed.protocol}. Use ws:// or wss://`);
+  }
+
+  // Browsers will fail upgrades when explicit port is 0.
+  if (parsed.port === "0") {
+    parsed.port = "";
+  }
+
+  if (!parsed.pathname || parsed.pathname === "/") {
+    parsed.pathname = "/ws";
+  }
+
+  if (!parsed.searchParams.get("userId")) {
+    const userId = userIdEl.value.trim();
+    if (userId) {
+      parsed.searchParams.set("userId", userId);
+    }
+  }
+
+  parsed.hash = "";
+  return parsed.toString();
+}
+
 function parseKnownFacts() {
   const raw = knownFactsEl.value.trim();
   if (!raw) return undefined;
@@ -81,7 +134,19 @@ function connectSocket() {
 
   connectAttempts += 1;
   const autoUrl = autoUrlEl.checked;
-  const url = autoUrl ? buildWsUrl() : wsUrlEl.value.trim();
+  const rawUrl = autoUrl ? buildWsUrl() : wsUrlEl.value.trim();
+
+  let url;
+  try {
+    url = normalizeWebSocketUrl(rawUrl);
+  } catch (error) {
+    appendLog("error", error instanceof Error ? error.message : String(error));
+    appendDiag("invalid_socket_url", {
+      rawUrl,
+      reason: error instanceof Error ? error.message : String(error),
+    });
+    return;
+  }
 
   if (!url) {
     appendLog("error", "WebSocket URL is empty");
@@ -210,7 +275,20 @@ function clearLog() {
 
 async function runConnectivityCheck() {
   const healthUrl = `${window.location.origin}/health`;
-  const wsUrl = autoUrlEl.checked ? buildWsUrl() : wsUrlEl.value.trim();
+  const rawWsUrl = autoUrlEl.checked ? buildWsUrl() : wsUrlEl.value.trim();
+
+  let wsUrl;
+  try {
+    wsUrl = normalizeWebSocketUrl(rawWsUrl);
+  } catch (error) {
+    appendDiag("connectivity_check_invalid_url", {
+      rawWsUrl,
+      reason: error instanceof Error ? error.message : String(error),
+    });
+    return;
+  }
+
+  wsUrlEl.value = wsUrl;
 
   appendDiag("connectivity_check_start", {
     healthUrl,
@@ -285,9 +363,9 @@ async function copyLogs() {
 }
 
 function initDefaults() {
-  userIdEl.value = randomId("test-user");
+  userIdEl.value = "uk_user_001";
   sessionIdEl.value = randomId("session");
-  wsUrlEl.value = buildWsUrl();
+  wsUrlEl.value = normalizeWebSocketUrl(buildWsUrl());
   appendDiag("environment", {
     origin: window.location.origin,
     protocol: window.location.protocol,

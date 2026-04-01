@@ -35,6 +35,10 @@ export const GraphState = z.object({
     )
     .optional(),
 
+  // ✅ Context-aware suggestion (intent-based)
+  suggestion: z.string().optional(),
+  isSuggestionIncluded: z.boolean().optional(),
+
   // ✅ Final user‑facing answer
   finalAnswer: z.string().optional(),
 });

@@ -1,31 +1,17 @@
-import { GraphStateType } from "../graph/state.js";
-import { LlmClient } from "../llm/llmClient.js";
-import { RunnableConfig } from "@langchain/core/runnables";
-import {
-  buildDeterministicSnapshot,
-  tryBuildDeterministicAnswer,
-  validateAssistantAnswer,
-} from "../services/deterministicFinance.service.js";
-
-export const synthesisAgent = async (
-  state: GraphStateType,
-  config: RunnableConfig
-): Promise<Partial<GraphStateType>> => {
-
-  const llm = config.configurable?.llm as LlmClient;
-  if (!llm) {
-    throw new Error("LlmClient not provided to graph");
-  }
-
-  const snapshot = buildDeterministicSnapshot(state);
-  const directAnswer = tryBuildDeterministicAnswer(state.question, snapshot);
-  if (directAnswer) {
-    return {
-      finalAnswer: directAnswer,
-    };
-  }
-
-  const answer = await llm.generateText(`
+import { buildDeterministicSnapshot, tryBuildDeterministicAnswer, validateAssistantAnswer, } from "../services/deterministicFinance.service.js";
+export const synthesisAgent = async (state, config) => {
+    const llm = config.configurable?.llm;
+    if (!llm) {
+        throw new Error("LlmClient not provided to graph");
+    }
+    const snapshot = buildDeterministicSnapshot(state);
+    const directAnswer = tryBuildDeterministicAnswer(state.question, snapshot);
+    if (directAnswer) {
+        return {
+            finalAnswer: directAnswer,
+        };
+    }
+    const answer = await llm.generateText(`
 You are a personal banking assistant having a direct one-to-one conversation with a customer.
 
 CORE RULE: Answer exactly what the user asked. Nothing more.
@@ -44,6 +30,7 @@ How to respond based on what the user asked:
 - Affordability query ("can I afford X"):
   Give a direct verdict with the key numbers (cost vs savings capacity).
   If not affordable, mention the shortfall and realistic months needed.
+  Optionally suggest ONE saving plan only if it genuinely helps.
 
 - Investment query:
   Give profit/loss figure for the period asked. Brief and factual.
@@ -73,25 +60,15 @@ ${JSON.stringify(state.reasoning, null, 2)}
 Product recommendation (use only if user is asking for a plan):
 ${JSON.stringify(state.productRecommendations ?? [], null, 2)}
 `);
-
-  const validation = validateAssistantAnswer(state.question, answer, snapshot);
-  if (!validation.valid) {
+    const validation = validateAssistantAnswer(state.question, answer, snapshot);
+    if (!validation.valid) {
+        return {
+            finalAnswer: validation.safeAnswer ??
+                "I want to avoid giving you an inaccurate number. Please share the specific period and source values to confirm this precisely.",
+        };
+    }
+    // ✅ LangGraph best practice: return patch only
     return {
-      finalAnswer:
-        validation.safeAnswer ??
-        "I want to avoid giving you an inaccurate number. Please share the specific period and source values to confirm this precisely.",
+        finalAnswer: answer,
     };
-  }
-
-  // ✅ Append suggestion if it was generated and is contextually appropriate
-  let finalResponse = answer;
-  if (state.isSuggestionIncluded && state.suggestion) {
-    finalResponse = `${answer} ${state.suggestion}`;
-  }
-
-  // ✅ LangGraph best practice: return patch only
-  return {
-    finalAnswer: finalResponse,
-  };
 };
-

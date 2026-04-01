@@ -1,0 +1,61 @@
+export const productRecommendationAgent = async (state, config) => {
+    const llm = config.configurable?.llm;
+    if (!llm) {
+        throw new Error("LlmClient not provided to graph");
+    }
+    const result = await llm.generateJSON(`
+You are a banking product recommendation agent.
+
+Your job:
+- Recommend exactly 1 best-fit banking product based on affordability and plan context.
+- Recommend only practical, low-risk products unless data clearly supports otherwise.
+- If no product is appropriate, return an empty array.
+
+User intent:
+${JSON.stringify(state.intent, null, 2)}
+
+User finance profile:
+${JSON.stringify(state.financeData, null, 2)}
+
+Plan details:
+${JSON.stringify(state.researchData, null, 2)}
+
+Reasoning summary:
+${JSON.stringify(state.reasoning, null, 2)}
+
+Allowed products only:
+- savings_goal
+- recurring_deposit
+- sip
+- flexi_sweep_fd
+- budget_planner
+- auto_pay_saving
+
+Rules:
+- Do not suggest products that increase risk when affordability is weak.
+- Keep rationale concise and customer-friendly.
+- suitabilityScore must be between 0 and 1.
+- Prefer one clear recommendation over multiple options.
+- Product suggestions are optional and context-driven.
+- Never push products.
+- Return ONLY valid JSON.
+
+Return JSON:
+{
+  "recommendations": [
+    {
+      "productCode": string,
+      "productName": string,
+      "rationale": string,
+      "suitabilityScore": number,
+      "nextStep": string
+    }
+  ]
+}
+`);
+    return {
+        productRecommendations: Array.isArray(result.recommendations)
+            ? result.recommendations
+            : [],
+    };
+};

@@ -23,6 +23,19 @@ export class VectorRepository {
   }
 
   /**
+   * Remove documents matching a predicate
+   */
+  removeDocuments(filterFn: (doc: VectorDocument) => boolean): number {
+    const before = this.documents.length;
+    const retained = this.documents.filter((doc) => !filterFn(doc));
+
+    this.documents.length = 0;
+    this.documents.push(...retained);
+
+    return before - this.documents.length;
+  }
+
+  /**
    * Get top-K similar documents
    */
   findSimilar(

@@ -9,6 +9,7 @@ import { financeAgent } from "../agents/financeAgent.js";
 import { researchAgent } from "../agents/researchAgent.js";
 import { reasoningAgent } from "../agents/reasoningAgent.js";
 import { productRecommendationAgent } from "../agents/productRecommendationAgent.js";
+import { suggestionAgent } from "../agents/suggestionAgent.js";
 import { synthesisAgent } from "../agents/synthesisAgent.js";
 
 export const financialAssistantGraph = new StateGraph(GraphState)
@@ -19,6 +20,7 @@ export const financialAssistantGraph = new StateGraph(GraphState)
   .addNode("researchAgent", researchAgent)
   .addNode("reasoningAgent", reasoningAgent)
   .addNode("productRecommendationAgent", productRecommendationAgent)
+  .addNode("suggestionAgent", suggestionAgent)
   .addNode("synthesisAgent", synthesisAgent)
 
   // ✅ Start flow
@@ -42,5 +44,6 @@ export const financialAssistantGraph = new StateGraph(GraphState)
   .addEdge("financeAgent", "researchAgent")
   .addEdge("researchAgent", "reasoningAgent")
   .addEdge("reasoningAgent", "productRecommendationAgent")
-  .addEdge("productRecommendationAgent", "synthesisAgent")
+  .addEdge("productRecommendationAgent", "suggestionAgent")
+  .addEdge("suggestionAgent", "synthesisAgent")
   .addEdge("synthesisAgent", END);

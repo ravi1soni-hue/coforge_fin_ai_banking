@@ -1,7 +1,10 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import crypto from "node:crypto";
 
 import { processString } from "./ingestion.service.js";
+import { container } from "../config/di.container.js";
+import type { VectorRepository } from "../repo/vector.repo.js";
 
 interface BankingUserData {
   userProfile?: {
@@ -23,18 +26,38 @@ interface BankingUserData {
 }
 
 let alreadyBootstrapped = false;
+let lastBootstrapSignature: string | undefined;
 
 export const bootstrapBankingUserVectors = async (): Promise<void> => {
-  if (alreadyBootstrapped) {
+  const filePath = path.resolve(process.cwd(), "banking_user_data.json");
+  const rawData = await readFile(filePath, "utf8");
+  const signature = crypto
+    .createHash("sha256")
+    .update(rawData)
+    .digest("hex");
+
+  if (alreadyBootstrapped && signature === lastBootstrapSignature) {
     return;
   }
 
-  const filePath = path.resolve(process.cwd(), "banking_user_data.json");
-  const rawData = await readFile(filePath, "utf8");
   const parsed = parseJsonWithComments(rawData) as BankingUserData;
 
   const userId = parsed.userProfile?.userId ?? "unknown_user";
   const docs = buildVectorDocuments(parsed);
+  const vectorRepo = container.resolve<VectorRepository>("vectorRepo");
+
+  const removed = vectorRepo.removeDocuments((doc) => {
+    const source =
+      typeof doc.metadata?.source === "string"
+        ? doc.metadata.source
+        : "";
+    const sourceUserId =
+      typeof doc.metadata?.userId === "string"
+        ? doc.metadata.userId
+        : "";
+
+    return source === "banking_user_data.json" && sourceUserId === userId;
+  });
 
   for (const doc of docs) {
     await processString(doc.text, {
@@ -42,11 +65,15 @@ export const bootstrapBankingUserVectors = async (): Promise<void> => {
       sourceType: "banking_profile",
       userId,
       section: doc.section,
+      sourceVersion: signature,
     });
   }
 
   alreadyBootstrapped = true;
-  console.log(`✅ Bootstrapped ${docs.length} banking profile documents into vector store`);
+  lastBootstrapSignature = signature;
+  console.log(
+    `✅ Bootstrapped ${docs.length} banking profile documents into vector store (removed stale docs: ${removed})`
+  );
 };
 
 type PreparedDoc = {
