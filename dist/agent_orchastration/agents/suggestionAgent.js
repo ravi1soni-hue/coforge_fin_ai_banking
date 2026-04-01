@@ -40,6 +40,7 @@ RULES FOR SUGGESTION:
 8. Tone must be supportive and professional, never blunt or judgmental.
 9. Avoid imperative phrasing like "cut at least $X". Prefer collaborative wording such as "you could consider" or "one option is".
 10. Where appropriate, mention one optional banking product path (budget planner or installment option) in a non-salesy way.
+11. If suggesting two alternative paths, format explicitly as: "Option 1: ... Option 2: ...".
 
 Generate a brief, actionable suggestion or respond with "NO_SUGGESTION" if none is appropriate.
 `);

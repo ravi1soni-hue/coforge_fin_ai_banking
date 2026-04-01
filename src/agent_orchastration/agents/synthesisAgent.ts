@@ -103,6 +103,31 @@ const getTopProductSupportLine = (
     : `If helpful, one optional path is ${prefix} to reduce month-to-month cashflow pressure.`;
 };
 
+const normalizeSuggestionOptions = (suggestion: string): string => {
+  const normalized = suggestion.trim();
+  if (!normalized) {
+    return normalized;
+  }
+
+  // Keep explicit option formatting if already present.
+  if (/option\s*1\s*:/i.test(normalized) || /option\s*2\s*:/i.test(normalized)) {
+    return normalized;
+  }
+
+  // If the model merged two choices with "or", split into explicit options.
+  const splitOnOr = normalized.match(/^(.*?),\s*or\s+(.*)$/i);
+  if (splitOnOr?.[1] && splitOnOr?.[2]) {
+    const first = splitOnOr[1].replace(/\.$/, "").trim();
+    const second = splitOnOr[2].replace(/\.$/, "").trim();
+
+    if (first && second) {
+      return `Option 1: ${first}. Option 2: ${second}.`;
+    }
+  }
+
+  return normalized;
+};
+
 const buildAffordabilityReasoningAnswer = (
   state: GraphStateType
 ): string | undefined => {
@@ -323,7 +348,8 @@ export const synthesisAgent = async (
         reasoningEngineAffordabilityAnswer
       )
     ) {
-      finalResponse = `${reasoningEngineAffordabilityAnswer} ${state.suggestion}`;
+      const normalizedSuggestion = normalizeSuggestionOptions(state.suggestion);
+      finalResponse = `${reasoningEngineAffordabilityAnswer} ${normalizedSuggestion}`;
     }
 
     return {
