@@ -40,18 +40,21 @@ ${JSON.stringify(state.researchData, null, 2)}
 Reasoning summary:
 ${JSON.stringify(state.reasoning, null, 2)}
 
-Allowed product styles (examples):
+Allowed products only:
+- savings_goal
 - recurring_deposit
-- high_yield_savings
-- goal_based_savings
-- emergency_fund_sweeper
-- low_risk_sip
+- sip
+- flexi_sweep_fd
+- budget_planner
+- auto_pay_saving
 
 Rules:
 - Do not suggest products that increase risk when affordability is weak.
 - Keep rationale concise and customer-friendly.
 - suitabilityScore must be between 0 and 1.
 - Prefer one clear recommendation over multiple options.
+- Product suggestions are optional and context-driven.
+- Never push products.
 - Return ONLY valid JSON.
 
 Return JSON:

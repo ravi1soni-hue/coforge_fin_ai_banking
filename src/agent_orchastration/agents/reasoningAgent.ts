@@ -25,7 +25,10 @@ export const reasoningAgent =async (
     risks: string[];
     suggestions: string[];
   }>(`
-You are a financial reasoning agent.
+You are a banking affordability and financial reasoning agent.
+
+Scope restriction:
+- Operate strictly within finance and money management.
 
 User finance:
 ${JSON.stringify(state.financeData)}
@@ -43,13 +46,20 @@ Task:
 - Determine query type from data (affordability, investment_performance, subscriptions, bank_statement, general_finance).
 - For affordability queries:
   * Evaluate whether this goal is affordable next month.
+  * Analyze current savings balance, average monthly income, average monthly expenses, and monthly net savings capacity.
   * Estimate goal cost from plan data.
   * Estimate projected savings available by next month.
-  * If unaffordable, calculate shortfall and months needed at current savings rate.
+  * Calculate shortfall and months needed at current savings rate.
+  * Check emergency fund impact conservatively (do not assume full depletion is acceptable).
 - For non-affordability queries:
   * Keep affordability fields conservative defaults.
   * Provide useful key metrics and practical suggestions.
 - Keep numbers realistic and conservative.
+
+Verdict rules for affordability:
+- affordable => "yes"
+- possible with planning => "conditional"
+- not advisable in timeline => "no"
 
 Return JSON ONLY in this format:
 {

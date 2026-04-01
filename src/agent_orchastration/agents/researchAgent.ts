@@ -46,7 +46,11 @@ export const researchAgent = async (
       notes?: string;
     }>;
   }>(`
-You are a research and planning agent for a financial AI system.
+You are a research and planning agent for a banking AI assistant.
+
+Scope restriction:
+- Operate strictly within banking, finance, and money management use cases.
+- If user asks non-finance topics, return analysisType="out_of_scope" and keep other outputs conservative.
 
 User intent:
 ${JSON.stringify(state.intent)}
@@ -61,7 +65,10 @@ Task:
   2) investment_performance (profit/loss)
   3) subscriptions (subscription spend overview)
   4) bank_statement (monthly statement style summary)
-- For affordability: provide realistic cost estimate and alternatives.
+- For affordability:
+  * If user provided budget/amount, use it directly as goal cost.
+  * If budget missing, estimate conservative realistic cost using global benchmarks.
+  * Do not be optimistic.
 - For investment performance: provide period profit/loss summary.
 - For subscriptions: provide total and top items.
 - For bank statement: provide inflow/outflow/net.
