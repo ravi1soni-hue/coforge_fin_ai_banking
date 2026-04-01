@@ -54,6 +54,23 @@ const isAffordabilityQuestion = (state) => {
         intentAction.includes("planning") ||
         /\bcan i afford\b|\bafford\b|\bbudget\b|\btrip\b|\bholiday\b|\bvacation\b/.test(question));
 };
+const getTopProductSupportLine = (state, forAffordabilityRisk) => {
+    if (!forAffordabilityRisk || !Array.isArray(state.productRecommendations)) {
+        return undefined;
+    }
+    const top = state.productRecommendations
+        .filter((item) => typeof item?.suitabilityScore === "number")
+        .sort((a, b) => b.suitabilityScore - a.suitabilityScore)[0];
+    if (!top || top.suitabilityScore < 0.5) {
+        return undefined;
+    }
+    const nextStep = (top.nextStep ?? "").trim();
+    const productName = (top.productName ?? "").trim();
+    const prefix = productName ? `${productName}` : "a support option";
+    return nextStep
+        ? `If helpful, one optional path is ${prefix}: ${nextStep}.`
+        : `If helpful, one optional path is ${prefix} to reduce month-to-month cashflow pressure.`;
+};
 const buildAffordabilityReasoningAnswer = (state) => {
     if (!isAffordabilityQuestion(state)) {
         return undefined;
@@ -200,6 +217,11 @@ export const synthesisAgent = async (state, config) => {
     const reasoningEngineAffordabilityAnswer = buildAffordabilityReasoningAnswer(state);
     if (reasoningEngineAffordabilityAnswer) {
         let finalResponse = reasoningEngineAffordabilityAnswer;
+        const affordabilityRisk = /conditionally affordable|not comfortably affordable|monthly cashflow is currently negative/i.test(reasoningEngineAffordabilityAnswer);
+        const productSupportLine = getTopProductSupportLine(state, affordabilityRisk);
+        if (productSupportLine) {
+            finalResponse = `${finalResponse} ${productSupportLine}`;
+        }
         if (state.isSuggestionIncluded &&
             state.suggestion &&
             !/need the target purchase amount|target amount is provided/i.test(reasoningEngineAffordabilityAnswer) &&

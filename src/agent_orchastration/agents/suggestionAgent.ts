@@ -23,6 +23,9 @@ type CashflowSummary = {
  * 2. Available financial data
  * 3. Query type (intent action)
  */
+
+
+
 export const suggestionAgent = async (
   state: GraphStateType,
   config: RunnableConfig
@@ -61,6 +64,9 @@ RULES FOR SUGGESTION:
 5. Do NOT suggest if the user just asked for information (balance, investments, etc).
 6. ONLY suggest if user explicitly asked for planning/help OR the financial context shows a shortfall, negative cash flow, or clear affordability risk.
 7. If the user can already afford the goal comfortably and did not ask for planning advice, respond with "NO_SUGGESTION".
+8. Tone must be supportive and professional, never blunt or judgmental.
+9. Avoid imperative phrasing like "cut at least $X". Prefer collaborative wording such as "you could consider" or "one option is".
+10. Where appropriate, mention one optional banking product path (budget planner or installment option) in a non-salesy way.
 
 Generate a brief, actionable suggestion or respond with "NO_SUGGESTION" if none is appropriate.
 `);
