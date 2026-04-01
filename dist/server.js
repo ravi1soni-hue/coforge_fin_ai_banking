@@ -1,8 +1,10 @@
 import http from "http";
+import { db } from "./db.js";
 import app from "./app.js";
 import { ENV } from "./config/env.js";
 import { initWebSocket } from "./sockets/socket.js";
 import { bootstrapBankingUserVectors } from "./services/bankingUserVector.bootstrap.js";
+import { syncUserFinancialProfiles } from "./services/financialProfilesSync.js";
 import ingestionRoutes from "./routes/ingestion.route.js";
 //import { configureLangSmith } from "./config/langsmith.config.js";
 //configureLangSmith();
@@ -19,6 +21,8 @@ async function start() {
         app.use("/api", ingestionRoutes);
         // Index local banking profile in vector memory at startup.
         await bootstrapBankingUserVectors();
+        // Sync financial profiles from banking_user_data.json to database
+        await syncUserFinancialProfiles(db);
         // Initialize WebSocket
         initWebSocket(server);
         server.listen(ENV.PORT, () => {
