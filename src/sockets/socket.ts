@@ -125,11 +125,21 @@ export const initWebSocket = (server: any): void => {
         `http://${req.headers.host}`
       );
 
-      const userId = url.searchParams.get("userId");
+      const queryUserId = url.searchParams.get("userId");
+      const headerUserId =
+        typeof req.headers["x-user-id"] === "string"
+          ? req.headers["x-user-id"]
+          : undefined;
+      const userId =
+        queryUserId?.trim() ||
+        headerUserId?.trim() ||
+        `anonymous-${crypto.randomUUID()}`;
 
-      if (!userId) {
-        ws.close();
-        return;
+      if (!queryUserId && !headerUserId) {
+        console.warn(
+          "WebSocket connection opened without explicit userId; assigned fallback id",
+          { url: req.url, assignedUserId: userId }
+        );
       }
 
       ws.userId = userId;
