@@ -96,7 +96,22 @@ const parseIncomingMessage = (rawMessage: string) => {
  * Initialize WebSocket server
  */
 export const initWebSocket = (server: any): void => {
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({
+    noServer: true,
+    perMessageDeflate: false,
+  });
+
+  const heartbeatInterval = setInterval(() => {
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.ping();
+      }
+    });
+  }, 30000);
+
+  server.on("close", () => {
+    clearInterval(heartbeatInterval);
+  });
 
   server.on("upgrade", (req: IncomingMessage, socket: any, head: Buffer) => {
     try {
@@ -143,6 +158,9 @@ export const initWebSocket = (server: any): void => {
       }
 
       ws.userId = userId;
+      ws.on("pong", () => {
+        // Keepalive acknowledgement from client.
+      });
 
       // ✅ Store connection
       if (!userConnections.has(userId)) {
