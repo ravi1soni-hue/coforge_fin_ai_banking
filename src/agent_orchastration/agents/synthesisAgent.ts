@@ -316,8 +316,9 @@ const buildAffordabilityReasoningAnswer = (
     projectedNextMonthSavings > estimatedCost &&
     !hasNegativeCashflow
   ) {
+    const remainingSavings = projectedNextMonthSavings - estimatedCost;
     sections.push(
-      `You should still have around ${formatMoney(projectedNextMonthSavings - estimatedCost, currency)} buffer after funding this.`
+      `Your current savings are approximately ${formatMoney(projectedNextMonthSavings, currency)}. After this ${formatMoney(estimatedCost, currency)} purchase, you'd have around ${formatMoney(remainingSavings, currency)} remaining.`
     );
   } else if (
     projectedNextMonthSavings !== undefined &&
