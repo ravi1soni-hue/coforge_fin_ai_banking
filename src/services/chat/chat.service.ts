@@ -1,6 +1,8 @@
 import type { GraphStateType } from "../../agent_orchastration/graph/state.js";
 import { FinancialAssistantService } from "../../agent_orchastration/services/FinancialAssistantService.js";
 import { Kysely, sql } from "kysely";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 
 /* ---------------- Types ---------------- */
 
@@ -24,6 +26,8 @@ export class ChatService {
   private readonly assistantService: FinancialAssistantService;
   private readonly db: Kysely<unknown>;
   private financialProfileTableReady?: Promise<void>;
+  private fallbackBankingFacts?: Record<string, unknown>;
+  private fallbackBankingFactsLoading?: Promise<Record<string, unknown>>;
   private readonly sessionKnownFacts = new Map<
     string,
     Record<string, unknown>
@@ -57,6 +61,11 @@ export class ChatService {
 
     const persistedProfileFacts =
       await this.loadFinancialFactsFromDb(request.userId);
+    const fallbackFacts =
+      await this.loadFallbackBankingFactsForSession(
+        persistedProfileFacts,
+        request.knownFacts
+      );
     const persistedFacts =
       this.sessionKnownFacts.get(sessionKey) ?? {};
     const normalizedIncomingFacts =
@@ -67,6 +76,7 @@ export class ChatService {
       request.message
     );
     const mergedKnownFacts = {
+      ...fallbackFacts,
       ...persistedProfileFacts,
       ...persistedFacts,
       ...normalizedIncomingFacts,
@@ -673,5 +683,59 @@ export class ChatService {
     }
 
     await this.financialProfileTableReady;
+  }
+
+  private async loadFallbackBankingFactsForSession(
+    persistedProfileFacts: Record<string, unknown>,
+    incomingKnownFacts?: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    const hasPersistedRichProfile =
+      "userProfile" in persistedProfileFacts ||
+      "accounts" in persistedProfileFacts ||
+      "transactions" in persistedProfileFacts ||
+      "investments" in persistedProfileFacts ||
+      "subscriptions" in persistedProfileFacts ||
+      "loans" in persistedProfileFacts ||
+      "savingsGoals" in persistedProfileFacts;
+    const hasIncomingProfile =
+      this.isObject(incomingKnownFacts) &&
+      ("userProfile" in incomingKnownFacts ||
+        "accounts" in incomingKnownFacts ||
+        "transactions" in incomingKnownFacts);
+
+    if (hasPersistedRichProfile || hasIncomingProfile) {
+      return {};
+    }
+
+    return this.getFallbackBankingFacts();
+  }
+
+  private async getFallbackBankingFacts(): Promise<Record<string, unknown>> {
+    if (this.fallbackBankingFacts) {
+      return this.fallbackBankingFacts;
+    }
+
+    if (!this.fallbackBankingFactsLoading) {
+      this.fallbackBankingFactsLoading = this.readFallbackBankingFacts();
+    }
+
+    try {
+      this.fallbackBankingFacts = await this.fallbackBankingFactsLoading;
+      return this.fallbackBankingFacts;
+    } finally {
+      this.fallbackBankingFactsLoading = undefined;
+    }
+  }
+
+  private async readFallbackBankingFacts(): Promise<Record<string, unknown>> {
+    try {
+      const filePath = path.resolve(process.cwd(), "banking_user_data.json");
+      const raw = await readFile(filePath, "utf8");
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      return this.normalizeKnownFactsPayload(parsed);
+    } catch (error) {
+      console.warn("Failed loading fallback banking profile", error);
+      return {};
+    }
   }
 }

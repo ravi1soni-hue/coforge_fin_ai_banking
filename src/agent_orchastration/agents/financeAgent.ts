@@ -207,6 +207,18 @@ const buildFinanceDataFromProfile = (
     status: goal.status,
   }));
 
+  const rawTransactions = Array.isArray(knownFacts.transactions)
+    ? (knownFacts.transactions as Record<string, unknown>[])
+    : [];
+  const transactions = rawTransactions
+    .map((tx) => ({
+      date: typeof tx.date === "string" ? tx.date : undefined,
+      type: typeof tx.type === "string" ? tx.type.toUpperCase() : undefined,
+      category: tx.category,
+      amount: toNum(tx.amount),
+    }))
+    .filter((tx) => tx.date && tx.type && tx.amount !== undefined);
+
   return {
     cashflow_summary: {
       currency,
@@ -243,6 +255,7 @@ const buildFinanceDataFromProfile = (
       note: "currentValue is the present portfolio value, NOT profit. Do not describe currentValue as profit.",
     },
     savingsGoals,
+    transactions,
   };
 };
 
