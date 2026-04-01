@@ -8,6 +8,42 @@ This document defines the WebSocket request/response DTOs for the AI Banking Ass
 - Legacy URL (also supported): `wss://<host>/?userId=<user-id>`
 - Version: `v=1`
 
+Important:
+- Do not use `https://` for WebSocketChannel URL. Use `wss://` in production and `ws://` in local/dev.
+- Do not append `:0` as port. Omit the port when using standard TLS endpoint.
+- Example valid production URL: `wss://coforgefinaibanking-development-ebdd.up.railway.app/ws?userId=uk_user_001`
+
+## Flutter URL Builder (Prevents `:0` and wrong scheme)
+
+```dart
+Uri buildSocketUri({
+  required String baseHost,
+  required String userId,
+  int? port,
+  bool secure = true,
+}) {
+  final safePort = (port != null && port > 0) ? port : null;
+
+  return Uri(
+    scheme: secure ? 'wss' : 'ws',
+    host: baseHost,
+    port: safePort,
+    path: '/ws',
+    queryParameters: {
+      'userId': userId,
+    },
+  );
+}
+
+final uri = buildSocketUri(
+  baseHost: 'coforgefinaibanking-development-ebdd.up.railway.app',
+  userId: 'uk_user_001',
+  secure: true,
+);
+
+final channel = WebSocketChannel.connect(uri);
+```
+
 ## Client -> Server DTO
 
 ```json
