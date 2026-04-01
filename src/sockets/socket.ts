@@ -189,6 +189,7 @@ export const initWebSocket = (server: any): void => {
           const result = await chatService.handleMessage({
             userId,
             message: parsedMessage.message,
+            sessionId,
             knownFacts: parsedMessage.knownFacts,
           });
 

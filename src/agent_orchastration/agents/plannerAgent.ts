@@ -19,6 +19,21 @@ export const plannerAgent = async (
     };
   }
 
+  const lowerQuestion = state.question.toLowerCase();
+  const isTravelAffordability =
+    /holiday|trip|travel|vacation|japan|tour/.test(lowerQuestion) &&
+    ["affordability", "planning", "decision"].includes(
+      state.intent.action.toLowerCase()
+    );
+
+  // Keep travel affordability intake banking-focused and lightweight.
+  if (isTravelAffordability) {
+    // Proceed directly for affordability estimation using known facts + banking profile context.
+    return {
+      missingFacts: [],
+    };
+  }
+
   const result = await llm.generateJSON<{
     requiredFacts: string[];
   }>(`
@@ -37,6 +52,10 @@ Task:
 - Do not invent facts.
 - If nothing is required, return an empty array.
 - This is NOT execution planning.
+- Ask for the minimum required facts only.
+- Prioritize banking affordability data over lifestyle/travel details.
+- Do NOT ask for items like activities, itinerary, or accommodation preferences.
+- Return at most 3 facts.
 
 Return ONLY valid JSON:
 {
@@ -46,7 +65,7 @@ Return ONLY valid JSON:
 
   const missingFacts = result.requiredFacts.filter(
     fact => !(fact in state.knownFacts)
-  );
+  ).slice(0, 3);
 
   return {
     missingFacts,

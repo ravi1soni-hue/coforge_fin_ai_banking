@@ -15,6 +15,11 @@ export const reasoningAgent =async (
 
   const reasoning = await llm.generateJSON<{
     affordable: boolean;
+    affordableNextMonth: boolean;
+    estimatedTripCost: number;
+    projectedNextMonthSavings: number;
+    shortfallAmount: number;
+    monthsToTargetAtCurrentSavingsRate: number;
     risks: string[];
     suggestions: string[];
   }>(`
@@ -26,9 +31,30 @@ ${JSON.stringify(state.financeData)}
 Goal cost:
 ${JSON.stringify(state.researchData)}
 
-Evaluate affordability strictly.
+Known facts:
+${JSON.stringify(state.knownFacts)}
 
-Return JSON ONLY.
+Current date:
+${new Date().toISOString()}
+
+Task:
+- Evaluate whether this goal is affordable next month.
+- Estimate trip/goal cost from plan data.
+- Estimate projected savings available by next month.
+- If unaffordable, calculate shortfall and months needed at current savings rate.
+- Keep numbers realistic and conservative.
+
+Return JSON ONLY in this format:
+{
+  "affordable": boolean,
+  "affordableNextMonth": boolean,
+  "estimatedTripCost": number,
+  "projectedNextMonthSavings": number,
+  "shortfallAmount": number,
+  "monthsToTargetAtCurrentSavingsRate": number,
+  "risks": string[],
+  "suggestions": string[]
+}
 `);
 
   return {

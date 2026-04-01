@@ -1,40 +1,37 @@
 import { GraphStateType } from "../graph/state.js";
-import { LlmClient } from "../llm/llmClient.js";
 import { RunnableConfig } from "@langchain/core/runnables";
 
 export const followUpQuestionAgent = async (
   state: GraphStateType,
-  config: RunnableConfig
+  _config: RunnableConfig
 ): Promise<Partial<GraphStateType>> => {
-  const llm = config.configurable?.llm as LlmClient;
-  if (!llm) {
-    throw new Error("LlmClient not provided to graph");
-  }
-
   if (!state.missingFacts || state.missingFacts.length === 0) {
     return {};
   }
 
-  const followUpQuestion = await llm.generateText(`
-You are a professional banking assistant.
+  const factLabelMap: Record<string, string> = {
+    budget: "your approximate trip budget",
+    monthlyNetIncome: "your monthly take-home income",
+    monthlyCommittedExpenses: "your fixed monthly expenses",
+    availableSavings: "how much savings you can use for this trip",
+    clarify_intent: "what decision you want help with",
+  };
 
-Original user question:
-"${state.question}"
+  const requested = state.missingFacts
+    .slice(0, 3)
+    .map((fact) => factLabelMap[fact] ?? fact.replace(/_/g, " "));
 
-The system needs more information to proceed.
+  const joined =
+    requested.length === 1
+      ? requested[0]
+      : requested.length === 2
+      ? `${requested[0]} and ${requested[1]}`
+      : `${requested[0]}, ${requested[1]}, and ${requested[2]}`;
 
-Missing information (internal identifiers):
-${JSON.stringify(state.missingFacts)}
-
-Task:
-- Ask a single, clear, polite follow-up question.
-- Do NOT mention internal field names.
-- Combine multiple questions if possible.
-- Sound helpful and professional.
-- Ask as a relationship manager would.
-
-Return ONLY the follow-up question text.
-`);
+  const followUpQuestion =
+    requested.length === 1
+      ? `To check affordability properly, could you share ${joined}?`
+      : `To give you a reliable banking affordability answer, could you share ${joined}?`;
 
   return {
     finalAnswer: followUpQuestion,
