@@ -19,6 +19,26 @@ export const suggestionAgent = async (state, config) => {
             isSuggestionIncluded: false,
         };
     }
+    const reasoning = state.reasoning;
+    const hasRisk = (typeof reasoning?.shortfallAmount === "number" &&
+        reasoning.shortfallAmount > 0) ||
+        (typeof reasoning?.affordable === "boolean" &&
+            !reasoning.affordable) ||
+        (typeof reasoning?.affordableNextMonth === "boolean" &&
+            !reasoning.affordableNextMonth);
+    const cashflow = state.financeData;
+    const cashflowSummary = (cashflow?.cashflow_summary ?? {});
+    const netSavings = typeof cashflowSummary.netMonthlySavings === "number"
+        ? cashflowSummary.netMonthlySavings
+        : undefined;
+    const hasNegativeCashflow = typeof netSavings === "number" && netSavings < 0;
+    const mustShowTwoOptions = hasRisk || hasNegativeCashflow;
+    const topProduct = Array.isArray(state.productRecommendations) && state.productRecommendations.length > 0
+        ? state.productRecommendations.sort((a, b) => (b.suitabilityScore ?? 0) - (a.suitabilityScore ?? 0))[0]
+        : null;
+    const productHint = topProduct
+        ? `Recommended product: ${topProduct.productName} — ${topProduct.rationale} (next step: ${topProduct.nextStep})`
+        : "No specific product identified.";
     // ✅ Generate context-aware suggestion
     const suggestion = await llm.generateText(`
 You are a financial advisor providing a brief, actionable suggestion.
@@ -28,21 +48,24 @@ CONTEXT:
 - User's financial intent: ${state.intent?.action || "unknown"}
 - Available financial data: ${JSON.stringify(state.financeData, null, 2)}
 - Financial reasoning: ${JSON.stringify(state.reasoning ?? {}, null, 2)}
+- Recommended banking product: ${productHint}
 
 RULES FOR SUGGESTION:
-1. Suggestion should be SHORT (1-2 sentences max).
-2. Only suggest if it directly addresses the user's question or concern.
-3. Be practical and specific (e.g., cut expenses by $X/month, increase savings by Y%).
-4. Do NOT repeat the main answer.
+1. Do NOT repeat the main answer or re-state the verdict.
+2. Be practical and specific — tie advice directly to the user's situation.
+3. Avoid imperative phrasing like "cut at least $X". Prefer "you could consider" or "one option is".
+4. Tone must be supportive and professional, never blunt or judgmental.
 5. Do NOT suggest if the user just asked for information (balance, investments, etc).
-6. ONLY suggest if user explicitly asked for planning/help OR the financial context shows a shortfall, negative cash flow, or clear affordability risk.
-7. If the user can already afford the goal comfortably and did not ask for planning advice, respond with "NO_SUGGESTION".
-8. Tone must be supportive and professional, never blunt or judgmental.
-9. Avoid imperative phrasing like "cut at least $X". Prefer collaborative wording such as "you could consider" or "one option is".
-10. Where appropriate, mention one optional banking product path (budget planner or installment option) in a non-salesy way.
-11. If suggesting two alternative paths, format explicitly as: "Option 1: ... Option 2: ...".
+6. If the user can already afford the goal comfortably, respond with "NO_SUGGESTION".
+${mustShowTwoOptions
+        ? `7. REQUIRED: Because there is a cashflow risk or shortfall, you MUST provide exactly two options.
+   - Format: "Option 1: [savings/timing path]. Option 2: [banking product path using the recommended product above]."
+   - Option 1: a practical spending or timing adjustment the user can act on immediately.
+   - Option 2: reference the recommended banking product as a support path in a helpful, non-salesy way.
+   - Both options should be 1 sentence each.`
+        : `7. Provide a single concise suggestion (1-2 sentences).`}
 
-Generate a brief, actionable suggestion or respond with "NO_SUGGESTION" if none is appropriate.
+Generate the suggestion or respond with "NO_SUGGESTION" if none is appropriate.
 `);
     const isSuggestionEmpty = suggestion.trim() === "NO_SUGGESTION" || suggestion.trim() === "";
     return {

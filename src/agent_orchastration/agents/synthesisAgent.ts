@@ -233,18 +233,28 @@ const buildAffordabilityReasoningAnswer = (
   const deterministicallyAffordableNextMonth =
     hasDeterministicCoverage && projectedNextMonthSavings >= estimatedCost;
 
+  const goalType =
+    typeof state.knownFacts?.goalType === "string" ? state.knownFacts.goalType.toLowerCase() : "";
+  const purchaseLabel = (() => {
+    if (goalType === "electronics") return "this purchase";
+    if (goalType === "trip" || goalType === "vacation" || goalType === "holiday") return "this trip";
+    if (goalType === "house" || goalType === "mortgage") return "this property goal";
+    if (goalType === "car") return "this car purchase";
+    return "this";
+  })();
+
   const verdict =
     !hasTargetCost
-      ? "I can assess your affordability accurately once the target amount is provided."
+      ? `I can assess affordability for ${purchaseLabel} accurately once the target amount is provided.`
       : hasNegativeCashflow
-      ? "This can still be done, but it needs caution because your monthly cashflow is currently negative."
+      ? `${purchaseLabel.charAt(0).toUpperCase() + purchaseLabel.slice(1)} is within reach, but it needs careful planning — your monthly cashflow is currently negative.`
       : hasDeterministicCoverage && !deterministicallyAffordableNextMonth
-      ? "Not comfortably affordable next month at your current run rate."
+      ? `${purchaseLabel.charAt(0).toUpperCase() + purchaseLabel.slice(1)} is not comfortably affordable next month at your current run rate.`
       : affordableNextMonth === true || affordable === true
-      ? "Yes, this looks affordable on your current monthly cashflow."
+      ? `Good news — ${purchaseLabel} looks affordable on your current monthly cashflow.`
       : shortfallAmount !== undefined && shortfallAmount > 0
-      ? "Not comfortably affordable next month at your current run rate."
-      : "This is possible, but it needs a tighter budget to stay comfortable.";
+      ? `${purchaseLabel.charAt(0).toUpperCase() + purchaseLabel.slice(1)} is not comfortably affordable next month at your current run rate.`
+      : `${purchaseLabel.charAt(0).toUpperCase() + purchaseLabel.slice(1)} is possible, but it needs a tighter budget to stay comfortable.`;
 
   const snapshotLines: string[] = [];
   if (monthlyIncome !== undefined) {
@@ -338,7 +348,7 @@ export const synthesisAgent = async (
   if (reasoningEngineAffordabilityAnswer) {
     let finalResponse = reasoningEngineAffordabilityAnswer;
     const affordabilityRisk =
-      /conditionally affordable|not comfortably affordable|monthly cashflow is currently negative/i.test(
+      /not comfortably affordable|monthly cashflow is currently negative|careful planning/i.test(
         reasoningEngineAffordabilityAnswer
       );
     const productSupportLine = getTopProductSupportLine(state, affordabilityRisk);
