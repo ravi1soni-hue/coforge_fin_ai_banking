@@ -132,6 +132,16 @@ export const initWebSocket = (server: any): void => {
 
   server.on("upgrade", (req: IncomingMessage, socket: any, head: Buffer) => {
     try {
+      console.log("🔌 [UPGRADE] WebSocket request received", {
+        url: req.url,
+        headers: {
+          upgrade: req.headers.upgrade,
+          connection: req.headers.connection,
+          host: req.headers.host,
+          "user-agent": req.headers["user-agent"],
+        },
+      });
+
       const url = new URL(req.url ?? "", `http://${req.headers.host}`);
       const rawPath = url.pathname || "/";
       const pathname = rawPath.endsWith("/") && rawPath.length > 1
@@ -140,7 +150,7 @@ export const initWebSocket = (server: any): void => {
 
       // Accept both legacy root path and explicit /ws path.
       if (pathname !== "/" && pathname !== "/ws") {
-        console.warn("Rejected websocket upgrade for unsupported path", {
+        console.warn("⚠️ [UPGRADE] Rejected unsupported path", {
           path: rawPath,
           host: req.headers.host,
           url: req.url,
@@ -150,7 +160,7 @@ export const initWebSocket = (server: any): void => {
         return;
       }
 
-      console.log("Processing WebSocket upgrade", { url: req.url, userId: url.searchParams.get("userId") });
+      console.log("✅ [UPGRADE] Upgrading to WebSocket", { url: req.url, userId: url.searchParams.get("userId") });
       wss.handleUpgrade(req, socket, head, (ws) => {
         wss.emit("connection", ws, req);
       });
