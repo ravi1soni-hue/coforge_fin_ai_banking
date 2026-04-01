@@ -1,8 +1,8 @@
-
 import { GraphStateType } from "../graph/state.js";
 import { LlmClient } from "../llm/llmClient.js";
 import { RunnableConfig } from "@langchain/core/runnables";
-export const reasoningAgent =async (
+
+export const reasoningAgent = async (
   state: GraphStateType,
   config: RunnableConfig
 ): Promise<Partial<GraphStateType>> => {
@@ -15,24 +15,52 @@ export const reasoningAgent =async (
 
   const reasoning = await llm.generateJSON<{
     affordable: boolean;
+    confidenceLevel: "high" | "medium" | "low";
     risks: string[];
+    rationale: string;
     suggestions: string[];
   }>(`
-You are a financial reasoning agent.
+You are a bank-grade financial reasoning agent.
 
-User finance:
+INPUT DATA:
+User financial data:
 ${JSON.stringify(state.financeData)}
 
-Goal cost:
+Planned purchase / goal cost:
 ${JSON.stringify(state.researchData)}
 
-Evaluate affordability strictly.
+TASK:
+- Determine whether the goal is affordable for the user.
+- Assess risk conservatively.
+- Provide high-level reasoning suitable for a bank advisor.
 
-Return JSON ONLY.
+STRICT JSON RULES (NON-NEGOTIABLE):
+- Output MUST be valid JSON.
+- DO NOT include formulas, calculations, or math expressions.
+- DO NOT include symbols like =, ≈, /, *, or parentheses in numeric fields.
+- ALL numeric values must be FINAL computed values.
+- If explanation is needed, put it ONLY in plain text strings.
+- NEVER show calculation steps.
+
+REASONING GUIDELINES:
+- "affordable": true ONLY if the cost can be covered without harming essential expenses.
+- Use conservative judgment when data is incomplete.
+- If financial data is missing or insufficient, set affordable = false.
+- risks should be realistic and short.
+- suggestions should be practical and bank-safe.
+
+Return ONLY valid JSON in this structure:
+{
+  "affordable": boolean,
+  "confidenceLevel": "high" | "medium" | "low",
+  "risks": string[],
+  "rationale": string,
+  "suggestions": string[]
+}
 `);
 
+  // ✅ Return PATCH ONLY (LangGraph best practice)
   return {
-    ...state,
     reasoning,
   };
 };

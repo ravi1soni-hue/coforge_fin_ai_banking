@@ -21,6 +21,7 @@ export class VectorQueryService {
    * Retrieve contextual text for a query
    */
   async getContext(
+    userId: String,
     query: string,
     { topK = 3, filter }: VectorQueryOptions = {}
   ): Promise<string> {
