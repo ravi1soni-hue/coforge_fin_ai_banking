@@ -148,25 +148,49 @@ export class ChatService {
 
     if (/\bjapan\b/i.test(text)) {
       facts.destination = "Japan";
+      facts.queryType = "affordability";
     }
 
-    const amountMatch = text.match(/([£$€])\s?(\d[\d,]*(?:\.\d{1,2})?)/);
-    if (amountMatch?.[2]) {
-      const normalized = Number(amountMatch[2].replace(/,/g, ""));
+    const amountPrefixMatch = text.match(/([£$€])\s?(\d[\d,]*(?:\.\d{1,2})?)/);
+    const amountSuffixMatch = text.match(/(\d[\d,]*(?:\.\d{1,2})?)\s?([£$€])/);
+
+    const amountValue = amountPrefixMatch?.[2] ?? amountSuffixMatch?.[1];
+    const amountCurrency = amountPrefixMatch?.[1] ?? amountSuffixMatch?.[2];
+
+    if (amountValue) {
+      const normalized = Number(amountValue.replace(/,/g, ""));
       if (!Number.isNaN(normalized)) {
         facts.targetAmount = normalized;
       }
-      if (amountMatch[1] === "$") {
+
+      if (amountCurrency === "$") {
         facts.currency = "USD";
-      } else if (amountMatch[1] === "£") {
+      } else if (amountCurrency === "£") {
         facts.currency = "GBP";
-      } else if (amountMatch[1] === "€") {
+      } else if (amountCurrency === "€") {
         facts.currency = "EUR";
+      }
+
+      facts.queryType = facts.queryType ?? "affordability";
+    }
+
+    if (facts.budget && !facts.targetAmount) {
+      const budgetNumeric = String(facts.budget).match(/\d[\d,]*(?:\.\d{1,2})?/);
+      if (budgetNumeric?.[0]) {
+        const normalizedBudget = Number(budgetNumeric[0].replace(/,/g, ""));
+        if (!Number.isNaN(normalizedBudget)) {
+          facts.targetAmount = normalizedBudget;
+        }
       }
     }
 
     if (/\bcar\b/i.test(text)) {
       facts.goalType = "car";
+      facts.queryType = "affordability";
+    }
+
+    if (/\bholiday|trip|travel|vacation|afford|budget\b/i.test(text)) {
+      facts.queryType = facts.queryType ?? "affordability";
     }
 
     if (/\bsubscription|subscriptions\b/i.test(text)) {

@@ -10,6 +10,8 @@ export const followUpQuestionAgent = async (
   }
 
   const factLabelMap: Record<string, string> = {
+    targetAmount: "your approximate budget amount",
+    currency: "the currency for that budget",
     budget: "your approximate trip budget",
     monthlyNetIncome: "your monthly take-home income",
     monthlyCommittedExpenses: "your fixed monthly expenses",
