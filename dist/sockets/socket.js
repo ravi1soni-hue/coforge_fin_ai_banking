@@ -63,9 +63,18 @@ export const initWebSocket = (server) => {
     });
     const heartbeatInterval = setInterval(() => {
         wss.clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.ping();
+            const trackedClient = client;
+            if (trackedClient.readyState !== WebSocket.OPEN) {
+                return;
             }
+            if (trackedClient.isAlive === false) {
+                const staleUserId = trackedClient.userId ?? "unknown";
+                console.warn(`Terminating stale websocket connection for user ${staleUserId}`);
+                trackedClient.terminate();
+                return;
+            }
+            trackedClient.isAlive = false;
+            trackedClient.ping();
         });
     }, 30000);
     server.on("close", () => {
@@ -108,8 +117,9 @@ export const initWebSocket = (server) => {
             console.warn("WebSocket connection opened without explicit userId; assigned fallback id", { url: req.url, assignedUserId: userId });
         }
         ws.userId = userId;
+        ws.isAlive = true;
         ws.on("pong", () => {
-            // Keepalive acknowledgement from client.
+            ws.isAlive = true;
         });
         // ✅ Store connection
         if (!userConnections.has(userId)) {
@@ -162,13 +172,19 @@ export const initWebSocket = (server) => {
         /**
          * Cleanup on close
          */
-        ws.on("close", () => {
+        ws.on("close", (code, reasonBuffer) => {
             const connections = userConnections.get(userId);
             connections?.delete(ws);
             if (!connections || connections.size === 0) {
                 userConnections.delete(userId);
             }
-            console.log(`User disconnected: ${userId}`);
+            const reason = reasonBuffer && reasonBuffer.length > 0
+                ? reasonBuffer.toString("utf8")
+                : "no_reason";
+            console.log(`User disconnected: ${userId} (code=${code}, reason=${reason})`);
         });
+    });
+    wss.on("close", () => {
+        clearInterval(heartbeatInterval);
     });
 };

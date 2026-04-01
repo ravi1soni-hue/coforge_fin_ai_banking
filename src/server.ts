@@ -13,6 +13,11 @@ import ingestionRoutes from "./routes/ingestion.route.js";
 
 const server = http.createServer(app);
 
+// Keep HTTP socket timings proxy-friendly; websocket upgrades are handled separately.
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;
+server.requestTimeout = 0;
+
 async function start() {
   try {
     //console.log("⏳ Checking database connection...");

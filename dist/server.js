@@ -7,6 +7,10 @@ import ingestionRoutes from "./routes/ingestion.route.js";
 //import { configureLangSmith } from "./config/langsmith.config.js";
 //configureLangSmith();
 const server = http.createServer(app);
+// Keep HTTP socket timings proxy-friendly; websocket upgrades are handled separately.
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;
+server.requestTimeout = 0;
 async function start() {
     try {
         //console.log("⏳ Checking database connection...");

@@ -101,11 +101,28 @@ export const initWebSocket = (server: any): void => {
     perMessageDeflate: false,
   });
 
+  type TrackedWebSocket = WebSocket & {
+    userId?: string;
+    isAlive?: boolean;
+  };
+
   const heartbeatInterval = setInterval(() => {
     wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.ping();
+      const trackedClient = client as TrackedWebSocket;
+
+      if (trackedClient.readyState !== WebSocket.OPEN) {
+        return;
       }
+
+      if (trackedClient.isAlive === false) {
+        const staleUserId = trackedClient.userId ?? "unknown";
+        console.warn(`Terminating stale websocket connection for user ${staleUserId}`);
+        trackedClient.terminate();
+        return;
+      }
+
+      trackedClient.isAlive = false;
+      trackedClient.ping();
     });
   }, 30000);
 
@@ -141,7 +158,7 @@ export const initWebSocket = (server: any): void => {
 
   wss.on(
     "connection",
-    (ws: WebSocket & { userId?: string }, req: IncomingMessage) => {
+    (ws: TrackedWebSocket, req: IncomingMessage) => {
       const url = new URL(
         req.url ?? "",
         `http://${req.headers.host}`
@@ -165,8 +182,9 @@ export const initWebSocket = (server: any): void => {
       }
 
       ws.userId = userId;
+      ws.isAlive = true;
       ws.on("pong", () => {
-        // Keepalive acknowledgement from client.
+        ws.isAlive = true;
       });
 
       // ✅ Store connection
@@ -235,7 +253,7 @@ export const initWebSocket = (server: any): void => {
       /**
        * Cleanup on close
        */
-      ws.on("close", () => {
+      ws.on("close", (code, reasonBuffer) => {
         const connections = userConnections.get(userId);
         connections?.delete(ws);
 
@@ -243,8 +261,18 @@ export const initWebSocket = (server: any): void => {
           userConnections.delete(userId);
         }
 
-        console.log(`User disconnected: ${userId}`);
+        const reason =
+          reasonBuffer && reasonBuffer.length > 0
+            ? reasonBuffer.toString("utf8")
+            : "no_reason";
+        console.log(
+          `User disconnected: ${userId} (code=${code}, reason=${reason})`
+        );
       });
     }
   );
+
+  wss.on("close", () => {
+    clearInterval(heartbeatInterval);
+  });
 };
