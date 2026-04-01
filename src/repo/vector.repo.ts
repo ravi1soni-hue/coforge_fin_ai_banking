@@ -1,71 +1,182 @@
-import { VectorDocument } from "../models/vector.document.js";
+import { Kysely, sql } from "kysely";
+import { VectorDocumentsTable } from "../db/schema/vector_documents.js";
+
+/* ---------------- Database ---------------- */
+
+interface Database {
+  vector_documents: VectorDocumentsTable;
+}
+
+/* ---------------- Types ---------------- */
+
+export interface VectorSearchOptions {
+  topK?: number;
+  domain?: string;
+  facets?: string[];   // ✅ multiple facets
+  source?: string;
+}
+
+export interface CreateVectorDocumentInput {
+  user_id: string;
+  content: string;
+  embedding: readonly number[];
+  domain?: string | null;
+  facet?: string | null;
+  source?: string | null;
+  metadata?: unknown;
+  embedding_model: string;
+  embedding_version?: number;
+}
 
 export interface VectorSearchResult {
-  doc: VectorDocument;
-  score: number;
+  id: string;
+  content: string;
+  metadata: unknown;
+  distance: number;
 }
+
+
+
+/* ======================================================
+ * VectorRepository (explicit methods, no mode switching)
+ * ====================================================== */
 
 export class VectorRepository {
-  private readonly documents: VectorDocument[] = [];
+  private readonly db: Kysely<Database>;
+  constructor({
+    db,
+  }: {
+    db: Kysely<Database>;
+  }) {
+    this.db = db;
 
-  /**
-   * Store a single vector document
-   */
-  addDocument(doc: VectorDocument): void {
-    this.documents.push(doc);
+    console.log(
+      "✅ db REAL instance:",
+      db.constructor.name
+    );
   }
 
-  /**
-   * Bulk insert vector documents
-   */
-  addDocuments(docs: VectorDocument[] = []): void {
-    this.documents.push(...docs);
+
+  /* =====================================================
+   * DATABASE IMPLEMENTATION (production)
+   * ===================================================== */
+
+  async insertDb(input: CreateVectorDocumentInput): Promise<string> {
+    this.ensureDb();
+
+    return this.db!.transaction().execute(async (trx) => {
+      const result = await trx
+        .insertInto("vector_documents")
+        .values({
+          user_id: input.user_id,
+          content: input.content,
+
+          // ✅ FIX: proper pgvector cast
+          embedding: sql`${JSON.stringify(input.embedding)}::vector`,
+
+          domain: input.domain ?? null,
+          facet: input.facet ?? null,
+          source: input.source ?? null,
+          metadata: input.metadata ?? {},
+          embedding_model: input.embedding_model,
+          embedding_version: input.embedding_version ?? 1,
+          is_active: true,
+        })
+        .returning("id")
+        .executeTakeFirstOrThrow();
+
+      return result.id;
+    });
   }
 
-  /**
-   * Get top-K similar documents
-   */
-  findSimilar(
-    queryEmbedding: number[],
-    topK: number = 5,
-    filterFn?: (doc: VectorDocument) => boolean
-  ): VectorSearchResult[] {
-    const scored: VectorSearchResult[] = [];
+  async bulkInsertDb(docs: CreateVectorDocumentInput[]): Promise<void> {
+    if (!docs.length) return;
+    this.ensureDb();
 
-    for (const doc of this.documents) {
-      if (filterFn && !filterFn(doc)) continue;
-
-      const score = this.cosineSimilarity(
-        queryEmbedding,
-        doc.embedding
-      );
-
-      scored.push({ doc, score });
-    }
-
-    return scored
-      .sort((a, b) => b.score - a.score)
-      .slice(0, topK);
+    await this.db!.transaction().execute(async (trx) => {
+      await trx
+        .insertInto("vector_documents")
+        .values(
+          docs.map((d) => ({
+            user_id: d.user_id,
+            content: d.content,
+            embedding: sql`${JSON.stringify(d.embedding)}::vector`,
+            domain: d.domain ?? null,
+            facet: d.facet ?? null,
+            source: d.source ?? null,
+            metadata: d.metadata ?? {},
+            embedding_model: d.embedding_model,
+            embedding_version: d.embedding_version ?? 1,
+            is_active: true,
+          }))
+        )
+        .execute();
+    });
   }
 
-  /**
-   * Cosine similarity between two vectors
-   */
-  private cosineSimilarity(vecA: number[], vecB: number[]): number {
-    if (vecA.length !== vecB.length) {
-      throw new Error("Vector dimensions do not match");
+  async searchDb(
+    userId: string,
+    queryEmbedding: readonly number[],
+    options: VectorSearchOptions = {}
+  ): Promise<VectorSearchResult[]> {
+    this.ensureDb();
+  
+    const { topK = 5, domain, facets, source } = options;
+  
+    let query = this.db!
+      .selectFrom("vector_documents")
+      .select([
+        "id",
+        "content",
+        "metadata",
+  
+        // ✅ FIX: explicit vector cast
+        sql<number>`embedding <-> ${sql`${JSON.stringify(queryEmbedding)}::vector`}`
+          .as("distance"),
+      ])
+      .where("user_id", "=", userId)
+      .where("is_active", "=", true);
+  
+    if (domain) {
+      query = query.where("domain", "=", domain);
     }
-
-    let dot = 0;
-    let normA = 0;
-    let normB = 0;
-
-    for (let i = 0; i < vecA.length; i++) {
-      dot += vecA[i] * vecB[i];
-      normA += vecA[i] * vecA[i];
-      normB += vecB[i] * vecB[i];
+  
+    if (facets?.length) {
+      query = query.where("facet", "in", facets);
     }
+  
+    if (source) {
+      query = query.where("source", "=", source);
+    }
+  
+    return query
+      .orderBy("distance", "asc")
+      .limit(topK)
+      .execute();
+  }
 
-    return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+  async deactivateDb(id: string, userId: string): Promise<void> {
+    this.ensureDb();
+
+    await this.db!.transaction().execute(async (trx) => {
+      await trx
+        .updateTable("vector_documents")
+        .set({
+          is_active: false,
+          updated_at: sql`EXTRACT(EPOCH FROM now()) * 1000`,
+        })
+        .where("id", "=", id)
+        .where("user_id", "=", userId)
+        .execute();
+    });
+  }
+
+  /* ---------------- Internal guard ---------------- */
+
+  private ensureDb(): void {
+    if (!this.db) {
+      throw new Error("Database instance not configured for DB operations");
+    }
   }
 }
+

@@ -105,7 +105,7 @@ Return ONLY valid JSON:
       vectorQueryService.getContext(
         state.userId,
         `${FACET_CANONICAL_QUERY[facet]} for user ${state.userId}`,
-        { topK: 3 }
+        { topK: 3,facets: [] }
       )
     )
   );

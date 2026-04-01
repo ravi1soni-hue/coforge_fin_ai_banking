@@ -1,6 +1,13 @@
 ### Upload TEXT Stream
+
 POST http://localhost:3000/api/upload/text
 Content-Type: text/plain
+X-User-Id: 123e4567
+X-Domain: finance
+X-Facet: cashflow_summary
+X-Source: uk_personal_financial_statement
+X-Currency: GBP
+
 
 Stream Name: uk_personal_financial_statement
 
