@@ -127,7 +127,7 @@ export const initWebSocket = (server: any): void => {
        * Message handler
        */
       ws.on("message", async (message: Buffer) => {
-        let requestId = crypto.randomUUID();
+        let requestId: string = crypto.randomUUID();
         let sessionId: string | undefined;
 
         try {
