@@ -124,7 +124,7 @@ export const initWebSocket = (server: any): void => {
       trackedClient.isAlive = false;
       trackedClient.ping();
     });
-  }, 30000);
+  }, 5000);
 
   server.on("close", () => {
     clearInterval(heartbeatInterval);
@@ -143,18 +143,24 @@ export const initWebSocket = (server: any): void => {
         console.warn("Rejected websocket upgrade for unsupported path", {
           path: rawPath,
           host: req.headers.host,
+          url: req.url,
         });
-        socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+        socket.write("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n");
         socket.destroy();
         return;
       }
 
+      console.log("Processing WebSocket upgrade", { url: req.url, userId: url.searchParams.get("userId") });
       wss.handleUpgrade(req, socket, head, (ws) => {
         wss.emit("connection", ws, req);
       });
     } catch (err) {
       console.error("WebSocket upgrade error:", err);
-      socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+      try {
+        socket.write("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n");
+      } catch {
+        // Socket may already be closed
+      }
       socket.destroy();
     }
   });
