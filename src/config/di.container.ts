@@ -8,6 +8,7 @@ import { OpenAIClient } from "../agent_orchastration/llm/openAIClient.js";
 import { ChatService } from "../services/chat/chat.service.js";
 import { ENV } from "./env.js";
 import { db } from "../db.js";
+import { MarketDataService } from "../agent_orchastration/services/marketData.service.js";
 
 const compiledGraph = financialAssistantGraph.compile();
 export const container = createContainer();
@@ -30,6 +31,7 @@ assistantGraph: asValue(compiledGraph),
 
 assistantService: asClass(FinancialAssistantService).singleton(),
 llmClient : asClass(OpenAIClient).singleton(),
+marketDataService: asClass(MarketDataService).singleton(),
 
 chatService: asClass(ChatService).singleton()
 });

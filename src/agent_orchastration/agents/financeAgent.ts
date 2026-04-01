@@ -2,6 +2,8 @@ import { GraphStateType } from "../graph/state.js";
 import { LlmClient } from "../llm/llmClient.js";
 import { VectorQueryService } from "../services/vector.query.service.js";
 import { RunnableConfig } from "@langchain/core/runnables";
+import { buildDeterministicSnapshot } from "../services/deterministicFinance.service.js";
+import { MarketDataService } from "../services/marketData.service.js";
 
 const ALLOWED_FINANCIAL_FACETS = [
   "income",
@@ -26,6 +28,8 @@ export const financeAgent = async (
   const llm = config.configurable?.llm as LlmClient;
   const vectorQueryService =
     config.configurable?.vectorQueryService as VectorQueryService;
+  const marketDataService =
+    config.configurable?.marketDataService as MarketDataService | undefined;
 
   if (!llm) {
     throw new Error("LlmClient not provided to graph");
@@ -105,16 +109,84 @@ ${facetsToExtract.map(f => `  "${f}": object | number | null`).join(",\n")}
   // Step 4: Merge — knownFacts-derived values win over vector-retrieved values
   const fallbackFinanceData = buildFallbackFinanceData(knownFacts);
   const profileFinanceData = buildFinanceDataFromProfile(knownFacts);
+  const mergedFinanceData: Record<string, unknown> = {
+    ...vectorFinanceData,
+    ...profileFinanceData,
+    ...fallbackFinanceData,
+    cashflow_summary: {
+      ...((vectorFinanceData.cashflow_summary as Record<string, unknown>) ?? {}),
+      ...(fallbackFinanceData.cashflow_summary as Record<string, unknown>),
+    },
+  };
+
+  const userCurrency =
+    typeof (mergedFinanceData.cashflow_summary as Record<string, unknown> | undefined)?.currency === "string"
+      ? String((mergedFinanceData.cashflow_summary as Record<string, unknown>).currency)
+      : "GBP";
+
+  const marketInvestments = Array.isArray((mergedFinanceData.investments as Record<string, unknown> | undefined)?.items)
+    ? ((mergedFinanceData.investments as Record<string, unknown>).items as Array<Record<string, unknown>>).map((item) => ({
+        type: typeof item.type === "string" ? item.type : "Investment",
+        currentValue: parseNumeric(item.currentValue) ?? 0,
+        monthlyContribution: parseNumeric(item.monthlyContribution),
+      }))
+    : [];
+
+  const marketTransactions = Array.isArray(mergedFinanceData.transactions)
+    ? (mergedFinanceData.transactions as Array<Record<string, unknown>>).reduce<
+        Array<{ date: string; type: "CREDIT" | "DEBIT"; amount: number; category?: string }>
+      >((acc, tx) => {
+        const date = typeof tx.date === "string" ? tx.date : undefined;
+        const type = typeof tx.type === "string" ? tx.type.toUpperCase() : undefined;
+        const amount = parseNumeric(tx.amount);
+        if (!date || (type !== "CREDIT" && type !== "DEBIT") || amount === undefined) {
+          return acc;
+        }
+
+        acc.push({
+          date,
+          type: type as "CREDIT" | "DEBIT",
+          amount,
+          category: typeof tx.category === "string" ? tx.category : undefined,
+        });
+        return acc;
+      }, [])
+    : [];
+
+  const marketData = marketDataService
+    ? await marketDataService.buildMarketReferenceBundle({
+        userCurrency,
+        investments: marketInvestments,
+        transactions: marketTransactions,
+      })
+    : {
+        generatedAt: new Date().toISOString(),
+        baseCurrency: userCurrency,
+        performance: {
+          period: "unavailable",
+          confidence: {
+            label: "none" as const,
+            score: 0,
+            flags: ["market_data_service_not_configured"],
+          },
+          isComputable: false,
+        },
+        references: [],
+      };
+
+  const deterministicSnapshot = buildDeterministicSnapshot({
+    ...state,
+    financeData: {
+      ...mergedFinanceData,
+      marketData,
+    },
+  });
 
   return {
     financeData: {
-      ...vectorFinanceData,
-      ...profileFinanceData,
-      ...fallbackFinanceData,
-      cashflow_summary: {
-        ...((vectorFinanceData.cashflow_summary as Record<string, unknown>) ?? {}),
-        ...(fallbackFinanceData.cashflow_summary as Record<string, unknown>),
-      },
+      ...mergedFinanceData,
+      marketData,
+      deterministic_snapshot: deterministicSnapshot,
     },
   };
 };
