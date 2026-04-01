@@ -26,20 +26,25 @@ const sanitizeAffordabilityResult = (state, result) => {
             ? searchResult.extractedPrices[0].amount
             : undefined;
     const reportedCost = parsePositiveNumber(result.costs?.total ?? undefined);
-    // Priority: user-provided > web search > LLM-estimated (untrusted)
-    const trustedCost = knownFactsBudget ?? webSearchCost ?? undefined;
+    // Priority 1: user-provided  Priority 2: DDG web search  Priority 3: LLM training estimate  Priority 4: ask user
+    const trustedCost = knownFactsBudget ?? webSearchCost ?? reportedCost;
     const assumptions = Array.isArray(result.assumptions) ? [...result.assumptions] : [];
     if (!trustedCost) {
-        assumptions.push("No reliable user-provided or web-searched numeric goal cost was available; affordability verdict should remain conditional until target amount is provided.");
+        assumptions.push("No numeric goal cost could be determined; user should provide the target amount for an accurate verdict.");
     }
     else if (webSearchCost && !knownFactsBudget) {
-        assumptions.push(`Cost sourced from live DuckDuckGo Instant Answer search (query: "${searchResult?.query ?? ""}", confidence: ${searchResult?.confidence ?? "partial"}).`);
+        assumptions.push(`Cost sourced from live DuckDuckGo search (query: "${searchResult?.query ?? ""}", confidence: ${searchResult?.confidence ?? "partial"}).`);
+    }
+    else if (reportedCost && !knownFactsBudget && !webSearchCost) {
+        assumptions.push("Cost is a market estimate based on model training data. Confirm the actual price before making any financial decision.");
     }
     const costSource = knownFactsBudget
         ? "user_input"
         : webSearchCost
             ? "web_search"
-            : "missing";
+            : reportedCost
+                ? "unverified"
+                : "missing";
     return {
         ...result,
         assumptions,
@@ -82,8 +87,10 @@ Task:
   * If user provided budget/amount in knownFacts, use it directly as goal cost and set costs.source="user_input".
   * If "Live price search result" above has confidence="confirmed" or "partial" and contains extracted prices, use the provided priceRange midpoint or the first extractedPrice as costs.total and set costs.source="web_search".
   * If neither user amount nor web search price is available, set costs.total to null and costs.source="missing".
-  * Never invent or hallucinate a cost. Never return 0 or negative.
-  * Do not be optimistic – if web search gave a range, prefer the higher end.
+  * If neither user amount nor web search price is available but the item is a well-known consumer product (e.g. iPhone model, specific car, laptop brand), use your training-data knowledge of its typical retail price and set costs.source="unverified".
+  * Only set costs.total=null and costs.source="missing" when the item is genuinely custom or unidentifiable with no price signal at all.
+  * Never return 0 or negative for affordability cost.
+  * Do not be optimistic – when uncertain, use the higher end of a known price range.
 - For investment performance: provide period profit/loss summary.
 - For subscriptions: provide total and top items.
 - For bank statement: provide inflow/outflow/net.

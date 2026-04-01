@@ -85,7 +85,9 @@ const buildAffordabilityReasoningAnswer = (state) => {
     const knownFactTarget = parseNumeric(state.knownFacts?.targetAmount ?? state.knownFacts?.budget);
     const researchCostSource = typeof costsData.source === "string" ? costsData.source.toLowerCase() : "";
     const researchCost = parseNumeric(costsData.total);
-    const trustedResearchCost = (researchCostSource === "user_input" || researchCostSource === "web_search") &&
+    const trustedResearchCost = (researchCostSource === "user_input" ||
+        researchCostSource === "web_search" ||
+        researchCostSource === "unverified") &&
         isPositiveNumber(researchCost)
         ? researchCost
         : undefined;
@@ -150,7 +152,11 @@ const buildAffordabilityReasoningAnswer = (state) => {
         lines.push(`A realistic budget range is around ${formatMoney(minCost, currency)} to ${formatMoney(maxCost, currency)}.`);
     }
     else if (estimatedCost !== undefined) {
-        const costSourceNote = researchCostSource === "web_search" ? " (sourced via live search)" : "";
+        const costSourceNote = researchCostSource === "web_search"
+            ? " (sourced via live search)"
+            : researchCostSource === "unverified"
+                ? " (market estimate — confirm price before purchase)"
+                : "";
         lines.push(`Estimated total cost is about ${formatMoney(estimatedCost, currency)}${costSourceNote}.`);
     }
     if (shortfallAmount !== undefined && shortfallAmount > 0) {

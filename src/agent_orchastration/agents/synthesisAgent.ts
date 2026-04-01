@@ -124,7 +124,9 @@ const buildAffordabilityReasoningAnswer = (
     typeof costsData.source === "string" ? costsData.source.toLowerCase() : "";
   const researchCost = parseNumeric(costsData.total);
   const trustedResearchCost =
-    (researchCostSource === "user_input" || researchCostSource === "web_search") &&
+    (researchCostSource === "user_input" ||
+      researchCostSource === "web_search" ||
+      researchCostSource === "unverified") &&
     isPositiveNumber(researchCost)
       ? researchCost
       : undefined;
@@ -206,7 +208,11 @@ const buildAffordabilityReasoningAnswer = (
     );
   } else if (estimatedCost !== undefined) {
     const costSourceNote =
-      researchCostSource === "web_search" ? " (sourced via live search)" : "";
+      researchCostSource === "web_search"
+        ? " (sourced via live search)"
+        : researchCostSource === "unverified"
+        ? " (market estimate — confirm price before purchase)"
+        : "";
     lines.push(
       `Estimated total cost is about ${formatMoney(estimatedCost, currency)}${costSourceNote}.`
     );
