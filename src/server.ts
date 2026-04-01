@@ -4,6 +4,7 @@ import { db } from "./db.js";
 import app from "./app.js";
 import { ENV } from "./config/env.js";
 import { initWebSocket } from "./sockets/socket.js";
+import { bootstrapBankingUserVectors } from "./services/bankingUserVector.bootstrap.js";
 
 import ingestionRoutes from "./routes/ingestion.route.js";
 //import { configureLangSmith } from "./config/langsmith.config.js";
@@ -22,6 +23,9 @@ async function start() {
     
 
 app.use("/api", ingestionRoutes);
+
+  // Index local banking profile in vector memory at startup.
+  await bootstrapBankingUserVectors();
  
 // Initialize WebSocket
     initWebSocket(server);

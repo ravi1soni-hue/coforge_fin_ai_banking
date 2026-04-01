@@ -36,17 +36,6 @@ export const financeAgent = async (
 
   const knownFacts = state.knownFacts ?? {};
 
-  // ✅ Fast path: rich banking profile provided — skip vector retrieval entirely
-  // knownFacts.hasBankingProfile is set by ChatService when the client sends
-  // a full userProfile/accounts/loans/subscriptions/investments/transactions payload.
-  if (knownFacts.hasBankingProfile === true) {
-    return {
-      financeData: buildFinanceDataFromProfile(knownFacts),
-    };
-  }
-
-  // ✅ Fallback path: no rich profile — use vector RAG
-
   // Step 1: Decide what financial data is needed
   const facetDecision = await llm.generateJSON<{
     requiredFacets: FinancialFacet[];
@@ -85,8 +74,11 @@ Return format:
 
   // Step 2: Fetch RAG financial context
   const context = await vectorQueryService.getContext(
-    `complete financial data for user ${state.userId}`,
-    { topK: 8 }
+    `financial data for user ${state.userId}. Question: ${state.question}`,
+    {
+      topK: 8,
+      filter: (doc) => doc.metadata?.userId === state.userId,
+    }
   );
 
   // Step 3: Extract only the required facets from vector context
@@ -112,10 +104,12 @@ ${facetsToExtract.map(f => `  "${f}": object | number | null`).join(",\n")}
 
   // Step 4: Merge — knownFacts-derived values win over vector-retrieved values
   const fallbackFinanceData = buildFallbackFinanceData(knownFacts);
+  const profileFinanceData = buildFinanceDataFromProfile(knownFacts);
 
   return {
     financeData: {
       ...vectorFinanceData,
+      ...profileFinanceData,
       ...fallbackFinanceData,
       cashflow_summary: {
         ...((vectorFinanceData.cashflow_summary as Record<string, unknown>) ?? {}),
