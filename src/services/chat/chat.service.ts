@@ -59,13 +59,17 @@ export class ChatService {
       await this.loadFinancialFactsFromDb(request.userId);
     const persistedFacts =
       this.sessionKnownFacts.get(sessionKey) ?? {};
+    const normalizedIncomingFacts =
+      this.normalizeKnownFactsPayload(
+        request.knownFacts ?? {}
+      );
     const extractedFacts = this.extractFactsFromMessage(
       request.message
     );
     const mergedKnownFacts = {
       ...persistedProfileFacts,
       ...persistedFacts,
-      ...(request.knownFacts ?? {}),
+      ...normalizedIncomingFacts,
       ...extractedFacts,
     };
 
@@ -277,6 +281,245 @@ export class ChatService {
         : {}),
       ...(currency ? { currency } : {}),
     };
+  }
+
+  private normalizeKnownFactsPayload(
+    source: Record<string, unknown>
+  ): Record<string, unknown> {
+    if (!this.isObject(source)) {
+      return {};
+    }
+
+    const normalized: Record<string, unknown> = {
+      ...source,
+    };
+
+    const userProfile = this.asObject(source.userProfile);
+    const employment = this.asObject(userProfile?.employment);
+
+    const monthlyIncomeFromEmployment = this.parseNumericFact(
+      employment?.monthlyIncome
+    );
+
+    const accounts = this.asObjectArray(source.accounts);
+    const totalBalance = accounts.reduce((sum, account) => {
+      const balance = this.parseNumericFact(account.balance);
+      return sum + (balance ?? 0);
+    }, 0);
+
+    const savingsAccount = accounts.find(
+      (account) =>
+        typeof account.type === "string" &&
+        account.type.toLowerCase() === "savings"
+    );
+
+    const savingsBalance = this.parseNumericFact(
+      savingsAccount?.balance
+    );
+
+    const loans = this.asObjectArray(source.loans);
+    const monthlyLoanEmi = loans.reduce((sum, loan) => {
+      const emi = this.parseNumericFact(loan.emi);
+      return sum + (emi ?? 0);
+    }, 0);
+
+    const subscriptions = this.asObjectArray(
+      source.subscriptions
+    );
+    const monthlySubscriptionSpend = subscriptions.reduce(
+      (sum, item) => {
+        const amount = this.parseNumericFact(item.amount);
+        return sum + (amount ?? 0);
+      },
+      0
+    );
+
+    const transactions = this.asObjectArray(source.transactions);
+    const txStats = this.deriveTransactionStats(transactions);
+
+    const monthlyIncome =
+      this.parseNumericFact(source.monthlyIncome) ??
+      this.parseNumericFact(source.monthlyNetIncome) ??
+      monthlyIncomeFromEmployment ??
+      txStats.averageMonthlyCredit;
+
+    const baseMonthlyExpenses =
+      this.parseNumericFact(source.monthlyExpenses) ??
+      this.parseNumericFact(source.monthlyCommittedExpenses) ??
+      txStats.averageMonthlyDebit;
+
+    const monthlyExpenses =
+      baseMonthlyExpenses !== undefined
+        ? baseMonthlyExpenses + monthlyLoanEmi
+        : undefined;
+
+    const netMonthlySavings =
+      this.parseNumericFact(source.netMonthlySavings) ??
+      (monthlyIncome !== undefined &&
+      monthlyExpenses !== undefined
+        ? monthlyIncome - monthlyExpenses
+        : undefined);
+
+    const currency =
+      typeof source.currency === "string"
+        ? source.currency
+        : typeof userProfile?.currency === "string"
+        ? userProfile.currency
+        : undefined;
+
+    if (userProfile?.name) {
+      normalized.userName = userProfile.name;
+    }
+
+    if (monthlyIncome !== undefined) {
+      normalized.monthlyIncome = monthlyIncome;
+      normalized.monthlyNetIncome = monthlyIncome;
+    }
+
+    if (monthlyExpenses !== undefined) {
+      normalized.monthlyExpenses = monthlyExpenses;
+      normalized.monthlyCommittedExpenses = monthlyExpenses;
+    }
+
+    if (netMonthlySavings !== undefined) {
+      normalized.netMonthlySavings = netMonthlySavings;
+    }
+
+    if (totalBalance > 0) {
+      normalized.currentBalance = totalBalance;
+    }
+
+    if (savingsBalance !== undefined) {
+      normalized.availableSavings = savingsBalance;
+    }
+
+    if (monthlyLoanEmi > 0) {
+      normalized.monthlyLoanEmi = monthlyLoanEmi;
+    }
+
+    if (monthlySubscriptionSpend > 0) {
+      normalized.monthlySubscriptionSpend =
+        monthlySubscriptionSpend;
+    }
+
+    if (txStats.averageMonthlyDebit !== undefined) {
+      normalized.averageMonthlyDebit =
+        txStats.averageMonthlyDebit;
+    }
+
+    if (txStats.averageMonthlyCredit !== undefined) {
+      normalized.averageMonthlyCredit =
+        txStats.averageMonthlyCredit;
+    }
+
+    if (currency) {
+      normalized.currency = currency;
+    }
+
+    const savingsGoals = this.asObjectArray(source.savingsGoals);
+    if (savingsGoals.length > 0) {
+      normalized.savingsGoals = savingsGoals.map((goal) => ({
+        goalId: goal.goalId,
+        targetAmount: this.parseNumericFact(goal.targetAmount),
+        currentSaved: this.parseNumericFact(goal.currentSaved),
+        targetDate: goal.targetDate,
+        status: goal.status,
+      }));
+    }
+
+    normalized.hasBankingProfile = true;
+    return normalized;
+  }
+
+  private deriveTransactionStats(
+    transactions: Record<string, unknown>[]
+  ): {
+    averageMonthlyCredit?: number;
+    averageMonthlyDebit?: number;
+  } {
+    if (transactions.length === 0) {
+      return {};
+    }
+
+    const monthlyCredits = new Map<string, number>();
+    const monthlyDebits = new Map<string, number>();
+
+    for (const tx of transactions) {
+      const date =
+        typeof tx.date === "string" ? tx.date : undefined;
+      if (!date || date.length < 7) {
+        continue;
+      }
+
+      const monthKey = date.slice(0, 7);
+      const type =
+        typeof tx.type === "string"
+          ? tx.type.toUpperCase()
+          : "";
+      const amount = this.parseNumericFact(tx.amount) ?? 0;
+
+      if (amount <= 0) {
+        continue;
+      }
+
+      if (type === "CREDIT") {
+        monthlyCredits.set(
+          monthKey,
+          (monthlyCredits.get(monthKey) ?? 0) + amount
+        );
+      } else if (type === "DEBIT") {
+        monthlyDebits.set(
+          monthKey,
+          (monthlyDebits.get(monthKey) ?? 0) + amount
+        );
+      }
+    }
+
+    return {
+      averageMonthlyCredit: this.averageMapValues(
+        monthlyCredits
+      ),
+      averageMonthlyDebit: this.averageMapValues(
+        monthlyDebits
+      ),
+    };
+  }
+
+  private averageMapValues(
+    input: Map<string, number>
+  ): number | undefined {
+    if (input.size === 0) {
+      return undefined;
+    }
+
+    let total = 0;
+    for (const value of input.values()) {
+      total += value;
+    }
+
+    return total / input.size;
+  }
+
+  private isObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null;
+  }
+
+  private asObject(
+    value: unknown
+  ): Record<string, unknown> | undefined {
+    return this.isObject(value) ? value : undefined;
+  }
+
+  private asObjectArray(
+    value: unknown
+  ): Record<string, unknown>[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value.filter((item): item is Record<string, unknown> =>
+      this.isObject(item)
+    );
   }
 
   private parseNumericFact(
