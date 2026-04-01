@@ -4,7 +4,8 @@ This document defines the WebSocket request/response DTOs for the AI Banking Ass
 
 ## Endpoint
 
-- WebSocket URL: `ws://<host>:<port>?userId=<user-id>`
+- WebSocket URL (recommended): `wss://<host>/ws?userId=<user-id>`
+- Legacy URL (also supported): `wss://<host>/?userId=<user-id>`
 - Version: `v=1`
 
 ## Client -> Server DTO

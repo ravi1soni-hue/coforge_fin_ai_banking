@@ -96,7 +96,26 @@ const parseIncomingMessage = (rawMessage: string) => {
  * Initialize WebSocket server
  */
 export const initWebSocket = (server: any): void => {
-  const wss = new WebSocketServer({ server });
+  const wss = new WebSocketServer({ noServer: true });
+
+  server.on("upgrade", (req: IncomingMessage, socket: any, head: Buffer) => {
+    try {
+      const url = new URL(req.url ?? "", `http://${req.headers.host}`);
+      const pathname = url.pathname || "/";
+
+      // Accept both legacy root path and explicit /ws path.
+      if (pathname !== "/" && pathname !== "/ws") {
+        socket.destroy();
+        return;
+      }
+
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit("connection", ws, req);
+      });
+    } catch {
+      socket.destroy();
+    }
+  });
 
   wss.on(
     "connection",
@@ -171,6 +190,10 @@ export const initWebSocket = (server: any): void => {
             )
           );
         }
+      });
+
+      ws.on("error", (err) => {
+        console.error(`WebSocket error for user ${userId}:`, err);
       });
 
       /**
