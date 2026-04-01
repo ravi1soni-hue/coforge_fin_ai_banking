@@ -1,13 +1,33 @@
 let socket;
+let connectAttempts = 0;
 
 const statusEl = document.getElementById("status");
 const logEl = document.getElementById("log");
+const diagEl = document.getElementById("diag");
 const wsUrlEl = document.getElementById("wsUrl");
+const autoUrlEl = document.getElementById("autoUrl");
+const pathEl = document.getElementById("path");
 const userIdEl = document.getElementById("userId");
 const sessionIdEl = document.getElementById("sessionId");
 const requestIdEl = document.getElementById("requestId");
 const messageEl = document.getElementById("message");
 const knownFactsEl = document.getElementById("knownFacts");
+
+const closeCodeHints = {
+  1000: "Normal closure.",
+  1001: "Endpoint is going away (server restart/deploy).",
+  1002: "Protocol error.",
+  1003: "Unsupported data.",
+  1005: "No status code provided.",
+  1006: "Abnormal closure (often proxy/network/TLS issue).",
+  1007: "Invalid payload data.",
+  1008: "Policy violation.",
+  1009: "Message too big.",
+  1011: "Server internal error.",
+  1012: "Service restart.",
+  1013: "Try again later.",
+  1015: "TLS handshake failure.",
+};
 
 function randomId(prefix) {
   if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
@@ -23,6 +43,13 @@ function appendLog(label, data) {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
+function appendDiag(label, data) {
+  const timestamp = new Date().toISOString();
+  const body = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+  diagEl.textContent += `[${timestamp}] ${label}\n${body}\n\n`;
+  diagEl.scrollTop = diagEl.scrollHeight;
+}
+
 function setStatus(text) {
   statusEl.textContent = text;
 }
@@ -30,8 +57,10 @@ function setStatus(text) {
 function buildWsUrl() {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
   const host = window.location.host;
+  const path = (pathEl.value || "/").trim() || "/";
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const userId = encodeURIComponent(userIdEl.value.trim());
-  return `${protocol}://${host}/?userId=${userId}`;
+  return `${protocol}://${host}${normalizedPath}?userId=${userId}`;
 }
 
 function parseKnownFacts() {
@@ -50,16 +79,40 @@ function connectSocket() {
     return;
   }
 
-  const url = wsUrlEl.value.trim() || buildWsUrl();
+  connectAttempts += 1;
+  const autoUrl = autoUrlEl.checked;
+  const url = autoUrl ? buildWsUrl() : wsUrlEl.value.trim();
+
+  if (!url) {
+    appendLog("error", "WebSocket URL is empty");
+    return;
+  }
+
   wsUrlEl.value = url;
+
+  appendDiag("connect_attempt", {
+    attempt: connectAttempts,
+    url,
+    pageProtocol: window.location.protocol,
+    pageHost: window.location.host,
+    userId: userIdEl.value.trim(),
+    sessionId: sessionIdEl.value.trim(),
+    autoUrl,
+  });
 
   socket = new WebSocket(url);
 
   setStatus("Connecting...");
+  appendDiag("socket_ready_state", socket.readyState);
 
   socket.onopen = () => {
     setStatus("Connected");
     appendLog("connected", url);
+    appendDiag("socket_open", {
+      readyState: socket.readyState,
+      protocol: socket.protocol,
+      extensions: socket.extensions,
+    });
   };
 
   socket.onmessage = (event) => {
@@ -70,16 +123,32 @@ function connectSocket() {
       parsed = event.data;
     }
     appendLog("recv", parsed);
+    appendDiag("message_received", {
+      type: typeof parsed,
+      hasStatus: Boolean(parsed && parsed.status),
+    });
   };
 
-  socket.onerror = () => {
+  socket.onerror = (event) => {
     setStatus("Socket error");
     appendLog("error", "Socket error event");
+    appendDiag("socket_error", {
+      eventType: event.type,
+      readyState: socket.readyState,
+      url,
+    });
   };
 
   socket.onclose = (event) => {
     setStatus(`Disconnected (${event.code})`);
     appendLog("closed", { code: event.code, reason: event.reason || "" });
+    appendDiag("socket_close", {
+      code: event.code,
+      reason: event.reason || "",
+      wasClean: event.wasClean,
+      readyState: socket.readyState,
+      hint: closeCodeHints[event.code] || "No known hint for this code.",
+    });
   };
 }
 
@@ -136,18 +205,118 @@ function sendPlainText() {
 
 function clearLog() {
   logEl.textContent = "";
+  diagEl.textContent = "";
+}
+
+async function runConnectivityCheck() {
+  const healthUrl = `${window.location.origin}/health`;
+  const wsUrl = autoUrlEl.checked ? buildWsUrl() : wsUrlEl.value.trim();
+
+  appendDiag("connectivity_check_start", {
+    healthUrl,
+    wsUrl,
+  });
+
+  try {
+    const resp = await fetch(healthUrl);
+    const text = await resp.text();
+    appendDiag("health_check", {
+      ok: resp.ok,
+      status: resp.status,
+      body: text,
+    });
+  } catch (err) {
+    appendDiag("health_check_error", err instanceof Error ? err.message : String(err));
+  }
+
+  try {
+    await new Promise((resolve) => {
+      const probe = new WebSocket(wsUrl);
+      const timeout = setTimeout(() => {
+        appendDiag("ws_probe_timeout", "No open event within 5 seconds");
+        probe.close();
+        resolve();
+      }, 5000);
+
+      probe.onopen = () => {
+        clearTimeout(timeout);
+        appendDiag("ws_probe_open", {
+          protocol: probe.protocol,
+          extensions: probe.extensions,
+        });
+        probe.close(1000, "probe complete");
+        resolve();
+      };
+
+      probe.onclose = (event) => {
+        clearTimeout(timeout);
+        appendDiag("ws_probe_close", {
+          code: event.code,
+          reason: event.reason || "",
+          wasClean: event.wasClean,
+          hint: closeCodeHints[event.code] || "No known hint for this code.",
+        });
+        resolve();
+      };
+
+      probe.onerror = () => {
+        appendDiag("ws_probe_error", "Probe socket error event received");
+      };
+    });
+  } catch (err) {
+    appendDiag("ws_probe_exception", err instanceof Error ? err.message : String(err));
+  }
+}
+
+async function copyLogs() {
+  const fullLog = [
+    "=== SOCKET LOG ===",
+    logEl.textContent,
+    "=== DIAGNOSTICS ===",
+    diagEl.textContent,
+  ].join("\n");
+
+  try {
+    await navigator.clipboard.writeText(fullLog);
+    appendLog("info", "Logs copied to clipboard");
+  } catch {
+    appendLog("error", "Failed to copy logs. Copy manually from the page.");
+  }
 }
 
 function initDefaults() {
   userIdEl.value = randomId("test-user");
   sessionIdEl.value = randomId("session");
   wsUrlEl.value = buildWsUrl();
+  appendDiag("environment", {
+    origin: window.location.origin,
+    protocol: window.location.protocol,
+    host: window.location.host,
+    userAgent: navigator.userAgent,
+  });
 }
 
 document.getElementById("connectBtn").addEventListener("click", connectSocket);
 document.getElementById("disconnectBtn").addEventListener("click", disconnectSocket);
+document.getElementById("diagnoseBtn").addEventListener("click", runConnectivityCheck);
 document.getElementById("sendStructuredBtn").addEventListener("click", sendStructured);
 document.getElementById("sendPlainBtn").addEventListener("click", sendPlainText);
 document.getElementById("clearLogBtn").addEventListener("click", clearLog);
+document.getElementById("copyLogBtn").addEventListener("click", copyLogs);
+autoUrlEl.addEventListener("change", () => {
+  if (autoUrlEl.checked) {
+    wsUrlEl.value = buildWsUrl();
+  }
+});
+pathEl.addEventListener("input", () => {
+  if (autoUrlEl.checked) {
+    wsUrlEl.value = buildWsUrl();
+  }
+});
+userIdEl.addEventListener("input", () => {
+  if (autoUrlEl.checked) {
+    wsUrlEl.value = buildWsUrl();
+  }
+});
 
 initDefaults();

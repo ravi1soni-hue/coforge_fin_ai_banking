@@ -109,6 +109,16 @@
       <h1>AI Orchestration Socket Test</h1>
       <p class="hint">Use this page to test socket request/response flow against the current server.</p>
       <div class="status" id="status">Disconnected</div>
+      <div class="grid" style="margin-bottom:10px;">
+        <div>
+          <label for="autoUrl">Build URL Automatically</label>
+          <input id="autoUrl" type="checkbox" checked />
+        </div>
+        <div>
+          <label for="path">WebSocket Path</label>
+          <input id="path" value="/" />
+        </div>
+      </div>
       <div class="grid">
         <div>
           <label for="wsUrl">WebSocket URL</label>
@@ -130,6 +140,7 @@
       <div class="row" style="margin-top:10px;">
         <button id="connectBtn">Connect</button>
         <button class="secondary" id="disconnectBtn">Disconnect</button>
+        <button class="secondary" id="diagnoseBtn">Run Connectivity Check</button>
       </div>
     </div>
 
@@ -155,6 +166,14 @@
     <div class="card">
       <label>Socket Log</label>
       <div id="log" class="log"></div>
+      <div class="row" style="margin-top:10px;">
+        <button class="secondary" id="copyLogBtn">Copy Logs</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <label>Detailed Diagnostics</label>
+      <div id="diag" class="log"></div>
     </div>
   </div>
 
