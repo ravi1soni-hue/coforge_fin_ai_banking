@@ -144,6 +144,7 @@ export const initWebSocket = (server: any): void => {
           path: rawPath,
           host: req.headers.host,
         });
+        socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
         socket.destroy();
         return;
       }
@@ -151,7 +152,9 @@ export const initWebSocket = (server: any): void => {
       wss.handleUpgrade(req, socket, head, (ws) => {
         wss.emit("connection", ws, req);
       });
-    } catch {
+    } catch (err) {
+      console.error("WebSocket upgrade error:", err);
+      socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
       socket.destroy();
     }
   });
