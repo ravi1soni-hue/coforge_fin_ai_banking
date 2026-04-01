@@ -74,9 +74,16 @@ export const initWebSocket = (server) => {
     server.on("upgrade", (req, socket, head) => {
         try {
             const url = new URL(req.url ?? "", `http://${req.headers.host}`);
-            const pathname = url.pathname || "/";
+            const rawPath = url.pathname || "/";
+            const pathname = rawPath.endsWith("/") && rawPath.length > 1
+                ? rawPath.slice(0, -1)
+                : rawPath;
             // Accept both legacy root path and explicit /ws path.
             if (pathname !== "/" && pathname !== "/ws") {
+                console.warn("Rejected websocket upgrade for unsupported path", {
+                    path: rawPath,
+                    host: req.headers.host,
+                });
                 socket.destroy();
                 return;
             }

@@ -25,6 +25,9 @@ const parseNumeric = (value: unknown): number | undefined => {
   return undefined;
 };
 
+const isPositiveNumber = (value: number | undefined): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value > 0;
+
 const normalizeCurrency = (value: unknown): string => {
   if (typeof value !== "string" || !value.trim()) {
     return "GBP";
@@ -98,6 +101,10 @@ const buildAffordabilityReasoningAnswer = (
     state.researchData && typeof state.researchData === "object"
       ? (state.researchData as Record<string, unknown>)
       : {};
+  const costsData =
+    researchData.costs && typeof researchData.costs === "object"
+      ? (researchData.costs as Record<string, unknown>)
+      : {};
 
   const currency = normalizeCurrency(
     cashflow.currency ??
@@ -112,12 +119,19 @@ const buildAffordabilityReasoningAnswer = (
     (monthlyIncome !== undefined && monthlyExpenses !== undefined
       ? monthlyIncome - monthlyExpenses
       : undefined);
-  const estimatedCost = parseNumeric(
-    (researchData.costs as Record<string, unknown> | undefined)?.total ??
-      reasoning.estimatedTripCost ??
-      state.knownFacts?.targetAmount ??
-      state.knownFacts?.budget
-  );
+  const knownFactTarget = parseNumeric(state.knownFacts?.targetAmount ?? state.knownFacts?.budget);
+  const researchCostSource =
+    typeof costsData.source === "string" ? costsData.source.toLowerCase() : "";
+  const researchCost = parseNumeric(costsData.total);
+  const trustedResearchCost =
+    (researchCostSource === "user_input" || researchCostSource === "web_search") &&
+    isPositiveNumber(researchCost)
+      ? researchCost
+      : undefined;
+  const estimatedCostRaw = knownFactTarget ?? trustedResearchCost;
+  const estimatedCost = isPositiveNumber(estimatedCostRaw)
+    ? estimatedCostRaw
+    : undefined;
   const projectedNextMonthSavings = parseNumeric(reasoning.projectedNextMonthSavings);
   const shortfallAmount = parseNumeric(reasoning.shortfallAmount);
   const monthsToTarget = parseNumeric(reasoning.monthsToTargetAtCurrentSavingsRate);
@@ -137,7 +151,8 @@ const buildAffordabilityReasoningAnswer = (
       if (!costs || typeof costs !== "object") {
         return undefined;
       }
-      return parseNumeric((costs as Record<string, unknown>).total);
+      const value = parseNumeric((costs as Record<string, unknown>).total);
+      return isPositiveNumber(value) ? value : undefined;
     })
     .filter((value): value is number => value !== undefined);
   const comparableCosts = [
@@ -145,8 +160,12 @@ const buildAffordabilityReasoningAnswer = (
     ...alternativeTotals,
   ];
 
+  const hasTargetCost = estimatedCost !== undefined;
+
   const verdict =
-    affordableNextMonth === true || affordable === true
+    !hasTargetCost
+      ? "I can assess your affordability accurately once the target amount is provided."
+      : affordableNextMonth === true || affordable === true
       ? "Yes, this looks affordable on your current monthly cashflow."
       : shortfallAmount !== undefined && shortfallAmount > 0
       ? "Not comfortably affordable next month at your current run rate."
@@ -169,6 +188,16 @@ const buildAffordabilityReasoningAnswer = (
     lines.push(`Based on your ${evidenceParts.join(", ")} each month.`);
   }
 
+  if (estimatedCost === undefined) {
+    lines.push(
+      "I need the target purchase amount to give a reliable affordability verdict without guessing."
+    );
+    lines.push(
+      "Share the expected cost or your budget, and I will compute exact shortfall and timeline from your real cashflow."
+    );
+    return lines.join(" ");
+  }
+
   if (comparableCosts.length >= 2) {
     const minCost = Math.min(...comparableCosts);
     const maxCost = Math.max(...comparableCosts);
@@ -176,7 +205,11 @@ const buildAffordabilityReasoningAnswer = (
       `A realistic budget range is around ${formatMoney(minCost, currency)} to ${formatMoney(maxCost, currency)}.`
     );
   } else if (estimatedCost !== undefined) {
-    lines.push(`Estimated total cost is about ${formatMoney(estimatedCost, currency)}.`);
+    const costSourceNote =
+      researchCostSource === "web_search" ? " (sourced via live search)" : "";
+    lines.push(
+      `Estimated total cost is about ${formatMoney(estimatedCost, currency)}${costSourceNote}.`
+    );
   }
 
   if (shortfallAmount !== undefined && shortfallAmount > 0) {
@@ -218,6 +251,9 @@ export const synthesisAgent = async (
     if (
       state.isSuggestionIncluded &&
       state.suggestion &&
+      !/need the target purchase amount|target amount is provided/i.test(
+        reasoningEngineAffordabilityAnswer
+      ) &&
       !/want me to build|month-by-month savings plan/i.test(
         reasoningEngineAffordabilityAnswer
       )

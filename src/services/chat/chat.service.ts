@@ -250,6 +250,20 @@ export class ChatService {
       facts.queryType = "affordability";
     }
 
+    if (/\bhouse\b|\bhome\b|\bapartment\b|\bproperty\b|\bmortgage\b/i.test(text)) {
+      facts.goalType = facts.goalType ?? "house";
+      facts.queryType = "affordability";
+    }
+
+    if (/\bphone\b|\biphone\b|\bmobile\b|\bsmartphone\b|\blaptop\b/i.test(text)) {
+      facts.goalType = facts.goalType ?? "electronics";
+      facts.queryType = "affordability";
+    }
+
+    if (/\bbuy\b|\bpurchase\b|\bmajor expense\b|\bbig expense\b/i.test(text)) {
+      facts.queryType = facts.queryType ?? "affordability";
+    }
+
     if (/\bholiday|trip|travel|vacation|afford|budget\b/i.test(text)) {
       facts.queryType = facts.queryType ?? "affordability";
     }

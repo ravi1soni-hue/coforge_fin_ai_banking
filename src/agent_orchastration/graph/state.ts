@@ -35,6 +35,27 @@ export const GraphState = z.object({
     )
     .optional(),
 
+  // ✅ Live web price search result (DuckDuckGo Instant Answer, no API key)
+  priceSearchResult: z
+    .object({
+      query: z.string(),
+      source: z.literal("duckduckgo_ia"),
+      rawAbstract: z.string().optional(),
+      extractedPrices: z.array(
+        z.object({
+          amount: z.number(),
+          currency: z.string(),
+          label: z.string(),
+        })
+      ),
+      priceRange: z
+        .object({ min: z.number(), max: z.number(), currency: z.string() })
+        .optional(),
+      confidence: z.enum(["confirmed", "partial", "none"]),
+      searchedAt: z.string(),
+    })
+    .optional(),
+
   // ✅ Context-aware suggestion (intent-based)
   suggestion: z.string().optional(),
   isSuggestionIncluded: z.boolean().optional(),
