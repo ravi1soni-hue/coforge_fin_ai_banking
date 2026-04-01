@@ -14,12 +14,14 @@ export const reasoningAgent =async (
   }
 
   const reasoning = await llm.generateJSON<{
+    queryType: string;
     affordable: boolean;
     affordableNextMonth: boolean;
     estimatedTripCost: number;
     projectedNextMonthSavings: number;
     shortfallAmount: number;
     monthsToTargetAtCurrentSavingsRate: number;
+    keyMetrics: Array<{ label: string; value: string | number }>;
     risks: string[];
     suggestions: string[];
   }>(`
@@ -38,20 +40,27 @@ Current date:
 ${new Date().toISOString()}
 
 Task:
-- Evaluate whether this goal is affordable next month.
-- Estimate trip/goal cost from plan data.
-- Estimate projected savings available by next month.
-- If unaffordable, calculate shortfall and months needed at current savings rate.
+- Determine query type from data (affordability, investment_performance, subscriptions, bank_statement, general_finance).
+- For affordability queries:
+  * Evaluate whether this goal is affordable next month.
+  * Estimate goal cost from plan data.
+  * Estimate projected savings available by next month.
+  * If unaffordable, calculate shortfall and months needed at current savings rate.
+- For non-affordability queries:
+  * Keep affordability fields conservative defaults.
+  * Provide useful key metrics and practical suggestions.
 - Keep numbers realistic and conservative.
 
 Return JSON ONLY in this format:
 {
+  "queryType": string,
   "affordable": boolean,
   "affordableNextMonth": boolean,
   "estimatedTripCost": number,
   "projectedNextMonthSavings": number,
   "shortfallAmount": number,
   "monthsToTargetAtCurrentSavingsRate": number,
+  "keyMetrics": [{ "label": string, "value": string | number }],
   "risks": string[],
   "suggestions": string[]
 }

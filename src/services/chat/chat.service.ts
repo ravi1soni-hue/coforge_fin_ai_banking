@@ -150,6 +150,43 @@ export class ChatService {
       facts.destination = "Japan";
     }
 
+    const amountMatch = text.match(/([£$€])\s?(\d[\d,]*(?:\.\d{1,2})?)/);
+    if (amountMatch?.[2]) {
+      const normalized = Number(amountMatch[2].replace(/,/g, ""));
+      if (!Number.isNaN(normalized)) {
+        facts.targetAmount = normalized;
+      }
+      if (amountMatch[1] === "$") {
+        facts.currency = "USD";
+      } else if (amountMatch[1] === "£") {
+        facts.currency = "GBP";
+      } else if (amountMatch[1] === "€") {
+        facts.currency = "EUR";
+      }
+    }
+
+    if (/\bcar\b/i.test(text)) {
+      facts.goalType = "car";
+    }
+
+    if (/\bsubscription|subscriptions\b/i.test(text)) {
+      facts.queryType = "subscriptions";
+    }
+
+    if (/\binvestment\b.*\bprofit\b|\bprofit\b.*\binvestment\b/i.test(text)) {
+      facts.queryType = "investment_performance";
+      if (/\blast month\b/i.test(text)) {
+        facts.period = "last_month";
+      }
+    }
+
+    if (/\bbank statement\b|\bstatement\b/i.test(text)) {
+      facts.queryType = "bank_statement";
+      if (/\b1 month\b|\bone month\b|\blast month\b/i.test(text)) {
+        facts.period = "last_month";
+      }
+    }
+
     return facts;
   }
 }

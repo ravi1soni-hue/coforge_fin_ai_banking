@@ -20,17 +20,29 @@ export const plannerAgent = async (
   }
 
   const lowerQuestion = state.question.toLowerCase();
-  const isTravelAffordability =
-    /holiday|trip|travel|vacation|japan|tour/.test(lowerQuestion) &&
-    ["affordability", "planning", "decision"].includes(
-      state.intent.action.toLowerCase()
-    );
+  const action = state.intent.action.toLowerCase();
+  const isAffordability =
+    /afford|affordability|buy|purchase|plan|decision/.test(action) ||
+    /\bcan i afford\b|\bnext month\b/.test(lowerQuestion);
+  const isSubscriptions = /subscription/.test(lowerQuestion);
+  const isInvestmentPerformance =
+    /investment/.test(lowerQuestion) && /profit|return|gain|loss/.test(lowerQuestion);
+  const isStatement = /bank statement|statement/.test(lowerQuestion);
 
-  // Keep travel affordability intake banking-focused and lightweight.
-  if (isTravelAffordability) {
-    // Proceed directly for affordability estimation using known facts + banking profile context.
+  if (isSubscriptions || isInvestmentPerformance || isStatement) {
     return {
       missingFacts: [],
+    };
+  }
+
+  if (isAffordability) {
+    const requiredFacts = ["targetAmount", "currency"];
+    const missingFacts = requiredFacts
+      .filter((fact) => !(fact in state.knownFacts))
+      .slice(0, 1);
+
+    return {
+      missingFacts,
     };
   }
 
@@ -55,7 +67,7 @@ Task:
 - Ask for the minimum required facts only.
 - Prioritize banking affordability data over lifestyle/travel details.
 - Do NOT ask for items like activities, itinerary, or accommodation preferences.
-- Return at most 3 facts.
+- Return at most 2 facts.
 
 Return ONLY valid JSON:
 {
@@ -65,7 +77,7 @@ Return ONLY valid JSON:
 
   const missingFacts = result.requiredFacts.filter(
     fact => !(fact in state.knownFacts)
-  ).slice(0, 3);
+  ).slice(0, 2);
 
   return {
     missingFacts,
