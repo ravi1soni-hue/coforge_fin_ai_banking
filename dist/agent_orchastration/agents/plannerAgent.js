@@ -1,3 +1,40 @@
+// Extract facts from question text before checking what's missing
+const extractFactsFromQuestion = (question) => {
+    const lowerQ = question.toLowerCase();
+    const facts = {};
+    // Extract goalType from keywords
+    const goalTypePatterns = {
+        trip: /\b(trip|travel|vacation|holiday|visit)\b/,
+        car: /\b(car|vehicle|automobile|bike|motorcycle|scooter)\b/,
+        house: /\b(house|property|home|apartment|flat|mortgage|condo)\b/,
+        phone: /\b(phone|smartphone|mobile|iphone|android)\b/,
+        electronics: /\b(laptop|computer|tv|tablet|gadget|device)\b/,
+        education: /\b(course|education|degree|university|college|training)\b/,
+        wedding: /\bwedding\b/,
+        medical: /\b(medical|surgery|procedure|treatment)\b/,
+        appliance: /\b(appliance|fridge|washing machine|microwave)\b/,
+    };
+    for (const [type, pattern] of Object.entries(goalTypePatterns)) {
+        if (pattern.test(lowerQ)) {
+            facts.goalType = type;
+            break;
+        }
+    }
+    // Extract destination for trips
+    const destinationMatch = lowerQ.match(/(?:to|in|visit|trip to|holiday to)\s+([A-Z][a-zA-Z\s]+?)(?:\s+for|\s+with|\s*£|\s*\$|$|\?)/i);
+    if (destinationMatch) {
+        facts.destination = destinationMatch[1].trim();
+    }
+    // Extract monetary amount (£, $, €, or just numbers)
+    const amountMatch = question.match(/[£$€]?([\d,]+\.?\d*)/);
+    if (amountMatch) {
+        const amount = parseFloat(amountMatch[1].replace(/,/g, ""));
+        if (Number.isFinite(amount) && amount > 0) {
+            facts.targetAmount = amount;
+        }
+    }
+    return facts;
+};
 export const plannerAgent = async (state, config) => {
     const llm = config.configurable?.llm;
     if (!llm) {
@@ -11,7 +48,9 @@ export const plannerAgent = async (state, config) => {
     }
     const lowerQuestion = state.question.toLowerCase();
     const action = state.intent.action.toLowerCase();
-    const knownFacts = state.knownFacts ?? {};
+    // Extract facts from question and merge with existing knownFacts
+    const extractedFacts = extractFactsFromQuestion(state.question);
+    const knownFacts = { ...extractedFacts, ...state.knownFacts }; // Preserve explicit state over auto-extracted
     const hasAffordabilityContext = knownFacts.queryType === "affordability" ||
         "targetAmount" in knownFacts ||
         "budget" in knownFacts ||
@@ -48,6 +87,7 @@ export const plannerAgent = async (state, config) => {
         if (missingFacts.length > 0) {
             return {
                 missingFacts,
+                knownFacts, // Persist extracted facts even if some are still missing
             };
         }
     }
@@ -60,5 +100,7 @@ export const plannerAgent = async (state, config) => {
     // Default: no missing facts required
     return {
         missingFacts: [],
+        // Merge extracted facts back into state so they flow downstream
+        knownFacts,
     };
 };
