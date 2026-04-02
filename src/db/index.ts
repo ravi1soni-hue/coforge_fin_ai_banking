@@ -10,6 +10,7 @@ export const db = new Kysely<Database>({
       ssl: {
         rejectUnauthorized: false, // needed for Neon/Railway
       },
+      connectionTimeoutMillis: 50000, 
     }),
   }),
 });

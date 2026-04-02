@@ -16,7 +16,7 @@ const ALLOWED_FINANCIAL_FACETS = [
   "assets",
   "liabilities",
   "subscriptions",
-  "cashflow_summary",
+  //"cashflow_summary",
 ] as const;
 
 type FinancialFacet = typeof ALLOWED_FINANCIAL_FACETS[number];
@@ -45,7 +45,7 @@ const FACET_CANONICAL_QUERY: Record<FinancialFacet, string> = {
   assets: "user assets and net worth items",
   liabilities: "user financial liabilities",
   subscriptions: "user subscriptions and recurring payments",
-  cashflow_summary: "user overall cash flow summary",
+  // cashflow_summary: "user overall cash flow summary",
 };
 
 /* ------------------------------------------------
@@ -91,10 +91,12 @@ Return ONLY valid JSON:
 }
 `);
 
+console.log("facetPlan",facetPlan);
+
   const facetsToUse: FinancialFacet[] =
     facetPlan.requiredFacets.filter(isFinancialFacet).length > 0
       ? facetPlan.requiredFacets.filter(isFinancialFacet)
-      : ["cashflow_summary"];
+      :  ["savings"]         //["cashflow_summary"];
 
   /* ============================================================
    * STEP 2: Targeted RAG retrieval (ONE call per facet)
