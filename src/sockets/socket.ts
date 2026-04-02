@@ -99,6 +99,7 @@ export const initWebSocket = (server: any): void => {
   const wss = new WebSocketServer({
     noServer: true,
     perMessageDeflate: false,
+    maxPayload: 64 * 1024,  // 64KB max message size
   });
 
   type TrackedWebSocket = WebSocket & {
@@ -106,6 +107,8 @@ export const initWebSocket = (server: any): void => {
     isAlive?: boolean;
   };
 
+  // ⚡ Railway proxy kills idle streams after ~15-20s
+  // Send pings every 3s to keep connection alive
   const heartbeatInterval = setInterval(() => {
     wss.clients.forEach((client) => {
       const trackedClient = client as TrackedWebSocket;
@@ -116,15 +119,17 @@ export const initWebSocket = (server: any): void => {
 
       if (trackedClient.isAlive === false) {
         const staleUserId = trackedClient.userId ?? "unknown";
-        console.warn(`Terminating stale websocket connection for user ${staleUserId}`);
+        console.warn(`⚠️ Terminating stale websocket connection for user ${staleUserId}`);
         trackedClient.terminate();
         return;
       }
 
       trackedClient.isAlive = false;
-      trackedClient.ping();
+      trackedClient.ping(() => {
+        // Pong received
+      });
     });
-  }, 5000);
+  }, 3000);  // Ping every 3 seconds instead of 5
 
   server.on("close", () => {
     clearInterval(heartbeatInterval);
@@ -132,9 +137,16 @@ export const initWebSocket = (server: any): void => {
 
   server.on("upgrade", (req: IncomingMessage, socket: any, head: Buffer) => {
     try {
+      // Ensure upgrade headers are valid
+      const upgradeHeader = req.headers.upgrade?.toLowerCase() ?? "";
+      const connectionHeader = req.headers.connection?.toLowerCase() ?? "";
+
       console.log("🔌 [UPGRADE] WebSocket request received", {
         url: req.url,
         method: req.method,
+        upgradeHeader,
+        connectionHeader,
+        hasHead: head.length > 0,
         headers: {
           upgrade: req.headers.upgrade,
           connection: req.headers.connection,
@@ -146,9 +158,19 @@ export const initWebSocket = (server: any): void => {
       });
 
       // Validate upgrade header
-      if (req.headers.upgrade?.toLowerCase() !== "websocket") {
-        console.error("❌ [UPGRADE] Missing or invalid upgrade header", {
+      if (upgradeHeader !== "websocket") {
+        console.error("❌ [UPGRADE] Invalid upgrade header", {
           upgrade: req.headers.upgrade,
+          connection: req.headers.connection,
+        });
+        socket.write("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+
+      // Validate connection header contains 'upgrade'
+      if (!connectionHeader.includes("upgrade")) {
+        console.error("❌ [UPGRADE] Connection header doesn't contain 'upgrade'", {
           connection: req.headers.connection,
         });
         socket.write("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n");
@@ -162,7 +184,7 @@ export const initWebSocket = (server: any): void => {
         ? rawPath.slice(0, -1)
         : rawPath;
 
-      // Accept both legacy root path and explicit /ws path.
+      // Accept both legacy root path and explicit /ws path
       if (pathname !== "/" && pathname !== "/ws") {
         console.warn("⚠️ [UPGRADE] Rejected unsupported path", {
           path: rawPath,
@@ -177,6 +199,7 @@ export const initWebSocket = (server: any): void => {
 
       console.log("✅ [UPGRADE] Upgrading to WebSocket", { url: req.url, userId: url.searchParams.get("userId") });
       wss.handleUpgrade(req, socket, head, (ws) => {
+        console.log("✅ [CONNECTION] WebSocket upgraded successfully");
         wss.emit("connection", ws, req);
       });
     } catch (err) {
@@ -210,7 +233,7 @@ export const initWebSocket = (server: any): void => {
 
       if (!queryUserId && !headerUserId) {
         console.warn(
-          "WebSocket connection opened without explicit userId; assigned fallback id",
+          "⚠️ WebSocket connection opened without explicit userId; assigned fallback id",
           { url: req.url, assignedUserId: userId }
         );
       }
@@ -227,7 +250,7 @@ export const initWebSocket = (server: any): void => {
       }
       userConnections.get(userId)!.add(ws);
 
-      console.log(`User connected: ${userId}`);
+      console.log(`✅ User connected: ${userId} (total: ${wss.clients.size})`);
 
       /**
        * Message handler
@@ -281,7 +304,7 @@ export const initWebSocket = (server: any): void => {
       });
 
       ws.on("error", (err) => {
-        console.error(`WebSocket error for user ${userId}:`, err);
+        console.error(`❌ WebSocket error for user ${userId}:`, err);
       });
 
       /**
@@ -300,7 +323,7 @@ export const initWebSocket = (server: any): void => {
             ? reasonBuffer.toString("utf8")
             : "no_reason";
         console.log(
-          `User disconnected: ${userId} (code=${code}, reason=${reason})`
+          `❌ User disconnected: ${userId} (code=${code}, reason=${reason}, remaining=${wss.clients.size})`
         );
       });
     }

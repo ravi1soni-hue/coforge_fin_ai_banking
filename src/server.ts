@@ -14,11 +14,10 @@ import ingestionRoutes from "./routes/ingestion.route.js";
 
 const server = http.createServer(app);
 
-// Keep HTTP socket timings aggressive for Railway proxy compatibility
-// Railway's default idle timeout: ~60s, but we keep connections MORE responsive
-server.keepAliveTimeout = 30000;
-server.headersTimeout = 31000;
-server.requestTimeout = 0;
+// ⚡ Railway aggressive keep-alive (Railway terminates idle connections after ~15-20s)
+server.keepAliveTimeout = 10000;    // 10s keep-alive
+server.headersTimeout = 11000;       // 11s headers timeout
+server.requestTimeout = 0;           // No global request timeout
 
 app.use("/api", ingestionRoutes);
 
