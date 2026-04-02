@@ -36,6 +36,8 @@ export const financialAssistantGraph = new StateGraph(GraphState)
     {
       askUser: "followUpQuestionAgent",
       financeAgent: "financeAgent",
+      // Confirmation fast-path: skip financeAgent + webSearchAgent to avoid Railway timeout
+      lightPath: "reasoningAgent",
     }
   )
 

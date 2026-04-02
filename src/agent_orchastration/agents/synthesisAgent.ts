@@ -34,6 +34,8 @@ export const synthesisAgent = async (
     ? `Recommended product: ${topProduct.productName} — ${topProduct.rationale}. Next step: ${topProduct.nextStep}.`
     : "No product recommendation applicable.";
 
+  const confirmedAction = state.confirmedFollowUpAction ?? "none";
+
   const answer = await llm.generateText(`
 You are a personal banking AI analyst. Give a clear, intelligent, data-backed answer to the user's question.
 
@@ -42,6 +44,8 @@ USER QUESTION
 
 USER INTENT
 ${JSON.stringify(state.intent, null, 2)}
+
+CONFIRMED FOLLOW-UP ACTION: ${confirmedAction}
 
 KNOWN FACTS (extracted from conversation)
 ${JSON.stringify(state.knownFacts, null, 2)}
@@ -64,15 +68,25 @@ ${state.isSuggestionIncluded && state.suggestion ? state.suggestion : "None"}
 RULES:
 1. Read ALL data above — never ignore any context field.
 2. CRITICAL — Use ONLY spendable_savings (savings account balance) as the user's available pool. NEVER add the current account balance to it. The current account is reserved for monthly living expenses.
-3. For affordability: open with a direct verdict using the user's key numbers (spendable_savings, goal cost, leftover after purchase). If there is a suggestion or product recommendation, weave it into the last sentence naturally — do NOT repeat it as a separate paragraph.
-4. For investment / profit: state the figure, period, and confidence level.
-5. For subscriptions: list items with amounts and give the monthly total.
-6. For statement: give inflow, outflow, and net clearly.
-7. For general finance questions: give a focused, data-backed answer.
+3. CONFIRMED FOLLOW-UP ACTION overrides everything else. When it is NOT "none", your PRIMARY task is to deliver that specific output using the user's real numbers from KNOWN FACTS:
+   - "repayment_plan": Give a concrete 0% instalment repayment schedule. Use targetAmount from knownFacts as the trip cost. Suggest 3, 6, and 12-month options with the monthly payment for each. State which fits within the user's monthly surplus.
+   - "goal_impact_analysis": Compare paying upfront vs using the 0% instalment plan. Show how each option affects the user's other named goals (Japan trip, car, etc.) and emergency buffer. Give a clear recommendation.
+   - "savings_plan": Build a month-by-month savings plan to reach the target. State monthly contribution needed and the timeline.
+   - "goal_planning": Outline a clear goal-based savings or spending plan from the user's current financial position.
+   - "cashflow_forecast": Summarise projected monthly cashflow for the next 3 months based on income/expenses.
+   - "investment_review": Summarise investment portfolio performance with period, profit/loss, and confidence.
+   - "subscription_review": List subscriptions, monthly totals, and suggest which to cut.
+   - "statement_summary": Provide inflow, outflow, and net cashflow for the most recent period.
+   - "general_planning": Provide a focused, actionable financial plan based on available context.
+4. For affordability (when confirmedAction is "none"): open with a direct verdict using the user's key numbers (spendable_savings, goal cost, leftover after purchase). Weave any suggestion or product recommendation into the last sentence naturally.
+5. For investment / profit: state the figure, period, and confidence level.
+6. For subscriptions: list items with amounts and give the monthly total.
+7. For statement: give inflow, outflow, and net clearly.
 8. NEVER invent numbers that are not present in the data above.
 9. NEVER repeat the question back to the user. NEVER use filler phrases.
 10. Plain prose only — no markdown, no bullet points, no headers.
-11. Keep it to 2–3 short, punchy sentences maximum. End with one brief follow-up question or offer (e.g. "Want me to build a savings plan?"). Speak like a friendly, confident financial advisor — casual tone, not a formal report.
+11. Keep it to 3–4 short, punchy sentences. When delivering a repayment plan or comparison, provide the actual numbers clearly, then end with one brief follow-up offer. Speak like a friendly, confident financial advisor — casual tone.
+12. NEVER re-run an affordability check when confirmedAction is set — the user already has that answer. Deliver the specific requested output.
 `);
 
   const validation = validateAssistantAnswer(state.question, answer, snapshot);
@@ -90,6 +104,8 @@ RULES:
 
   return {
     finalAnswer: answer,
+    // Clear confirmedFollowUpAction so it doesn't persist into the next turn.
+    confirmedFollowUpAction: undefined,
     knownFacts: { ...state.knownFacts, pendingFollowUpAction },
   };
 };
@@ -107,6 +123,12 @@ function detectFollowUpAction(answer: string): string {
       .pop()
       ?.toLowerCase() ?? answer.toLowerCase();
 
+  // Repayment / instalment schedule — must check before generic plan/goal
+  if (/repayment|instalment|installment|monthly.cost|cost.monthly|spread.the.cost|schedule/.test(lastQuestion))
+    return "repayment_plan";
+  // Goal impact / option comparison
+  if (/option.*goal|goal.*option|impact.*goal|goal.*impact|which.*option|affect.*goal/.test(lastQuestion))
+    return "goal_impact_analysis";
   if (/buffer|rebuild|savings.plan|save.up|saving.plan|top.up/.test(lastQuestion))
     return "savings_plan";
   if (/cash.?flow|forecast|monthly.surplus/.test(lastQuestion))

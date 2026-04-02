@@ -25,13 +25,15 @@ export const intentAgent = async (
     // re-run the previous analysis.
     const pendingIntentMap: Record<string, { domain: string; action: string }> =
       {
-        savings_plan:       { domain: "saving",   action: "planning"       },
-        cashflow_forecast:  { domain: "cashflow",  action: "forecast"       },
-        investment_review:  { domain: "investing", action: "review"         },
-        subscription_review:{ domain: "spending",  action: "optimization"   },
-        statement_summary:  { domain: "banking",   action: "statement"      },
-        goal_planning:      { domain: "saving",    action: "planning"       },
-        general_planning:   { domain: "general",   action: "planning"       },
+        savings_plan:          { domain: "saving",   action: "planning"            },
+        cashflow_forecast:     { domain: "cashflow",  action: "forecast"            },
+        investment_review:     { domain: "investing", action: "review"              },
+        subscription_review:   { domain: "spending",  action: "optimization"        },
+        statement_summary:     { domain: "banking",   action: "statement"           },
+        goal_planning:         { domain: "saving",    action: "planning"            },
+        general_planning:      { domain: "general",   action: "planning"            },
+        repayment_plan:        { domain: "finance",   action: "repayment_planning"  },
+        goal_impact_analysis:  { domain: "finance",   action: "goal_impact"         },
       };
     const mapped = pendingIntentMap[pendingAction] ?? { domain: "general", action: "planning" };
 
@@ -44,6 +46,8 @@ export const intentAgent = async (
           (state.knownFacts?.destination as string | undefined),
         confidence: 0.95,
       },
+      // Mark what was confirmed so the graph can fast-path and synthesisAgent knows what to deliver.
+      confirmedFollowUpAction: pendingAction,
       // Clear the flag so subsequent turns don't re-trigger this path.
       knownFacts: { ...state.knownFacts, pendingFollowUpAction: undefined },
     };

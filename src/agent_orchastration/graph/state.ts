@@ -60,6 +60,10 @@ export const GraphState = z.object({
   suggestion: z.string().optional(),
   isSuggestionIncluded: z.boolean().optional(),
 
+  // ✅ Confirmed follow-up action (set when user confirms a pending offer, cleared after synthesis)
+  // Used to route confirmations through a lightweight path and tell synthesisAgent what to deliver.
+  confirmedFollowUpAction: z.string().optional(),
+
   // ✅ Final user‑facing answer
   finalAnswer: z.string().optional(),
 });
