@@ -134,13 +134,27 @@ export const initWebSocket = (server: any): void => {
     try {
       console.log("🔌 [UPGRADE] WebSocket request received", {
         url: req.url,
+        method: req.method,
         headers: {
           upgrade: req.headers.upgrade,
           connection: req.headers.connection,
           host: req.headers.host,
+          "x-forwarded-proto": req.headers["x-forwarded-proto"],
+          "x-forwarded-for": req.headers["x-forwarded-for"],
           "user-agent": req.headers["user-agent"],
         },
       });
+
+      // Validate upgrade header
+      if (req.headers.upgrade?.toLowerCase() !== "websocket") {
+        console.error("❌ [UPGRADE] Missing or invalid upgrade header", {
+          upgrade: req.headers.upgrade,
+          connection: req.headers.connection,
+        });
+        socket.write("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n");
+        socket.destroy();
+        return;
+      }
 
       const url = new URL(req.url ?? "", `http://${req.headers.host}`);
       const rawPath = url.pathname || "/";
@@ -152,6 +166,7 @@ export const initWebSocket = (server: any): void => {
       if (pathname !== "/" && pathname !== "/ws") {
         console.warn("⚠️ [UPGRADE] Rejected unsupported path", {
           path: rawPath,
+          pathname,
           host: req.headers.host,
           url: req.url,
         });
@@ -165,9 +180,9 @@ export const initWebSocket = (server: any): void => {
         wss.emit("connection", ws, req);
       });
     } catch (err) {
-      console.error("WebSocket upgrade error:", err);
+      console.error("❌ [UPGRADE] WebSocket upgrade error:", err);
       try {
-        socket.write("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n");
+        socket.write("HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n");
       } catch {
         // Socket may already be closed
       }
