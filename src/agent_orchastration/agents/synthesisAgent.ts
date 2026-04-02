@@ -39,43 +39,64 @@ export const synthesisAgent = async (
   // LLM cannot slide back into repeating the same affordability analysis.
   if (isConfirmedAction) {
     const kf = state.knownFacts ?? {};
-    const availSavings  = kf.availableSavings ?? kf.spendable_savings ?? kf.currentBalance;
-    const targetAmt     = kf.targetAmount;
-    const destination   = kf.destination ?? kf.goalType ?? "the purchase";
+    const availSavings   = kf.availableSavings ?? kf.spendable_savings ?? kf.currentBalance;
+    const targetAmt      = kf.targetAmount;
+    const destination    = kf.destination ?? kf.goalType ?? "the purchase";
     const monthlySurplus = kf.netMonthlySavings ?? kf.netMonthlySurplus;
-    const goals         = kf.savingsGoals ? JSON.stringify(kf.savingsGoals) : "none";
-    const currency      = kf.currency ?? "GBP";
+    const goals          = kf.savingsGoals ? JSON.stringify(kf.savingsGoals) : "none";
+    // Use the user's home/profile currency for savings and income amounts.
+    // Never use the trip/purchase currency (targetCurrency) for the user's own finances.
+    const homeCurrency   = (kf.profileCurrency ?? kf.currency ?? "GBP") as string;
+    const tripCurrency   = (kf.targetCurrency ?? homeCurrency) as string;
+
+    const remainingAfterPurchase =
+      typeof availSavings === "number" && typeof targetAmt === "number"
+        ? (availSavings - targetAmt).toFixed(0)
+        : "N/A";
+    const monthsToRebuild =
+      typeof monthlySurplus === "number" && monthlySurplus > 0 && typeof availSavings === "number" && typeof targetAmt === "number"
+        ? Math.ceil((availSavings - (availSavings - targetAmt)) / monthlySurplus)
+        : undefined;
+
+    // Build a concise prior-conversation snippet so the LLM has full context
+    const historySnippet = Array.isArray(state.conversationHistory) && state.conversationHistory.length > 0
+      ? state.conversationHistory
+          .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+          .join("\n")
+      : "";
 
     const actionInstructions: Record<string, string> = {
       cost_cutting_advice:
         `Suggest 3-4 concrete ways to reduce the cost of the ${destination} trip by 15-25% without ruining the experience. ` +
-        `For each tip give an estimated saving in ${currency}. End with the new revised total cost. ` +
+        `For each tip give an estimated saving in ${tripCurrency}. End with the new revised total cost. ` +
         `Do NOT mention whether it is affordable. Do NOT say "leaving you with X". Just practical cost-reduction tips.`,
       savings_recovery:
-        `The user is going ahead with the purchase (${currency}${targetAmt ?? "N/A"}). ` +
-        `Deliver a concrete post-purchase savings recovery plan: ` +
-        `(a) state the balance remaining after the purchase (${currency}${availSavings ?? "N/A"} minus ${currency}${targetAmt ?? "N/A"}), ` +
-        `(b) state their estimated net monthly surplus (${currency}${monthlySurplus ?? "N/A"}), ` +
-        `(c) give a simple timeline in months to rebuild back to ${currency}${availSavings ?? "N/A"}. ` +
-        `Mention any impact on their other goals: ${goals}. ` +
-        `Do NOT say "you can afford it" or repeat an affordability verdict.`,
+        `Build a concrete post-trip savings recovery plan. ` +
+        `The trip to ${destination} costs ${tripCurrency}${targetAmt ?? "N/A"}. ` +
+        `After this trip the user will have approximately ${homeCurrency}${remainingAfterPurchase} in savings ` +
+        `(down from ${homeCurrency}${availSavings ?? "N/A"}). ` +
+        `Their net monthly surplus is ${homeCurrency}${monthlySurplus ?? "N/A"}. ` +
+        `${monthsToRebuild !== undefined ? `At this rate it will take about ${monthsToRebuild} months to rebuild back to ${homeCurrency}${availSavings ?? "N/A"}.` : ""} ` +
+        `Mention the impact on their existing goals: ${goals}. ` +
+        `Give a forward-looking recovery timeline with a practical tip to speed it up. ` +
+        `Do NOT say "you can afford it" or describe the trip in affordability terms. Focus entirely on the rebuild plan.`,
       repayment_plan:
-        `Give a concrete 0% instalment repayment schedule for ${currency}${targetAmt ?? "N/A"}. ` +
+        `Give a concrete 0% instalment repayment schedule for ${tripCurrency}${targetAmt ?? "N/A"}. ` +
         `Show 3-month, 6-month, and 12-month options with the monthly payment amount for each. ` +
-        `State which option fits within the user's monthly surplus of ${currency}${monthlySurplus ?? "N/A"}.`,
+        `State which option fits within the user's monthly surplus of ${homeCurrency}${monthlySurplus ?? "N/A"}.`,
       goal_impact_analysis:
-        `Compare two options: (1) pay ${currency}${targetAmt ?? "N/A"} upfront, (2) use a 0% instalment plan. ` +
+        `Compare two options: (1) pay ${tripCurrency}${targetAmt ?? "N/A"} upfront, (2) use a 0% instalment plan. ` +
         `Show how each option affects the user's savings goals: ${goals}. ` +
         `Give a clear recommendation with a one-sentence reason.`,
       savings_plan:
-        `Build a month-by-month savings plan to reach ${currency}${targetAmt ?? "N/A"} for ${destination}. ` +
-        `State the monthly contribution needed and the timeline. Use the spare monthly surplus of ${currency}${monthlySurplus ?? "N/A"}.`,
+        `Build a month-by-month savings plan to reach ${tripCurrency}${targetAmt ?? "N/A"} for ${destination}. ` +
+        `State the monthly contribution needed and the timeline. Use the spare monthly surplus of ${homeCurrency}${monthlySurplus ?? "N/A"}.`,
       goal_planning:
-        `Outline a clear goal-based savings plan to reach ${currency}${targetAmt ?? "N/A"} for ${destination}. ` +
-        `Use the current savings of ${currency}${availSavings ?? "N/A"} and monthly surplus of ${currency}${monthlySurplus ?? "N/A"}.`,
+        `Outline a clear goal-based savings plan to reach ${tripCurrency}${targetAmt ?? "N/A"} for ${destination}. ` +
+        `Use the current savings of ${homeCurrency}${availSavings ?? "N/A"} and monthly surplus of ${homeCurrency}${monthlySurplus ?? "N/A"}.`,
       cashflow_forecast:
         `Summarise the projected monthly cashflow for the next 3 months based on income and expenses. ` +
-        `Monthly income: ${currency}${kf.monthlyIncome ?? "N/A"}, monthly expenses: ${currency}${kf.monthlyExpenses ?? "N/A"}.`,
+        `Monthly income: ${homeCurrency}${kf.monthlyIncome ?? "N/A"}, monthly expenses: ${homeCurrency}${kf.monthlyExpenses ?? "N/A"}.`,
       investment_review:
         `Summarise the user's investment portfolio. Investments: ${JSON.stringify(kf.investments ?? "none")}. ` +
         `State total value, monthly contribution, and whether performance data is available.`,
@@ -86,14 +107,16 @@ export const synthesisAgent = async (
         `Give the most recent monthly statement: total inflow, total outflow, and net cashflow.`,
       general_planning:
         `Give a specific, actionable financial plan based on the user's context: ` +
-        `goal = ${destination}, amount = ${currency}${targetAmt ?? "N/A"}, savings = ${currency}${availSavings ?? "N/A"}.`,
+        `goal = ${destination}, amount = ${tripCurrency}${targetAmt ?? "N/A"}, savings = ${homeCurrency}${availSavings ?? "N/A"}.`,
     };
 
     const instructions = actionInstructions[confirmedAction]
       ?? `Provide a helpful financial action plan for: ${confirmedAction}.`;
 
     const isolatedAnswer = await llm.generateText(
-      `You are a personal banking AI assistant. The user confirmed they want: "${confirmedAction}".
+      `You are a personal banking AI assistant.${historySnippet ? `\n\nCONVERSATION SO FAR:\n${historySnippet}` : ""}
+
+The user confirmed they want: "${confirmedAction}".
 
 TASK: ${instructions}
 
@@ -130,9 +153,16 @@ Style rules:
   // context so it cannot bias the LLM into repeating the same affordability answer.
   const reasoningContext = JSON.stringify(state.reasoning, null, 2);
 
+  const conversationContext = Array.isArray(state.conversationHistory) && state.conversationHistory.length > 0
+    ? `\nCONVERSATION HISTORY (for context only — do not repeat prior answers)\n` +
+      state.conversationHistory
+        .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+        .join("\n")
+    : "";
+
   const answer = await llm.generateText(`
 You are a personal banking AI analyst. Give a clear, intelligent, data-backed answer to the user's question.
-
+${conversationContext}
 USER QUESTION
 "${state.question}"
 
@@ -160,15 +190,16 @@ ${state.isSuggestionIncluded && state.suggestion ? state.suggestion : "None"}
 RULES:
 1. Read ALL data above — never ignore any context field.
 2. CRITICAL — Use ONLY spendable_savings (savings account balance) as the user's available pool. NEVER add the current account balance to it. The current account is reserved for monthly living expenses.
-3. For affordability queries: open with a direct verdict using the user's key numbers (spendable_savings, goal cost, leftover after purchase). Weave any suggestion or product recommendation into the last sentence naturally.
-4. For investment / portfolio / ISA queries: state current value, monthly contribution, and performance where available. Note that exact profit/loss cannot be calculated without a cost basis.
-5. For subscriptions: list items with amounts and give the monthly total; suggest 1-2 to cancel.
-6. For statement / balance / cashflow: give the key numbers clearly — inflow, outflow, net, or account balance as appropriate.
-7. For loan / repayment queries: give the outstanding balance, EMI, and timeline to payoff.
-8. NEVER invent numbers that are not present in the data above.
-9. NEVER repeat the question back to the user. NEVER use filler phrases.
-10. Plain prose only — no markdown, no bullet points, no headers.
-11. Keep it to 3–4 short, punchy sentences. Speak like a friendly, confident financial advisor — casual tone. End with ONE brief follow-up offer.
+3. CRITICAL — When the user says something like "yes", "sure", or "please do that" referring to a plan offered in the conversation history, DELIVER that plan — do NOT repeat the affordability verdict from a prior turn.
+4. For affordability queries: open with a direct verdict using the user's key numbers (spendable_savings, goal cost, leftover after purchase). Weave any suggestion or product recommendation into the last sentence naturally.
+5. For investment / portfolio / ISA queries: state current value, monthly contribution, and performance where available. Note that exact profit/loss cannot be calculated without a cost basis.
+6. For subscriptions: list items with amounts and give the monthly total; suggest 1-2 to cancel.
+7. For statement / balance / cashflow: give the key numbers clearly — inflow, outflow, net, or account balance as appropriate.
+8. For loan / repayment queries: give the outstanding balance, EMI, and timeline to payoff.
+9. NEVER invent numbers that are not present in the data above.
+10. NEVER repeat the question back to the user. NEVER use filler phrases.
+11. Plain prose only — no markdown, no bullet points, no headers.
+12. Keep it to 3–4 short, punchy sentences. Speak like a friendly, confident financial advisor — casual tone. End with ONE brief follow-up offer.
 `);
 
   const validation = validateAssistantAnswer(state.question, answer, snapshot);

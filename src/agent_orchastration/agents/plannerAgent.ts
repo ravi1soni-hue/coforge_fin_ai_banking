@@ -78,6 +78,19 @@ Return ONLY valid JSON, no markdown:
     Object.entries(llmFacts).filter(([, v]) => v !== null && v !== undefined)
   );
 
+  // ── Currency safety: if the LLM extracted a trip/purchase currency (e.g. "EUR"
+  //    because the user said "2200 euros"), store it as targetCurrency rather than
+  //    overwriting the user's home currency (e.g. GBP from their profile).
+  //    Only override the base currency when no profileCurrency is set.
+  if (cleanLlmFacts.currency) {
+    const profileCurrency = state.knownFacts?.profileCurrency as string | undefined;
+    if (profileCurrency && cleanLlmFacts.currency !== profileCurrency) {
+      // Foreign currency detected — keep home currency intact, store trip currency separately
+      cleanLlmFacts.targetCurrency = cleanLlmFacts.currency;
+      delete cleanLlmFacts.currency;
+    }
+  }
+
   // ── Guard: if intentAgent resolved a non-affordability action (e.g. user
   //    confirmed "Yes do it" for a savings plan), do NOT let the LLM override
   //    queryType back to "affordability" just because the Paris trip facts are

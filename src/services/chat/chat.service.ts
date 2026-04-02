@@ -36,6 +36,10 @@ export class ChatService {
     string,
     Record<string, unknown>
   >();
+  private readonly sessionConversationHistory = new Map<
+    string,
+    Array<{ role: "user" | "assistant"; content: string }>
+  >();
 
   constructor({
     assistantService,
@@ -83,17 +87,32 @@ export class ChatService {
       ...normalizedIncomingFacts,
     };
 
+    // Protect home currency: if a profileCurrency was set by the normalizer,
+    // never let a trip-specific currency override it in the merged facts.
+    if (mergedKnownFacts.profileCurrency && mergedKnownFacts.currency !== mergedKnownFacts.profileCurrency) {
+      mergedKnownFacts.currency = mergedKnownFacts.profileCurrency as string;
+    }
+
     this.sessionKnownFacts.set(sessionKey, mergedKnownFacts);
     await this.persistFinancialFactsToDb(
       request.userId,
       mergedKnownFacts
     );
 
+    // Build conversation history (last 10 turns to cap token usage)
+    const historyKey = sessionKey;
+    const existingHistory = this.sessionConversationHistory.get(historyKey) ?? [];
+    const conversationHistory = [
+      ...existingHistory,
+      { role: "user" as const, content: request.message },
+    ].slice(-10);
+
     const initialState: GraphStateType = {
       userId: request.userId,
       question: request.message,
       knownFacts: mergedKnownFacts,
       missingFacts: [],
+      conversationHistory,
     };
 
     let resultState: GraphStateType;
@@ -127,11 +146,16 @@ export class ChatService {
       Array.isArray(resultState.missingFacts) &&
       resultState.missingFacts.length > 0
     ) {
+      // Record assistant follow-up in history
+      const followUpMsg = resultState.finalAnswer ?? "I need a bit more information to help you better.";
+      this.sessionConversationHistory.set(historyKey, [
+        ...conversationHistory,
+        { role: "assistant" as const, content: followUpMsg },
+      ].slice(-10));
+
       return {
         type: "FOLLOW_UP",
-        message:
-          resultState.finalAnswer ??
-          "I need a bit more information to help you better.",
+        message: followUpMsg,
         missingFacts: resultState.missingFacts,
       };
     }
@@ -146,7 +170,11 @@ export class ChatService {
       finalMessage,
       resultState
     );
-
+    // Record assistant final response in conversation history
+    this.sessionConversationHistory.set(historyKey, [
+      ...conversationHistory,
+      { role: "assistant" as const, content: validation },
+    ].slice(-10));
     return {
       type: "FINAL",
       message: validation,
@@ -299,9 +327,19 @@ export class ChatService {
       this.parseNumericFact(source.monthlyCommittedExpenses) ??
       txStats.averageMonthlyDebit;
 
+    // Only add loan EMIs on top if the base was NOT derived from transaction history.
+    // Transaction history already contains EMI debit entries, so adding them again
+    // would double-count and produce an artificially low net monthly surplus.
+    const isTransactionDerived =
+      this.parseNumericFact(source.monthlyExpenses) === undefined &&
+      this.parseNumericFact(source.monthlyCommittedExpenses) === undefined &&
+      txStats.averageMonthlyDebit !== undefined;
+
     const monthlyExpenses =
       baseMonthlyExpenses !== undefined
-        ? baseMonthlyExpenses + monthlyLoanEmi
+        ? isTransactionDerived
+          ? baseMonthlyExpenses  // transactions already include EMIs
+          : baseMonthlyExpenses + monthlyLoanEmi
         : undefined;
 
     const netMonthlySavings =
@@ -365,6 +403,10 @@ export class ChatService {
 
     if (currency) {
       normalized.currency = currency;
+      // profileCurrency is the user's home currency (from their profile).
+      // It must NOT be overridden by trip/purchase-specific currencies (EUR, USD, etc.)
+      // extracted in later turns. Agents use this to correctly label savings and income.
+      normalized.profileCurrency = currency;
     }
 
     const savingsGoals = this.asObjectArray(source.savingsGoals);
@@ -562,6 +604,13 @@ export class ChatService {
       return;
     }
 
+    // Persist the user's HOME currency (profileCurrency), not a trip/purchase
+    // currency that may have been extracted from a specific user message (e.g. "euros").
+    const currencyToPersist =
+      (typeof mergedFacts.profileCurrency === "string" && mergedFacts.profileCurrency)
+        ? mergedFacts.profileCurrency
+        : normalized.currency;
+
     try {
       await this.ensureFinancialProfileTable();
 
@@ -581,7 +630,7 @@ export class ChatService {
           ${normalized.monthlyIncome ?? null},
           ${normalized.monthlyExpenses ?? null},
           ${normalized.netMonthlySavings ?? null},
-          ${normalized.currency ?? null},
+          ${currencyToPersist ?? null},
           NOW()
         )
         ON CONFLICT (user_id)
