@@ -1,28 +1,31 @@
-export const followUpQuestionAgent = async (state, _config) => {
+export const followUpQuestionAgent = async (state, config) => {
     if (!state.missingFacts || state.missingFacts.length === 0) {
         return {};
     }
-    const factLabelMap = {
-        targetAmount: "your approximate budget amount",
-        currency: "the currency for that budget",
-        budget: "your approximate trip budget",
-        monthlyNetIncome: "your monthly take-home income",
-        monthlyCommittedExpenses: "your fixed monthly expenses",
-        availableSavings: "how much savings you can use for this trip",
-        clarify_intent: "what decision you want help with",
-    };
-    const requested = state.missingFacts
-        .slice(0, 3)
-        .map((fact) => factLabelMap[fact] ?? fact.replace(/_/g, " "));
-    const joined = requested.length === 1
-        ? requested[0]
-        : requested.length === 2
-            ? `${requested[0]} and ${requested[1]}`
-            : `${requested[0]}, ${requested[1]}, and ${requested[2]}`;
-    const followUpQuestion = requested.length === 1
-        ? `To check affordability properly, could you share ${joined}?`
-        : `To give you a reliable banking affordability answer, could you share ${joined}?`;
+    const llm = config.configurable?.llm;
+    if (!llm) {
+        throw new Error("LlmClient not provided to graph");
+    }
+    const followUpQuestion = await llm.generateText(`
+You are a helpful banking assistant. A user sent the following message:
+"${state.question}"
+
+From their message, we already know:
+${JSON.stringify(state.knownFacts, null, 2)}
+
+However, to give them a precise financial answer we still need:
+${state.missingFacts.join(", ")}
+
+Write a single, natural, friendly follow-up question that asks ONLY for the genuinely missing information.
+
+RULES:
+- Do NOT ask for anything that is already present in the user's message or known facts above.
+- Be concise — one sentence only.
+- Be conversational, not robotic.
+- Do NOT use bullet points or lists.
+- Do NOT repeat the user's question back to them.
+`);
     return {
-        finalAnswer: followUpQuestion,
+        finalAnswer: followUpQuestion.trim(),
     };
 };

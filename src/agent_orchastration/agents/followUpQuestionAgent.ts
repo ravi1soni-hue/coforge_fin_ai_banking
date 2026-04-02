@@ -1,43 +1,41 @@
 import { GraphStateType } from "../graph/state.js";
+import { LlmClient } from "../llm/llmClient.js";
 import { RunnableConfig } from "@langchain/core/runnables";
 
 export const followUpQuestionAgent = async (
   state: GraphStateType,
-  _config: RunnableConfig
+  config: RunnableConfig
 ): Promise<Partial<GraphStateType>> => {
   if (!state.missingFacts || state.missingFacts.length === 0) {
     return {};
   }
 
-  const factLabelMap: Record<string, string> = {
-    targetAmount: "your approximate budget amount",
-    currency: "the currency for that budget",
-    budget: "your approximate trip budget",
-    destination: "your travel destination",
-    goalType: "what you're looking to purchase or achieve",
-    monthlyNetIncome: "your monthly take-home income",
-    monthlyCommittedExpenses: "your fixed monthly expenses",
-    availableSavings: "how much savings you can use for this trip",
-    clarify_intent: "what decision you want help with",
-  };
+  const llm = config.configurable?.llm as LlmClient;
+  if (!llm) {
+    throw new Error("LlmClient not provided to graph");
+  }
 
-  const requested = state.missingFacts
-    .slice(0, 3)
-    .map((fact) => factLabelMap[fact] ?? fact.replace(/_/g, " "));
+  const followUpQuestion = await llm.generateText(`
+You are a helpful banking assistant. A user sent the following message:
+"${state.question}"
 
-  const joined =
-    requested.length === 1
-      ? requested[0]
-      : requested.length === 2
-      ? `${requested[0]} and ${requested[1]}`
-      : `${requested[0]}, ${requested[1]}, and ${requested[2]}`;
+From their message, we already know:
+${JSON.stringify(state.knownFacts, null, 2)}
 
-  const followUpQuestion =
-    requested.length === 1
-      ? `To check affordability properly, could you share ${joined}?`
-      : `To give you a reliable banking affordability answer, could you share ${joined}?`;
+However, to give them a precise financial answer we still need:
+${state.missingFacts.join(", ")}
+
+Write a single, natural, friendly follow-up question that asks ONLY for the genuinely missing information.
+
+RULES:
+- Do NOT ask for anything that is already present in the user's message or known facts above.
+- Be concise — one sentence only.
+- Be conversational, not robotic.
+- Do NOT use bullet points or lists.
+- Do NOT repeat the user's question back to them.
+`);
 
   return {
-    finalAnswer: followUpQuestion,
+    finalAnswer: followUpQuestion.trim(),
   };
 };

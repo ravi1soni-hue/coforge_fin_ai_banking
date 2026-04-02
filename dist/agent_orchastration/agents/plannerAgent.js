@@ -1,40 +1,3 @@
-// Extract facts from question text before checking what's missing
-const extractFactsFromQuestion = (question) => {
-    const lowerQ = question.toLowerCase();
-    const facts = {};
-    // Extract goalType from keywords
-    const goalTypePatterns = {
-        trip: /\b(trip|travel|vacation|holiday|visit)\b/,
-        car: /\b(car|vehicle|automobile|bike|motorcycle|scooter)\b/,
-        house: /\b(house|property|home|apartment|flat|mortgage|condo)\b/,
-        phone: /\b(phone|smartphone|mobile|iphone|android)\b/,
-        electronics: /\b(laptop|computer|tv|tablet|gadget|device)\b/,
-        education: /\b(course|education|degree|university|college|training)\b/,
-        wedding: /\bwedding\b/,
-        medical: /\b(medical|surgery|procedure|treatment)\b/,
-        appliance: /\b(appliance|fridge|washing machine|microwave)\b/,
-    };
-    for (const [type, pattern] of Object.entries(goalTypePatterns)) {
-        if (pattern.test(lowerQ)) {
-            facts.goalType = type;
-            break;
-        }
-    }
-    // Extract destination for trips
-    const destinationMatch = lowerQ.match(/(?:to|in|visit|trip to|holiday to)\s+([A-Z][a-zA-Z\s]+?)(?:\s+for|\s+with|\s*£|\s*\$|$|\?)/i);
-    if (destinationMatch) {
-        facts.destination = destinationMatch[1].trim();
-    }
-    // Extract monetary amount (£, $, €, or just numbers)
-    const amountMatch = question.match(/[£$€]?([\d,]+\.?\d*)/);
-    if (amountMatch) {
-        const amount = parseFloat(amountMatch[1].replace(/,/g, ""));
-        if (Number.isFinite(amount) && amount > 0) {
-            facts.targetAmount = amount;
-        }
-    }
-    return facts;
-};
 export const plannerAgent = async (state, config) => {
     const llm = config.configurable?.llm;
     if (!llm) {
@@ -42,65 +5,63 @@ export const plannerAgent = async (state, config) => {
     }
     // If intent is too low confidence, skip fact checking
     if (!state.intent || state.intent.confidence < 0.5) {
+        return { missingFacts: [] };
+    }
+    // Use the LLM to extract every fact stated in the message and decide
+    // what is genuinely still missing — no brittle regex, no hardcoded lists.
+    const extraction = await llm.generateJSON(`You are a financial planning assistant that extracts facts from a user question.
+
+User question:
+"${state.question}"
+
+Already known facts (do not ask for these again):
+${JSON.stringify(state.knownFacts ?? {})}
+
+Instructions:
+1. Extract EVERY fact explicitly stated in the question:
+   - goalType (trip, car, house, phone, electronics, education, wedding, medical, investment, general)
+   - destination (city or country if mentioned)
+   - targetAmount (numeric budget or cost)
+   - currency (GBP, EUR, USD, JPY, etc. — infer from symbols or words like "euros", "pounds", "dollars")
+   - duration (e.g. "3 days")
+   - timeframe (e.g. "next month", "this year")
+   - travelersCount (number of people)
+2. Set a fact to null if it is NOT in the question.
+3. Determine missingFacts: facts that are CRITICAL to answer an affordability or planning question
+   but are genuinely absent from BOTH the question AND the known facts.
+   - For any affordability/planning question: need goalType AND targetAmount
+   - For trip questions: also need destination
+   - NEVER mark a fact as missing if the user already provided it in this question.
+4. If the question is about subscriptions, investments, or statements — missingFacts = [].
+
+Return ONLY valid JSON, no markdown:
+{
+  "extractedFacts": {
+    "goalType": string | null,
+    "destination": string | null,
+    "targetAmount": number | null,
+    "currency": string | null,
+    "duration": string | null,
+    "timeframe": string | null,
+    "travelersCount": number | null
+  },
+  "missingFacts": string[]
+}`);
+    // Merge extracted facts — LLM-extracted values take precedence only when non-null
+    const llmFacts = extraction.extractedFacts ?? {};
+    const cleanLlmFacts = Object.fromEntries(Object.entries(llmFacts).filter(([, v]) => v !== null && v !== undefined));
+    const mergedKnownFacts = { ...state.knownFacts, ...cleanLlmFacts };
+    const missingFacts = Array.isArray(extraction.missingFacts)
+        ? extraction.missingFacts
+        : [];
+    if (missingFacts.length > 0) {
         return {
-            missingFacts: [],
+            missingFacts,
+            knownFacts: mergedKnownFacts,
         };
     }
-    const lowerQuestion = state.question.toLowerCase();
-    const action = state.intent.action.toLowerCase();
-    // Extract facts from question and merge with existing knownFacts
-    const extractedFacts = extractFactsFromQuestion(state.question);
-    const knownFacts = { ...extractedFacts, ...state.knownFacts }; // Preserve explicit state over auto-extracted
-    const hasAffordabilityContext = knownFacts.queryType === "affordability" ||
-        "targetAmount" in knownFacts ||
-        "budget" in knownFacts ||
-        "goalType" in knownFacts ||
-        "destination" in knownFacts;
-    const isAffordability = /afford|affordability|buy|purchase|plan|decision/.test(action) ||
-        /\bcan i afford\b|\bnext month\b/.test(lowerQuestion) ||
-        hasAffordabilityContext;
-    const isSubscriptions = /subscription/.test(lowerQuestion);
-    const isInvestmentPerformance = /investment/.test(lowerQuestion) && /profit|return|gain|loss/.test(lowerQuestion);
-    const isStatement = /bank statement|statement/.test(lowerQuestion);
-    // For affordability queries, identify critical missing facts
-    if (isAffordability) {
-        const missingFacts = [];
-        // Check if goalType is provided (car, house, phone, trip, education, wedding, etc.)
-        if (!knownFacts.goalType) {
-            missingFacts.push("goalType");
-        }
-        // Check if target amount/budget is provided
-        const hasTargetAmount = typeof knownFacts.targetAmount === "number" && knownFacts.targetAmount > 0;
-        const hasBudget = typeof knownFacts.budget === "number" && knownFacts.budget > 0;
-        if (!hasTargetAmount && !hasBudget) {
-            missingFacts.push("targetAmount");
-        }
-        // For trips, check if destination is provided
-        const goalType = typeof knownFacts.goalType === "string"
-            ? knownFacts.goalType.toLowerCase()
-            : "";
-        const isTrip = goalType === "trip" || goalType === "travel" || goalType === "vacation" || goalType === "holiday";
-        if (isTrip && !knownFacts.destination) {
-            missingFacts.push("destination");
-        }
-        // Return early if critical facts are missing (user will be asked to provide them)
-        if (missingFacts.length > 0) {
-            return {
-                missingFacts,
-                knownFacts, // Persist extracted facts even if some are still missing
-            };
-        }
-    }
-    // For non-affordability queries, proceed without asking for facts
-    if (isSubscriptions || isInvestmentPerformance || isStatement) {
-        return {
-            missingFacts: [],
-        };
-    }
-    // Default: no missing facts required
     return {
         missingFacts: [],
-        // Merge extracted facts back into state so they flow downstream
-        knownFacts,
+        knownFacts: mergedKnownFacts,
     };
 };
