@@ -35,6 +35,7 @@ export const intentAgent = async (
         general_planning:      { domain: "general",   action: "planning"            },
         repayment_plan:        { domain: "finance",   action: "repayment_planning"  },
         goal_impact_analysis:  { domain: "finance",   action: "goal_impact"         },
+        cost_cutting_advice:   { domain: "travel",    action: "cost_optimization"   },
       };
     const mapped = pendingIntentMap[pendingAction] ?? { domain: "general", action: "planning" };
 
@@ -83,19 +84,30 @@ export const intentAgent = async (
     subject?: string;
     confidence: number;
   }>(`
-You are an intent classification agent for a financial AI assistant.
+You are an intent classification agent for a personal banking AI assistant.
 
-Your task is to classify the user's request into a GENERIC FINANCIAL INTENT.
+Classify the user's request into ONE of the following intents:
 
-Guidelines:
-- Domain must be a broad financial area (e.g. travel, saving, investing, loans, spending, income, general).
-- Action describes what the user wants to do (e.g. affordability, planning, optimization, decision, explanation).
-- Subject is optional and should be short (e.g. "Japan trip", "car", "home loan").
-- If the message is casual or unclear (e.g. "hello"), use:
-  domain = "general"
-  action = "conversation"
-- Do NOT invent details.
-- Keep output concise.
+DOMAIN / ACTION combinations (pick the single best match):
+- travel / affordability       — can I afford a trip, holiday, flight, hotel
+- travel / planning            — how to plan a trip budget
+- travel / cost_optimization   — how to cut trip costs
+- purchase / affordability     — can I afford a car, bike, house, phone, appliance, any purchase
+- purchase / planning          — how to save up for a big purchase
+- saving / planning            — savings plan, goal saving, building an emergency fund
+- saving / recovery            — rebuild savings after a purchase or trip
+- investing / review           — how are my investments doing, ISA performance, premium bonds
+- investing / decision         — should I invest more, which fund, rebalancing
+- loans / affordability        — can I take a loan, EMI affordability
+- loans / repayment_planning   — repayment schedule, clear debt faster
+- spending / optimization      — review subscriptions, cut spending, reduce expenses
+- banking / statement          — account balance, transaction history, monthly summary, cashflow
+- cashflow / forecast          — project next month's cashflow, surplus
+- general / conversation       — greeting, unclear, off-topic
+
+Rules:
+- subject is optional — fill it only if clearly mentioned (e.g. "Paris trip", "Honda Civic", "ISA").
+- confidence: 0.9+ for clear queries, 0.6-0.9 for partial match, below 0.6 = unsupported.
 - Return ONLY valid JSON. No markdown, no explanation.
 
 User message:

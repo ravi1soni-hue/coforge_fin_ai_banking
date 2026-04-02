@@ -13,6 +13,28 @@ export const reasoningAgent =async (
     throw new Error("LlmClient not provided to graph");
   }
 
+  // Short-circuit: user confirmed a follow-up offer — no need to re-run affordability.
+  // Returning a neutral reasoning object prevents synthesisAgent from interpreting
+  // the data as a new affordability query and looping back to the same analysis.
+  if (state.confirmedFollowUpAction) {
+    return {
+      reasoning: {
+        queryType: state.confirmedFollowUpAction,
+        verdict: "yes" as const,
+        confidence: 1.0,
+        affordable: true,
+        affordableNextMonth: true,
+        estimatedGoalCost: typeof state.knownFacts?.targetAmount === "number" ? state.knownFacts.targetAmount : 0,
+        projectedNextMonthSavings: typeof state.knownFacts?.netMonthlySavings === "number" ? state.knownFacts.netMonthlySavings : 0,
+        shortfallAmount: 0,
+        monthsToTargetAtCurrentSavingsRate: 0,
+        keyMetrics: [] as Array<{ label: string; value: string | number }>,
+        risks: [] as string[],
+        suggestions: [] as string[],
+      },
+    };
+  }
+
   const reasoning = await llm.generateJSON<{
     queryType: string;
     verdict: "yes" | "conditional" | "no";

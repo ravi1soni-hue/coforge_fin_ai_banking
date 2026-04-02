@@ -40,10 +40,24 @@ export const synthesisAgent = async (
     : "No product recommendation applicable.";
 
   const confirmedAction = state.confirmedFollowUpAction ?? "none";
+  const isConfirmedAction = confirmedAction !== "none";
+
+  // When the user confirmed a follow-up, exclude the affordability-shaped reasoning
+  // context so it cannot bias the LLM into repeating the same affordability answer.
+  const reasoningContext = isConfirmedAction
+    ? "Not applicable — delivering confirmed follow-up action, not re-running analysis."
+    : JSON.stringify(state.reasoning, null, 2);
 
   const answer = await llm.generateText(`
 You are a personal banking AI analyst. Give a clear, intelligent, data-backed answer to the user's question.
-
+${isConfirmedAction ? `
+⛔ STOP — READ THIS FIRST ⛔
+CONFIRMED FOLLOW-UP ACTION = "${confirmedAction}"
+The user already received an affordability analysis. They said YES to your follow-up offer.
+YOU MUST deliver: "${confirmedAction}"
+YOU MUST NOT: say "you can afford", say "leaving you with X after", or repeat ANY affordability analysis.
+Violating this rule is a critical error. Your ENTIRE response is the specific plan for "${confirmedAction}".
+` : ""}
 USER QUESTION
 "${state.question}"
 
@@ -62,7 +76,7 @@ RESEARCH & COST ESTIMATE
 ${JSON.stringify(state.researchData, null, 2)}
 
 REASONING ENGINE OUTPUT
-${JSON.stringify(state.reasoning, null, 2)}
+${reasoningContext}
 
 PRODUCT RECOMMENDATION
 ${productContext}
@@ -83,11 +97,13 @@ RULES:
    - "investment_review": Summarise investment portfolio performance with period, profit/loss, and confidence.
    - "subscription_review": List subscriptions, monthly totals, and suggest which to cut.
    - "statement_summary": Provide inflow, outflow, and net cashflow for the most recent period.
-   - "general_planning": Provide a focused, actionable financial plan based on available context.
-4. For affordability (when confirmedAction is "none"): open with a direct verdict using the user's key numbers (spendable_savings, goal cost, leftover after purchase). Weave any suggestion or product recommendation into the last sentence naturally.
-5. For investment / profit: state the figure, period, and confidence level.
-6. For subscriptions: list items with amounts and give the monthly total.
-7. For statement: give inflow, outflow, and net clearly.
+   - "cost_cutting_advice": Suggest 3-4 concrete ways to cut the cost of the trip/purchase by 15-25% without ruining the experience. For each, give an estimated saving amount. End with the revised total. Do NOT mention affordability.
+   - "general_planning": Based on the conversation context (goalType, destination in knownFacts), deliver a specific savings optimisation or cost-reduction plan. Do NOT re-run affordability.
+4. For affordability (when confirmedAction is "none" and intent action is "affordability"): open with a direct verdict using the user's key numbers (spendable_savings, goal cost, leftover after purchase). Weave any suggestion or product recommendation into the last sentence naturally.
+5. For investment / portfolio / ISA queries: state current value, monthly contribution, and performance where available. Note that exact profit/loss cannot be calculated without a cost basis.
+6. For subscriptions: list items with amounts and give the monthly total; suggest 1-2 to cancel.
+7. For statement / balance / cashflow: give the key numbers clearly — inflow, outflow, net, or account balance as appropriate.
+8. For loan / repayment queries: give the outstanding balance, EMI, and timeline to payoff.
 8. NEVER invent numbers that are not present in the data above.
 9. NEVER repeat the question back to the user. NEVER use filler phrases.
 10. Plain prose only — no markdown, no bullet points, no headers.
@@ -133,7 +149,7 @@ function detectFollowUpAction(answer: string): string {
       ?.toLowerCase() ?? answer.toLowerCase();
 
   // Repayment / instalment schedule — must check before generic plan/goal
-  if (/repayment|instalment|installment|monthly.cost|cost.monthly|spread.the.cost|schedule/.test(lastQuestion))
+  if (/repayment|instalment|installment|monthly.cost|cost.monthly|spread.the.cost|schedule|split.*payment|run.*numbers/.test(lastQuestion))
     return "repayment_plan";
   // Goal impact / option comparison
   if (/option.*goal|goal.*option|impact.*goal|goal.*impact|which.*option|affect.*goal/.test(lastQuestion))
@@ -141,6 +157,9 @@ function detectFollowUpAction(answer: string): string {
   // Post-purchase / post-trip RECOVERY plan (buffer rebuild, savings restore) — must check BEFORE generic savings_plan
   if (/buffer|rebuild|recover|restore|replenish|bounce.back|after.the.trip|after.trip|post.trip/.test(lastQuestion))
     return "savings_recovery";
+  // Ways to cut / reduce cost (e.g. "find ways to cut the trip cost")
+  if (/cut.*cost|find.*ways|ways.*save|reduce.*cost|cheaper.*option|save.*on.*trip|trim.*cost|lower.*cost|without.*missing/.test(lastQuestion))
+    return "cost_cutting_advice";
   if (/savings.plan|save.up|saving.plan|top.up/.test(lastQuestion))
     return "savings_plan";
   if (/cash.?flow|forecast|monthly.surplus/.test(lastQuestion))

@@ -55,6 +55,7 @@ Instructions:
    - For affordability/planning: need goalType AND targetAmount (only if absent from known facts)
    - For trip questions: also need destination (only if absent from known facts)
    - If queryType is subscriptions, investment_performance, or bank_statement — missingFacts = [].
+   - If queryType is general_finance or the user message is a short confirmation — missingFacts = [].
 
 Return ONLY valid JSON, no markdown:
 {
@@ -81,7 +82,11 @@ Return ONLY valid JSON, no markdown:
   //    confirmed "Yes do it" for a savings plan), do NOT let the LLM override
   //    queryType back to "affordability" just because the Paris trip facts are
   //    still in the session.
-  const nonAffordabilityActions = ["planning", "forecast", "review", "optimization", "statement", "repayment_planning", "goal_impact", "recovery"];
+  const nonAffordabilityActions = [
+    "planning", "forecast", "review", "optimization", "statement",
+    "repayment_planning", "goal_impact", "recovery", "cost_optimization",
+    "decision", "conversation",
+  ];
   if (
     nonAffordabilityActions.includes(state.intent?.action ?? "") &&
     cleanLlmFacts.queryType === "affordability"
