@@ -9,28 +9,29 @@ import ingestionRoutes from "./routes/ingestion.route.js";
 //import { configureLangSmith } from "./config/langsmith.config.js";
 //configureLangSmith();
 const server = http.createServer(app);
-// Keep HTTP socket timings proxy-friendly; websocket upgrades are handled separately.
-server.keepAliveTimeout = 65000;
-server.headersTimeout = 66000;
+// Keep HTTP socket timings aggressive for Railway proxy compatibility
+// Railway's default idle timeout: ~60s, but we keep connections MORE responsive
+server.keepAliveTimeout = 30000;
+server.headersTimeout = 31000;
 server.requestTimeout = 0;
+app.use("/api", ingestionRoutes);
+// Initialize WebSocket FIRST - must be ready before server starts
+initWebSocket(server);
 async function start() {
     try {
-        //console.log("⏳ Checking database connection...");
-        //await db.selectFrom("users").selectAll().execute();
-        //console.log("✅ Database connected");
-        app.use("/api", ingestionRoutes);
-        // Index local banking profile in vector memory at startup.
+        console.log("⏳ Bootstrapping banking user vectors...");
         await bootstrapBankingUserVectors();
-        // Sync financial profiles from banking_user_data.json to database
+        console.log("✅ Banking vectors loaded");
+        console.log("⏳ Syncing financial profiles...");
         await syncUserFinancialProfiles(db);
-        // Initialize WebSocket
-        initWebSocket(server);
+        console.log("✅ Financial profiles synced");
         server.listen(ENV.PORT, () => {
             console.log(`🚀 Server running on port ${ENV.PORT}`);
+            console.log(`📡 WebSocket ready at wss://coforgefinaibanking-development-ebdd.up.railway.app/ws`);
         });
     }
     catch (err) {
-        console.error("❌ Database startup failed");
+        console.error("❌ Startup failed");
         console.error(err);
         process.exit(1);
     }

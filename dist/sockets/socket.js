@@ -76,12 +76,21 @@ export const initWebSocket = (server) => {
             trackedClient.isAlive = false;
             trackedClient.ping();
         });
-    }, 30000);
+    }, 5000);
     server.on("close", () => {
         clearInterval(heartbeatInterval);
     });
     server.on("upgrade", (req, socket, head) => {
         try {
+            console.log("🔌 [UPGRADE] WebSocket request received", {
+                url: req.url,
+                headers: {
+                    upgrade: req.headers.upgrade,
+                    connection: req.headers.connection,
+                    host: req.headers.host,
+                    "user-agent": req.headers["user-agent"],
+                },
+            });
             const url = new URL(req.url ?? "", `http://${req.headers.host}`);
             const rawPath = url.pathname || "/";
             const pathname = rawPath.endsWith("/") && rawPath.length > 1
@@ -89,18 +98,28 @@ export const initWebSocket = (server) => {
                 : rawPath;
             // Accept both legacy root path and explicit /ws path.
             if (pathname !== "/" && pathname !== "/ws") {
-                console.warn("Rejected websocket upgrade for unsupported path", {
+                console.warn("⚠️ [UPGRADE] Rejected unsupported path", {
                     path: rawPath,
                     host: req.headers.host,
+                    url: req.url,
                 });
+                socket.write("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n");
                 socket.destroy();
                 return;
             }
+            console.log("✅ [UPGRADE] Upgrading to WebSocket", { url: req.url, userId: url.searchParams.get("userId") });
             wss.handleUpgrade(req, socket, head, (ws) => {
                 wss.emit("connection", ws, req);
             });
         }
-        catch {
+        catch (err) {
+            console.error("WebSocket upgrade error:", err);
+            try {
+                socket.write("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n");
+            }
+            catch {
+                // Socket may already be closed
+            }
             socket.destroy();
         }
     });

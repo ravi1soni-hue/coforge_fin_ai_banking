@@ -54,23 +54,6 @@ const isAffordabilityQuestion = (state) => {
         intentAction.includes("planning") ||
         /\bcan i afford\b|\bafford\b|\bbudget\b|\btrip\b|\bholiday\b|\bvacation\b/.test(question));
 };
-const getTopProductSupportLine = (state, forAffordabilityRisk) => {
-    if (!forAffordabilityRisk || !Array.isArray(state.productRecommendations)) {
-        return undefined;
-    }
-    const top = state.productRecommendations
-        .filter((item) => typeof item?.suitabilityScore === "number")
-        .sort((a, b) => b.suitabilityScore - a.suitabilityScore)[0];
-    if (!top || top.suitabilityScore < 0.5) {
-        return undefined;
-    }
-    const nextStep = (top.nextStep ?? "").trim().replace(/[.!?]+$/, "");
-    const productName = (top.productName ?? "").trim();
-    const prefix = productName ? `${productName}` : "a support option";
-    return nextStep
-        ? `If helpful, one optional path is ${prefix}: ${nextStep}.`
-        : `If helpful, one optional path is ${prefix} to reduce month-to-month cashflow pressure.`;
-};
 const normalizeSuggestionOptions = (suggestion) => {
     const normalized = suggestion.trim();
     if (!normalized) {
@@ -97,6 +80,32 @@ const normalizeSuggestionOptions = (suggestion) => {
         }
     }
     return normalized;
+};
+const getProductRecommendationSection = (state, forAffordability) => {
+    if (!forAffordability || !Array.isArray(state.productRecommendations)) {
+        return undefined;
+    }
+    const top = state.productRecommendations
+        .filter((item) => typeof item?.suitabilityScore === "number")
+        .sort((a, b) => b.suitabilityScore - a.suitabilityScore)[0];
+    if (!top || top.suitabilityScore < 0.5) {
+        return undefined;
+    }
+    const sections = [];
+    // Product name + rationale
+    const productName = (top.productName ?? "").trim();
+    const rationale = (top.rationale ?? "").trim();
+    if (productName) {
+        sections.push(rationale
+            ? `💳 ${productName}: ${rationale}`
+            : `💳 ${productName}`);
+    }
+    // Next step (actionable)
+    const nextStep = (top.nextStep ?? "").trim().replace(/[.!?]+$/, "");
+    if (nextStep) {
+        sections.push(`Next step: ${nextStep}.`);
+    }
+    return sections.length > 0 ? sections.join("\n") : undefined;
 };
 const buildAffordabilityReasoningAnswer = (state) => {
     if (!isAffordabilityQuestion(state)) {
@@ -146,6 +155,11 @@ const buildAffordabilityReasoningAnswer = (state) => {
         ? reasoning.affordableNextMonth
         : undefined;
     const affordable = typeof reasoning.affordable === "boolean" ? reasoning.affordable : undefined;
+    const keyMetrics = Array.isArray(reasoning.keyMetrics)
+        ? reasoning.keyMetrics
+        : [];
+    const risks = Array.isArray(reasoning.risks) ? reasoning.risks : [];
+    const confidence = typeof reasoning.confidence === "number" ? reasoning.confidence : undefined;
     const alternativesRaw = Array.isArray(researchData.alternatives)
         ? researchData.alternatives
         : [];
@@ -194,29 +208,26 @@ const buildAffordabilityReasoningAnswer = (state) => {
                     : shortfallAmount !== undefined && shortfallAmount > 0
                         ? `${purchaseLabel.charAt(0).toUpperCase() + purchaseLabel.slice(1)} is not comfortably affordable next month at your current run rate.`
                         : `${purchaseLabel.charAt(0).toUpperCase() + purchaseLabel.slice(1)} is possible, but it needs a tighter budget to stay comfortable.`;
-    const snapshotLines = [];
-    if (monthlyIncome !== undefined) {
-        snapshotLines.push(`- Income: ${formatMoney(monthlyIncome, currency)}`);
-    }
-    if (monthlyExpenses !== undefined) {
-        snapshotLines.push(`- Expenses: ${formatMoney(monthlyExpenses, currency)}`);
-    }
-    if (netMonthlySavings !== undefined) {
-        snapshotLines.push(`- Free cash: ${formatMoney(netMonthlySavings, currency)} per month`);
-    }
-    const sections = [verdict];
-    if (snapshotLines.length > 0) {
-        sections.push(`Quick snapshot:\n${snapshotLines.join("\n")}`);
-    }
+    const sections = [];
     if (estimatedCost === undefined) {
-        sections.push("I need the target purchase amount to give a reliable affordability verdict without guessing.");
-        sections.push("Share the expected cost or your budget, and I will compute exact shortfall and timeline from your real cashflow.");
-        return sections.join("\n\n");
+        return [
+            `I can assess affordability for ${purchaseLabel} accurately once the target amount is provided.`,
+            "Share the expected cost or your budget, and I will compute exact shortfall and timeline from your real cashflow."
+        ].join("\n\n");
     }
+    // 📊 Build reasoning-forward response (show work, not just verdict)
+    const reasoningParts = [];
+    // 1. Show the calculation foundation
+    if (monthlyIncome !== undefined && monthlyExpenses !== undefined) {
+        const targetMonth = state.knownFacts?.targetMonth || "next month";
+        reasoningParts.push(`Based on your ${formatMoney(monthlyIncome, currency)} salary, ${formatMoney(monthlyExpenses, currency)} fixed costs and typical spending, you'll have around ${formatMoney(netMonthlySavings ?? 0, currency)} free in ${targetMonth}.`);
+    }
+    // 2. Show cost context with alternatives
     if (comparableCosts.length >= 2) {
         const minCost = Math.min(...comparableCosts);
         const maxCost = Math.max(...comparableCosts);
-        sections.push(`Price planning range: ${formatMoney(minCost, currency)} to ${formatMoney(maxCost, currency)}.`);
+        const goalLabel = goalType === "trip" || goalType === "vacation" || goalType === "holiday" ? "trip" : "option";
+        reasoningParts.push(`A budget ${goalLabel} fits in the ${formatMoney(minCost, currency)}–${formatMoney(maxCost, currency)} range.`);
     }
     else if (estimatedCost !== undefined) {
         const costSourceNote = researchCostSource === "web_search"
@@ -224,26 +235,38 @@ const buildAffordabilityReasoningAnswer = (state) => {
             : researchCostSource === "unverified"
                 ? " (market estimate — confirm price before purchase)"
                 : "";
-        sections.push(`A practical cost to plan for is about ${formatMoney(estimatedCost, currency)}${costSourceNote}.`);
+        reasoningParts.push(`A practical cost to plan for is about ${formatMoney(estimatedCost, currency)}${costSourceNote}.`);
     }
+    // 3. Show affordability verdict
     if (shortfallAmount !== undefined && shortfallAmount > 0) {
         const monthText = monthsToTarget !== undefined && monthsToTarget > 0
-            ? `, which likely needs around ${Math.ceil(monthsToTarget)} month(s) at your current savings pace`
-            : "";
-        sections.push(`You are short by about ${formatMoney(shortfallAmount, currency)}${monthText}.`);
+            ? ` You'll need around ${Math.ceil(monthsToTarget)} months at your current savings pace to close the ${formatMoney(shortfallAmount, currency)} gap.`
+            : ` You're short by about ${formatMoney(shortfallAmount, currency)}.`;
+        reasoningParts.push(`This needs careful planning.${monthText}`);
+    }
+    else if (affordableNextMonth === true || affordable === true) {
+        if (projectedNextMonthSavings !== undefined &&
+            estimatedCost !== undefined &&
+            projectedNextMonthSavings > estimatedCost) {
+            const remainingSavings = projectedNextMonthSavings - estimatedCost;
+            reasoningParts.push(`This looks affordable. You'd have around ${formatMoney(remainingSavings, currency)} buffer remaining.`);
+        }
+        else {
+            reasoningParts.push(`Good news — ${purchaseLabel} looks affordable on your current monthly cashflow.`);
+        }
+    }
+    else {
+        reasoningParts.push(`${purchaseLabel.charAt(0).toUpperCase() + purchaseLabel.slice(1)} is possible, but needs a tighter budget to stay comfortable.`);
+    }
+    // Join all parts into a single narrative paragraph
+    sections.push(reasoningParts.join(" "));
+    // 4. Add actionable next step if there's a shortfall
+    if (shortfallAmount !== undefined && shortfallAmount > 0) {
         sections.push("Want me to build a lean month-by-month savings plan to close that gap?");
     }
-    else if (projectedNextMonthSavings !== undefined &&
-        estimatedCost !== undefined &&
-        projectedNextMonthSavings > estimatedCost &&
-        !hasNegativeCashflow) {
-        sections.push(`You should still have around ${formatMoney(projectedNextMonthSavings - estimatedCost, currency)} buffer after funding this.`);
-    }
-    else if (projectedNextMonthSavings !== undefined &&
-        estimatedCost !== undefined &&
-        projectedNextMonthSavings > estimatedCost &&
-        hasNegativeCashflow) {
-        sections.push("You may still fund this from existing savings, but the current monthly deficit means that buffer could reduce quickly over the next few months.");
+    else if (risks.length > 0) {
+        const topRisk = risks[0];
+        sections.push(`One thing to watch: ${topRisk}`);
     }
     return sections.join("\n\n");
 };
@@ -256,10 +279,10 @@ export const synthesisAgent = async (state, config) => {
     const reasoningEngineAffordabilityAnswer = buildAffordabilityReasoningAnswer(state);
     if (reasoningEngineAffordabilityAnswer) {
         let finalResponse = reasoningEngineAffordabilityAnswer;
-        const affordabilityRisk = /not comfortably affordable|monthly cashflow is currently negative|careful planning/i.test(reasoningEngineAffordabilityAnswer);
-        const productSupportLine = getTopProductSupportLine(state, affordabilityRisk);
-        if (productSupportLine) {
-            finalResponse = `${finalResponse}\n\n${productSupportLine}`;
+        // Always include product recommendation section (enhanced version)
+        const productRecommendation = getProductRecommendationSection(state, true);
+        if (productRecommendation) {
+            finalResponse = `${finalResponse}\n\n${productRecommendation}`;
         }
         if (state.isSuggestionIncluded &&
             state.suggestion &&
