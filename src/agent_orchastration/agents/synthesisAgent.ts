@@ -114,18 +114,23 @@ export const synthesisAgent = async (
       ?? `Provide a helpful financial action plan for: ${confirmedAction}.`;
 
     const isolatedAnswer = await llm.generateText(
-      `You are a personal banking AI assistant.${historySnippet ? `\n\nCONVERSATION SO FAR:\n${historySnippet}` : ""}
+      `You are a personal banking AI assistant for ${kf.userName ?? "the user"}.
 
-The user confirmed they want: "${confirmedAction}".
+HOME CURRENCY: ${homeCurrency} — use this for ALL the user's financial figures (savings, income, expenses, surplus).
+TRIP/PURCHASE CURRENCY: ${tripCurrency} — use this ONLY for the trip or purchase cost.
 
-TASK: ${instructions}
+YOUR TASK (execute this completely and precisely):
+${instructions}
 
-Style rules:
+STYLE RULES:
 - Plain prose only. No markdown, no bullet points, no headers.
 - 3-4 short punchy sentences. End with ONE brief follow-up offer.
 - Speak like a friendly, confident financial advisor.
-- Do NOT open with "Sure!", "Of course!", or repeat the user's question.
-- Do NOT perform or mention any affordability analysis.`
+- Do NOT open with "Sure!", "Of course!", or any filler phrase.
+- Do NOT perform or repeat any affordability analysis from a prior turn. Focus ONLY on the TASK above.
+
+PRIOR CONVERSATION (background reference only — do not repeat or re-analyse this):
+${historySnippet || "None."}`
     );
 
     console.log(`[SynthesisAgent] isolated answer for "${confirmedAction}": ${isolatedAnswer.slice(0, 120)}...`);
@@ -152,6 +157,16 @@ Style rules:
   // When the user confirmed a follow-up, exclude the affordability-shaped reasoning
   // context so it cannot bias the LLM into repeating the same affordability answer.
   const reasoningContext = JSON.stringify(state.reasoning, null, 2);
+
+  const mainHomeCurrency = (() => {
+    const kf = state.knownFacts ?? {};
+    return (kf.profileCurrency ?? kf.currency ?? "GBP") as string;
+  })();
+  const mainTripCurrency = (() => {
+    const kf = state.knownFacts ?? {};
+    const home = (kf.profileCurrency ?? kf.currency ?? "GBP") as string;
+    return (kf.targetCurrency ?? home) as string;
+  })();
 
   const conversationContext = Array.isArray(state.conversationHistory) && state.conversationHistory.length > 0
     ? `\nCONVERSATION HISTORY (for context only — do not repeat prior answers)\n` +
@@ -188,6 +203,7 @@ CONTEXTUAL SUGGESTION
 ${state.isSuggestionIncluded && state.suggestion ? state.suggestion : "None"}
 
 RULES:
+0. CRITICAL — CURRENCY: The user's HOME currency is ${mainHomeCurrency}. ALL figures for the user's own money (savings, income, expenses, surplus, account balances) MUST be shown in ${mainHomeCurrency} with the correct symbol. ONLY the trip/purchase cost the user stated uses ${mainTripCurrency}. NEVER show the user's savings or income in ${mainTripCurrency !== mainHomeCurrency ? mainTripCurrency : "any other currency"}.
 1. Read ALL data above — never ignore any context field.
 2. CRITICAL — Use ONLY spendable_savings (savings account balance) as the user's available pool. NEVER add the current account balance to it. The current account is reserved for monthly living expenses.
 3. CRITICAL — When the user says something like "yes", "sure", or "please do that" referring to a plan offered in the conversation history, DELIVER that plan — do NOT repeat the affordability verdict from a prior turn.
