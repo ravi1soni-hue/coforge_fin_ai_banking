@@ -84,6 +84,41 @@ RULES:
     };
   }
 
-  return { finalAnswer: answer };
+  // Tag what action was offered in the follow-up question so the next turn
+  // can detect a short "yes / do it" confirmation without re-running affordability.
+  const pendingFollowUpAction = detectFollowUpAction(answer);
+
+  return {
+    finalAnswer: answer,
+    knownFacts: { ...state.knownFacts, pendingFollowUpAction },
+  };
 };
+
+/**
+ * Lightweight keyword match on the last question in an answer to tag what
+ * the assistant offered, e.g. "Want me to build a savings plan?" → "savings_plan".
+ * Avoids an extra LLM call.
+ */
+function detectFollowUpAction(answer: string): string {
+  const lastQuestion =
+    answer
+      .split(/(?<=[.!?])\s+/)
+      .filter((s) => s.includes("?"))
+      .pop()
+      ?.toLowerCase() ?? answer.toLowerCase();
+
+  if (/buffer|rebuild|savings.plan|save.up|saving.plan|top.up/.test(lastQuestion))
+    return "savings_plan";
+  if (/cash.?flow|forecast|monthly.surplus/.test(lastQuestion))
+    return "cashflow_forecast";
+  if (/invest|portfolio|returns|fund/.test(lastQuestion))
+    return "investment_review";
+  if (/subscription|recurring/.test(lastQuestion))
+    return "subscription_review";
+  if (/statement|transaction|history/.test(lastQuestion))
+    return "statement_summary";
+  if (/plan|goal|target|budget/.test(lastQuestion))
+    return "goal_planning";
+  return "general_planning";
+}
 

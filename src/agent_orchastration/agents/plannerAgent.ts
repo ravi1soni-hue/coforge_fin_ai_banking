@@ -76,6 +76,19 @@ Return ONLY valid JSON, no markdown:
   const cleanLlmFacts = Object.fromEntries(
     Object.entries(llmFacts).filter(([, v]) => v !== null && v !== undefined)
   );
+
+  // ── Guard: if intentAgent resolved a non-affordability action (e.g. user
+  //    confirmed "Yes do it" for a savings plan), do NOT let the LLM override
+  //    queryType back to "affordability" just because the Paris trip facts are
+  //    still in the session.
+  const nonAffordabilityActions = ["planning", "forecast", "review", "optimization", "statement"];
+  if (
+    nonAffordabilityActions.includes(state.intent?.action ?? "") &&
+    cleanLlmFacts.queryType === "affordability"
+  ) {
+    cleanLlmFacts.queryType = "general_finance";
+  }
+
   const mergedKnownFacts = { ...state.knownFacts, ...cleanLlmFacts };
 
   const missingFacts = Array.isArray(extraction.missingFacts)
