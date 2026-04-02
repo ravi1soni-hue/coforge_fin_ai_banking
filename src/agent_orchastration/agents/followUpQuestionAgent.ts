@@ -13,6 +13,8 @@ export const followUpQuestionAgent = async (
     targetAmount: "your approximate budget amount",
     currency: "the currency for that budget",
     budget: "your approximate trip budget",
+    destination: "your travel destination",
+    goalType: "what you're looking to purchase or achieve",
     monthlyNetIncome: "your monthly take-home income",
     monthlyCommittedExpenses: "your fixed monthly expenses",
     availableSavings: "how much savings you can use for this trip",

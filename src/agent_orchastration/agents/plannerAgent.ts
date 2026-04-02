@@ -28,18 +28,33 @@ const extractFactsFromQuestion = (question: string): Partial<Record<string, unkn
   }
 
   // Extract destination for trips
-  const destinationMatch = lowerQ.match(/(?:to|in|visit|trip to|holiday to)\s+([A-Z][a-zA-Z\s]+?)(?:\s+for|\s+with|\s*£|\s*\$|$|\?)/i);
+  // Match patterns like "in Paris", "to London", "trip to Tokyo", etc.
+  // Stop at: word boundaries, numbers, or common units like "euros/dollars"
+  const destinationMatch = question.match(/(?:in|to|visit|trip to|holiday to|holiday in)\s+([A-Z][a-z\s]+?)(?:\s+(?:in|for|with|euro|pound|dollar|per|of|£|\$|$|\d)|\s*[£$€]|\?|$)/i);
   if (destinationMatch) {
     facts.destination = destinationMatch[1].trim();
   }
 
-  // Extract monetary amount (£, $, €, or just numbers)
-  const amountMatch = question.match(/[£$€]?([\d,]+\.?\d*)/);
-  if (amountMatch) {
-    const amount = parseFloat(amountMatch[1].replace(/,/g, ""));
-    if (Number.isFinite(amount) && amount > 0) {
-      facts.targetAmount = amount;
+  // Extract monetary amount - prioritize currency symbols or larger numbers (1000+)
+  let extractedAmount = null;
+
+  // First try to find amount with explicit currency symbol
+  const currencyMatch = question.match(/[£$€€\s]([\d,]+\.?\d*)/);
+  if (currencyMatch) {
+    extractedAmount = parseFloat(currencyMatch[1].replace(/,/g, ""));
+  }
+
+  // If no currency symbol, find the largest number (likely the budget, not quantity)
+  if (!extractedAmount) {
+    const allNumbers = question.match(/\d+(?:,\d{3})*(?:\.\d+)?/g);
+    if (allNumbers) {
+      const amounts = allNumbers.map(n => parseFloat(n.replace(/,/g, "")));
+      extractedAmount = Math.max(...amounts);
     }
+  }
+
+  if (extractedAmount && Number.isFinite(extractedAmount) && extractedAmount > 0) {
+    facts.targetAmount = extractedAmount;
   }
 
   return facts;
