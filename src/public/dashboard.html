@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Financial Data Dashboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .user-selector {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .user-btn {
+      padding: 10px 20px;
+      border: 2px solid #667eea;
+      background: white;
+      color: #667eea;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .user-btn:hover,
+    .user-btn.active {
+      background: #667eea;
+      color: white;
+    }
+
+    .main-content {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .card h2 {
+      color: #333;
+      margin-bottom: 15px;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 10px;
+    }
+
+    .profile-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .info-item {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 5px;
+      border-left: 4px solid #667eea;
+    }
+
+    .info-label {
+      color: #666;
+      font-size: 0.9em;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .info-value {
+      color: #333;
+      font-size: 1.2em;
+      font-weight: bold;
+      margin-top: 5px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .summary-item {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 5px;
+      text-align: center;
+    }
+
+    .summary-item-label {
+      font-size: 0.9em;
+      opacity: 0.9;
+      margin-bottom: 5px;
+    }
+
+    .summary-item-value {
+      font-size: 1.8em;
+      font-weight: bold;
+    }
+
+    .health-score {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .savings-rate {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+
+    th {
+      background: #f5f5f5;
+      font-weight: 600;
+      color: #333;
+    }
+
+    tr:hover {
+      background: #f9f9f9;
+    }
+
+    .amount {
+      color: #667eea;
+      font-weight: 600;
+    }
+
+    .credit {
+      color: #4caf50;
+    }
+
+    .debit {
+      color: #f44336;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    .error {
+      background: #fee;
+      color: #c33;
+      padding: 15px;
+      border-radius: 5px;
+      border-left: 4px solid #c33;
+    }
+
+    .success {
+      background: #efe;
+      color: #3c3;
+      padding: 15px;
+      border-radius: 5px;
+      border-left: 4px solid #3c3;
+    }
+
+    .section-title {
+      font-size: 1.2em;
+      font-weight: 600;
+      color: #333;
+      margin: 20px 0 15px 0;
+      border-left: 4px solid #667eea;
+      padding-left: 10px;
+    }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+
+    .stat-box {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 5px;
+      border-top: 3px solid #667eea;
+    }
+
+    .stat-label {
+      font-size: 0.85em;
+      color: #666;
+      text-transform: uppercase;
+    }
+
+    .stat-value {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #333;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 768px) {
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      table {
+        font-size: 0.9em;
+      }
+
+      th, td {
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>💰 Financial Data Dashboard</h1>
+      <p style="color: #666; margin-bottom: 15px;">View and manage financial information</p>
+      <div class="user-selector" id="userSelector"></div>
+    </header>
+
+    <div class="main-content">
+      <div id="content"></div>
+    </div>
+  </div>
+
+  <script>
+    const SAMPLE_USERS = [
+      { id: "user_001", name: "Raj Kumar" },
+      { id: "user_002", name: "Priya Sharma" },
+      { id: "user_003", name: "Amit Patel" }
+    ];
+
+    let currentUser = SAMPLE_USERS[0];
+
+    // Initialize user selector
+    function initializeUserSelector() {
+      const selector = document.getElementById("userSelector");
+      SAMPLE_USERS.forEach(user => {
+        const btn = document.createElement("button");
+        btn.className = `user-btn ${user.id === currentUser.id ? "active" : ""}`;
+        btn.textContent = user.name;
+        btn.onclick = () => selectUser(user);
+        selector.appendChild(btn);
+      });
+    }
+
+    function selectUser(user) {
+      currentUser = user;
+      document.querySelectorAll(".user-btn").forEach(btn => btn.classList.remove("active"));
+      event.target.classList.add("active");
+      loadData();
+    }
+
+    async function loadData() {
+      const content = document.getElementById("content");
+      content.innerHTML = '<div class="loading">Loading financial data...</div>';
+
+      try {
+        const [dataRes, summaryRes] = await Promise.all([
+          fetch(`/api/financial-data/${currentUser.id}`),
+          fetch(`/api/financial-data/${currentUser.id}/summary`)
+        ]);
+
+        if (!dataRes.ok || !summaryRes.ok) {
+          throw new Error("Failed to load data");
+        }
+
+        const data = await dataRes.json();
+        const summary = await summaryRes.json();
+
+        renderDashboard(data, summary);
+      } catch (error) {
+        content.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+      }
+    }
+
+    function renderDashboard(data, summary) {
+      const content = document.getElementById("content");
+      const profile = data.userProfile;
+
+      let html = `
+        <div class="card">
+          <h2>👤 User Profile</h2>
+          <div class="profile-info">
+            <div class="info-item">
+              <div class="info-label">Name</div>
+              <div class="info-value">${profile.name}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Country</div>
+              <div class="info-value">${profile.country}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Currency</div>
+              <div class="info-value">${profile.currency}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Employment Type</div>
+              <div class="info-value">${profile.employment?.type || "N/A"}</div>
+            </div>
+            ${profile.employment?.monthlyIncome ? `
+            <div class="info-item">
+              <div class="info-label">Monthly Income</div>
+              <div class="info-value">₹${formatNumber(profile.employment.monthlyIncome)}</div>
+            </div>
+            ` : ""}
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>📊 Financial Summary</h2>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <div class="summary-item-label">Total Balance</div>
+              <div class="summary-item-value">₹${formatNumber(summary.totalBalance)}</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-item-label">Total Debt</div>
+              <div class="summary-item-value">₹${formatNumber(summary.totalDebt)}</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-item-label">Monthly Expenses</div>
+              <div class="summary-item-value">₹${formatNumber(summary.monthlyExpenses)}</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-item-label">Total Investments</div>
+              <div class="summary-item-value">₹${formatNumber(summary.totalInvestments)}</div>
+            </div>
+            <div class="summary-item savings-rate">
+              <div class="summary-item-label">Savings Rate</div>
+              <div class="summary-item-value">${(summary.savingsRate || 0).toFixed(1)}%</div>
+            </div>
+            <div class="summary-item health-score">
+              <div class="summary-item-label">Health Score</div>
+              <div class="summary-item-value">${summary.financialHealthScore}/100</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>🏦 Bank Accounts (${data.accounts.length})</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Bank</th>
+                <th>Type</th>
+                <th>Balance</th>
+                <th>Avg Monthly</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.accounts.map(acc => `
+                <tr>
+                  <td>${acc.bank}</td>
+                  <td>${acc.type}</td>
+                  <td class="amount">₹${formatNumber(acc.balance)}</td>
+                  <td class="amount">₹${formatNumber(acc.averageMonthlyBalance || 0)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+
+        ${data.loans.length > 0 ? `
+        <div class="card">
+          <h2>💳 Loans (${data.loans.length})</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Provider</th>
+                <th>EMI</th>
+                <th>Remaining Months</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.loans.map(loan => `
+                <tr>
+                  <td>${loan.type}</td>
+                  <td>${loan.provider}</td>
+                  <td class="amount">₹${formatNumber(loan.emi)}</td>
+                  <td>${loan.remainingTenureMonths}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+        ` : ""}
+
+        ${data.subscriptions.length > 0 ? `
+        <div class="card">
+          <h2>🔄 Subscriptions (${data.subscriptions.length})</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Amount</th>
+                <th>Frequency</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.subscriptions.map(sub => `
+                <tr>
+                  <td>${sub.name}</td>
+                  <td class="amount">₹${formatNumber(sub.amount)}</td>
+                  <td>${sub.cycle}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+        ` : ""}
+
+        ${data.investments.length > 0 ? `
+        <div class="card">
+          <h2>💼 Investments (${data.investments.length})</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Provider</th>
+                <th>Current Value</th>
+                <th>Monthly Contribution</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.investments.map(inv => `
+                <tr>
+                  <td>${inv.type}</td>
+                  <td>${inv.provider}</td>
+                  <td class="amount">₹${formatNumber(inv.currentValue)}</td>
+                  <td class="amount">₹${formatNumber(inv.monthlyContribution)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+        ` : ""}
+
+        ${data.transactions.length > 0 ? `
+        <div class="card">
+          <h2>📝 Recent Transactions (${data.transactions.length})</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Category</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.transactions.map(tx => `
+                <tr>
+                  <td>${new Date(tx.date).toLocaleDateString()}</td>
+                  <td><span class="${tx.type === 'CREDIT' ? 'credit' : 'debit'}">${tx.type}</span></td>
+                  <td>${tx.category}</td>
+                  <td class="amount ${tx.type === 'CREDIT' ? 'credit' : 'debit'}">
+                    ${tx.type === 'CREDIT' ? '+' : '-'}₹${formatNumber(tx.amount)}
+                  </td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+        ` : ""}
+
+        ${data.savingsGoals.length > 0 ? `
+        <div class="card">
+          <h2>🎯 Savings Goals (${data.savingsGoals.length})</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Goal</th>
+                <th>Target Amount</th>
+                <th>Current Saved</th>
+                <th>Target Date</th>
+                <th>Status</th>
+                <th>Progress</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.savingsGoals.map(goal => {
+                const progress = (goal.currentSaved / goal.targetAmount * 100).toFixed(1);
+                return `
+                <tr>
+                  <td>${goal.goalId}</td>
+                  <td class="amount">₹${formatNumber(goal.targetAmount)}</td>
+                  <td class="amount">₹${formatNumber(goal.currentSaved)}</td>
+                  <td>${new Date(goal.targetDate).toLocaleDateString()}</td>
+                  <td>${goal.status}</td>
+                  <td>${progress}%</td>
+                </tr>
+              `;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+        ` : ""}
+      `;
+
+      content.innerHTML = html;
+    }
+
+    function formatNumber(num) {
+      if (!num) return "0";
+      return parseFloat(num).toLocaleString("en-IN", {
+        maximumFractionDigits: 2,
+        minimumFractionDigits: 2
+      });
+    }
+
+    // Initialize on page load
+    window.addEventListener("load", () => {
+      initializeUserSelector();
+      loadData();
+    });
+  </script>
+</body>
+</html>

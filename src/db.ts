@@ -1,10 +1,11 @@
 import { Kysely, PostgresDialect } from "kysely";
 import pkg from "pg";
 import { ENV } from "./config/env.js";
+import type { Database } from "./models/database.types.js";
 
 const { Pool } = pkg;
 
-export const db = new Kysely({
+export const db = new Kysely<Database>({
   dialect: new PostgresDialect({
     pool: new Pool({
       connectionString: ENV.DATABASE_URL,

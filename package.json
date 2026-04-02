@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "seed": "tsx seed-data.ts"
   },
   "dependencies": {
     "@langchain/langgraph": "^1.2.6",
@@ -20,6 +21,7 @@
     "knex": "^3.2.6",
     "kysely": "^0.28.14",
     "langsmith": "^0.5.15",
+    "node-fetch": "^3.3.2",
     "pg": "^8.20.0",
     "socket.io": "^4.8.3",
     "uuid": "^13.0.0",

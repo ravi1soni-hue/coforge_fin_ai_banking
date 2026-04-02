@@ -6,6 +6,7 @@ import { ENV } from "./config/env.js";
 import { initWebSocket } from "./sockets/socket.js";
 
 import ingestionRoutes from "./routes/ingestion.route.js";
+import financialDataRoutes from "./routes/financialData.route.js";
 //import { configureLangSmith } from "./config/langsmith.config.js";
 
 //configureLangSmith();
@@ -19,10 +20,11 @@ async function start() {
 
     //console.log("✅ Database connected");
 
-    
+
 
 app.use("/api", ingestionRoutes);
- 
+app.use("/api/financial-data", financialDataRoutes);
+
 // Initialize WebSocket
     initWebSocket(server);
     server.listen(ENV.PORT, () => {

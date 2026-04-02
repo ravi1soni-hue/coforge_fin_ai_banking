@@ -6,6 +6,7 @@ import { VectorQueryService } from "../agent_orchastration/services/vector.query
 import { FinancialAssistantService } from "../agent_orchastration/services/FinancialAssistantService.js";
 import { OpenAIClient } from "../agent_orchastration/llm/openAIClient.js";
 import { ChatService } from "../services/chat/chat.service.js";
+import { FinancialDataService } from "../services/finnacial_data/financialData.service.js";
 import { ENV } from "./env.js";
 import { db } from "../db.js";
 
@@ -16,11 +17,12 @@ export const container = createContainer();
 container.register({
 
   db: asValue(db),
-  
+
 
   // Singletons (lazy by default ✅)
   vectorRepo: asClass(VectorRepository).singleton(),
   vectorQueryService : asClass(VectorQueryService).singleton(),
+  financialDataService: asClass(FinancialDataService).singleton(),
 
 // ✅ REGISTER THE API KEY
 apiKey: asValue(ENV.OPENAI_API_KEY),

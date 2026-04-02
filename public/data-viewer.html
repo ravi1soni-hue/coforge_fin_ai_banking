@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Banking Data Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .status {
+            display: inline-block;
+            background: #10b981;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            margin-top: 15px;
+            font-weight: 600;
+        }
+
+        .sections {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-header {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .icon {
+            font-size: 1.8em;
+        }
+
+        .profile-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            grid-column: 1 / -1;
+        }
+
+        .profile-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .profile-label {
+            color: #999;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .profile-value {
+            color: #333;
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+
+        .table-container {
+            grid-column: 1 / -1;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        thead {
+            background: #f0f0f0;
+        }
+
+        th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #ddd;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            color: #666;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .amount {
+            color: #10b981;
+            font-weight: 600;
+        }
+
+        .amount.negative {
+            color: #ef4444;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .badge-credit {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-debit {
+            background: #fee2e2;
+            color: #7f1d1d;
+        }
+
+        .badge-savings {
+            background: #dbeafe;
+            color: #0c2340;
+        }
+
+        .badge-current {
+            background: #ddd6fe;
+            color: #4c1d95;
+        }
+
+        .stat-item {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            grid-column: span 1;
+        }
+
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+            font-size: 1.2em;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #7f1d1d;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #ef4444;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .transactions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .transaction-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .transaction-info {
+            flex: 1;
+        }
+
+        .transaction-category {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .transaction-date {
+            font-size: 0.85em;
+            color: #999;
+        }
+
+        .transaction-amount {
+            font-size: 1.2em;
+            font-weight: 700;
+        }
+
+        @media (max-width: 768px) {
+            .sections {
+                grid-template-columns: 1fr;
+            }
+
+            .profile-grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .stat-item {
+                grid-column: span 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💰 Banking Data Viewer</h1>
+            <p class="subtitle">Complete Financial Profile & Account Details</p>
+            <div class="status">✓ Live Data - Real-time Updates</div>
+        </header>
+
+        <div id="loading" class="loading">
+            Loading your financial data... 📊
+        </div>
+
+        <div id="content" style="display: none;">
+            <!-- User Profile -->
+            <div class="card full-width">
+                <div class="card-header">
+                    <span class="icon">👤</span>
+                    <span>User Profile</span>
+                </div>
+                <div class="profile-grid">
+                    <div class="profile-item">
+                        <div class="profile-label">Name</div>
+                        <div class="profile-value" id="userName">-</div>
+                    </div>
+                    <div class="profile-item">
+                        <div class="profile-label">User ID</div>
+                        <div class="profile-value" id="userId">-</div>
+                    </div>
+                    <div class="profile-item">
+                        <div class="profile-label">Country</div>
+                        <div class="profile-value" id="userCountry">-</div>
+                    </div>
+                    <div class="profile-item">
+                        <div class="profile-label">Currency</div>
+                        <div class="profile-value" id="userCurrency">-</div>
+                    </div>
+                    <div class="profile-item" style="grid-column: 1 / -1;">
+                        <div class="profile-label">Employment Type</div>
+                        <div class="profile-value" id="employmentType">-</div>
+                    </div>
+                    <div class="profile-item" style="grid-column: 1 / -1;">
+                        <div class="profile-label">Monthly Income</div>
+                        <div class="profile-value" id="monthlyIncome">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics -->
+            <div class="sections">
+                <div class="stat-item">
+                    <div class="stat-label">Total Accounts</div>
+                    <div class="stat-value" id="accountCount">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Total Loans</div>
+                    <div class="stat-value" id="loanCount">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Active Subscriptions</div>
+                    <div class="stat-value" id="subscriptionCount">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Total Transactions</div>
+                    <div class="stat-value" id="transactionCount">0</div>
+                </div>
+            </div>
+
+            <!-- Accounts -->
+            <div class="card full-width">
+                <div class="card-header">
+                    <span class="icon">💳</span>
+                    <span>Accounts</span>
+                </div>
+                <div class="table-container">
+                    <table id="accountsTable">
+                        <thead>
+                            <tr>
+                                <th>Account ID</th>
+                                <th>Type</th>
+                                <th>Bank</th>
+                                <th>Balance</th>
+                                <th>Avg Monthly Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Loans -->
+            <div class="card full-width">
+                <div class="card-header">
+                    <span class="icon">📊</span>
+                    <span>Loans</span>
+                </div>
+                <div class="table-container">
+                    <table id="loansTable">
+                        <thead>
+                            <tr>
+                                <th>Loan ID</th>
+                                <th>Type</th>
+                                <th>Provider</th>
+                                <th>EMI</th>
+                                <th>Remaining Tenure (Months)</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Subscriptions -->
+            <div class="card full-width">
+                <div class="card-header">
+                    <span class="icon">🔔</span>
+                    <span>Subscriptions</span>
+                </div>
+                <div class="table-container">
+                    <table id="subscriptionsTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Amount</th>
+                                <th>Cycle</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Investments -->
+            <div class="card full-width">
+                <div class="card-header">
+                    <span class="icon">📈</span>
+                    <span>Investments</span>
+                </div>
+                <div class="table-container">
+                    <table id="investmentsTable">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Provider</th>
+                                <th>Current Value</th>
+                                <th>Monthly Contribution</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Savings Goals -->
+            <div class="card full-width">
+                <div class="card-header">
+                    <span class="icon">🎯</span>
+                    <span>Savings Goals</span>
+                </div>
+                <div class="table-container">
+                    <table id="savingsTable">
+                        <thead>
+                            <tr>
+                                <th>Goal ID</th>
+                                <th>Target Amount</th>
+                                <th>Current Saved</th>
+                                <th>Target Date</th>
+                                <th>Status</th>
+                                <th>Progress</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Recent Transactions -->
+            <div class="card full-width">
+                <div class="card-header">
+                    <span class="icon">💸</span>
+                    <span>Recent Transactions (Last 20)</span>
+                </div>
+                <div id="transactionsContainer"></div>
+            </div>
+        </div>
+
+        <div id="error" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api/financial-data';
+        const USER_ID = 'uk_user_001';
+
+        async function loadData() {
+            try {
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('error').style.display = 'none';
+
+                const response = await fetch(`${API_BASE}/${USER_ID}`);
+                if (!response.ok) throw new Error('Failed to fetch data');
+
+                const data = await response.json();
+                console.log('Data loaded:', data);
+
+                displayData(data);
+                document.getElementById('content').style.display = 'block';
+                document.getElementById('loading').style.display = 'none';
+            } catch (err) {
+                console.error('Error:', err);
+                document.getElementById('error').innerHTML = `<div class="error">❌ Error loading data: ${err.message}</div>`;
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function displayData(response) {
+            // Get the actual data from the API response
+            const data = response.data;
+            
+            if (!data) {
+                document.getElementById('error').innerHTML = `<div class="error">❌ No data received from API</div>`;
+                document.getElementById('error').style.display = 'block';
+                return;
+            }
+
+            // Profile
+            if (data.userProfile) {
+                const profile = data.userProfile;
+                document.getElementById('userName').textContent = profile.name || '-';
+                document.getElementById('userId').textContent = profile.user_id || '-';
+                document.getElementById('userCountry').textContent = profile.country || '-';
+                document.getElementById('userCurrency').textContent = profile.currency || '-';
+                
+                if (profile.employment) {
+                    document.getElementById('employmentType').textContent = profile.employment.type || '-';
+                    document.getElementById('monthlyIncome').textContent = 
+                        profile.currency + ' ' + (profile.employment.monthlyIncome || 0).toLocaleString();
+                }
+            }
+
+            // Accounts
+            if (data.accounts && data.accounts.length > 0) {
+                document.getElementById('accountCount').textContent = data.accounts.length;
+                const tbody = document.querySelector('#accountsTable tbody');
+                tbody.innerHTML = data.accounts.map(acc => `
+                    <tr>
+                        <td>${acc.account_id}</td>
+                        <td><span class="badge ${acc.type === 'Savings' ? 'badge-savings' : 'badge-current'}">${acc.type}</span></td>
+                        <td>${acc.bank}</td>
+                        <td class="amount">${data.userProfile.currency} ${(acc.balance || 0).toLocaleString('en-GB', {minimumFractionDigits: 2})}</td>
+                        <td>${data.userProfile.currency} ${(acc.average_monthly_balance || 0).toLocaleString('en-GB', {minimumFractionDigits: 2})}</td>
+                    </tr>
+                `).join('');
+            }
+
+            // Loans
+            if (data.loans && data.loans.length > 0) {
+                document.getElementById('loanCount').textContent = data.loans.length;
+                const tbody = document.querySelector('#loansTable tbody');
+                tbody.innerHTML = data.loans.map(loan => `
+                    <tr>
+                        <td>${loan.loan_id}</td>
+                        <td>${loan.type}</td>
+                        <td>${loan.provider}</td>
+                        <td class="amount">${data.userProfile.currency} ${(loan.emi || 0).toLocaleString('en-GB', {minimumFractionDigits: 2})}</td>
+                        <td>${loan.remaining_tenure_months || 0}</td>
+                    </tr>
+                `).join('');
+            }
+
+            // Subscriptions
+            if (data.subscriptions && data.subscriptions.length > 0) {
+                document.getElementById('subscriptionCount').textContent = data.subscriptions.length;
+                const tbody = document.querySelector('#subscriptionsTable tbody');
+                tbody.innerHTML = data.subscriptions.map(sub => `
+                    <tr>
+                        <td>${sub.name}</td>
+                        <td class="amount">${data.userProfile.currency} ${(sub.amount || 0).toLocaleString('en-GB', {minimumFractionDigits: 2})}</td>
+                        <td>${sub.cycle}</td>
+                    </tr>
+                `).join('');
+            }
+
+            // Investments
+            if (data.investments && data.investments.length > 0) {
+                const tbody = document.querySelector('#investmentsTable tbody');
+                tbody.innerHTML = data.investments.map(inv => `
+                    <tr>
+                        <td>${inv.type}</td>
+                        <td>${inv.provider}</td>
+                        <td class="amount">${data.userProfile.currency} ${(inv.current_value || 0).toLocaleString('en-GB', {minimumFractionDigits: 2})}</td>
+                        <td>${data.userProfile.currency} ${(inv.monthly_contribution || 0).toLocaleString('en-GB', {minimumFractionDigits: 2})}</td>
+                    </tr>
+                `).join('');
+            }
+
+            // Savings Goals
+            if (data.savingsGoals && data.savingsGoals.length > 0) {
+                const tbody = document.querySelector('#savingsTable tbody');
+                tbody.innerHTML = data.savingsGoals.map(goal => {
+                    const progress = Math.round((goal.current_saved / goal.target_amount) * 100);
+                    return `
+                        <tr>
+                            <td>${goal.goal_id}</td>
+                            <td class="amount">${data.userProfile.currency} ${(goal.target_amount || 0).toLocaleString('en-GB', {minimumFractionDigits: 2})}</td>
+                            <td class="amount">${data.userProfile.currency} ${(goal.current_saved || 0).toLocaleString('en-GB', {minimumFractionDigits: 2})}</td>
+                            <td>${goal.target_date}</td>
+                            <td><span class="badge badge-credit">${goal.status}</span></td>
+                            <td><strong>${progress}%</strong></td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            // Transactions
+            if (data.transactions && data.transactions.length > 0) {
+                document.getElementById('transactionCount').textContent = data.transactions.length;
+                const container = document.getElementById('transactionsContainer');
+                const recentTransactions = data.transactions.slice(0, 20);
+                
+                container.innerHTML = '<div class="transactions-grid">' + 
+                    recentTransactions.map(trans => {
+                        const isCredit = trans.type === 'CREDIT';
+                        return `
+                            <div class="transaction-card">
+                                <div class="transaction-info">
+                                    <div class="transaction-category">${trans.category}</div>
+                                    <div class="transaction-date">${trans.date}</div>
+                                </div>
+                                <div class="transaction-amount ${isCredit ? '' : 'negative'}">
+                                    ${isCredit ? '+' : '-'}${data.userProfile.currency} ${(trans.amount || 0).toLocaleString('en-GB', {minimumFractionDigits: 2})}
+                                </div>
+                            </div>
+                        `;
+                    }).join('') + 
+                '</div>';
+            }
+        }
+
+        // Load data on page load
+        loadData();
+    </script>
+</body>
+</html>

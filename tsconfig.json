@@ -8,5 +8,13 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true
-  }
+  },
+  "exclude": [
+    "*.ts",
+    "migrations/**/*.ts",
+    "node_modules"
+  ],
+  "include": [
+    "src/**/*"
+  ]
 }
