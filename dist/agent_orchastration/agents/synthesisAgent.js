@@ -48,15 +48,16 @@ ${state.isSuggestionIncluded && state.suggestion ? state.suggestion : "None"}
 
 RULES:
 1. Read ALL data above — never ignore any context field.
-2. For affordability: open with a direct verdict using the user's key numbers (salary/savings, cost, leftover buffer). If there is a suggestion or product recommendation, weave it into the last sentence naturally — do NOT repeat it as a separate paragraph.
-3. For investment / profit: state the figure, period, and confidence level.
-4. For subscriptions: list items with amounts and give the monthly total.
-5. For statement: give inflow, outflow, and net clearly.
-6. For general finance questions: give a focused, data-backed answer.
-7. NEVER invent numbers that are not present in the data above.
-8. NEVER repeat the question back to the user. NEVER use filler phrases.
-9. Plain prose only — no markdown, no bullet points, no headers.
-10. Keep it to 2–3 short, punchy sentences maximum. End with one brief follow-up question or offer (e.g. "Want me to build a savings plan?"). Speak like a friendly, confident financial advisor — casual tone, not a formal report.
+2. CRITICAL — Use ONLY spendable_savings (savings account balance) as the user's available pool. NEVER add the current account balance to it. The current account is reserved for monthly living expenses.
+3. For affordability: open with a direct verdict using the user's key numbers (spendable_savings, goal cost, leftover after purchase). If there is a suggestion or product recommendation, weave it into the last sentence naturally — do NOT repeat it as a separate paragraph.
+4. For investment / profit: state the figure, period, and confidence level.
+5. For subscriptions: list items with amounts and give the monthly total.
+6. For statement: give inflow, outflow, and net clearly.
+7. For general finance questions: give a focused, data-backed answer.
+8. NEVER invent numbers that are not present in the data above.
+9. NEVER repeat the question back to the user. NEVER use filler phrases.
+10. Plain prose only — no markdown, no bullet points, no headers.
+11. Keep it to 2–3 short, punchy sentences maximum. End with one brief follow-up question or offer (e.g. "Want me to build a savings plan?"). Speak like a friendly, confident financial advisor — casual tone, not a formal report.
 `);
     const validation = validateAssistantAnswer(state.question, answer, snapshot);
     if (!validation.valid) {

@@ -224,7 +224,16 @@ const buildFinanceDataFromProfile = (
     type: acc.type,
     balance: toNum(acc.balance),
     averageMonthlyBalance: toNum(acc.averageMonthlyBalance),
+    note: typeof acc.type === "string" && acc.type.toLowerCase().includes("current")
+      ? "Current account — covers daily living expenses, NOT available for large one-off purchases"
+      : "Savings account — available for planned purchases",
   }));
+
+  // Only savings-type account balances are available for large purchases.
+  // Current account balance is reserved for monthly living expenses and must NOT be counted as spendable savings.
+  const savingsAccountBalance = rawAccounts
+    .filter((acc) => typeof acc.type === "string" && !acc.type.toLowerCase().includes("current"))
+    .reduce((sum, acc) => sum + (toNum(acc.balance) ?? 0), 0);
 
   // Loans
   const rawLoans = Array.isArray(knownFacts.loans)
@@ -298,7 +307,9 @@ const buildFinanceDataFromProfile = (
       monthlyExpenses,
       netMonthlySavings,
       currentBalance,
-      availableSavings,
+      availableSavings: savingsAccountBalance > 0 ? savingsAccountBalance : (availableSavings ?? currentBalance),
+      spendable_savings: savingsAccountBalance > 0 ? savingsAccountBalance : (availableSavings ?? currentBalance),
+      spendable_savings_note: "Savings account balance only. Current account excluded — reserved for monthly living expenses.",
       totalMonthlyEmi,
       totalMonthlySubscriptions,
     },
@@ -314,7 +325,9 @@ const buildFinanceDataFromProfile = (
     },
     savings: {
       currentBalance,
-      availableSavings,
+      availableSavings: savingsAccountBalance > 0 ? savingsAccountBalance : (availableSavings ?? currentBalance),
+      spendable_savings: savingsAccountBalance > 0 ? savingsAccountBalance : (availableSavings ?? currentBalance),
+      note: "spendable_savings is ONLY from savings-type accounts. DO NOT add current account balance to this.",
       currency,
     },
     accounts,
