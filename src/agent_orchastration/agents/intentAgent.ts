@@ -20,6 +20,8 @@ export const intentAgent = async (
       state.question.trim()
     );
 
+  console.log(`[IntentAgent] question="${state.question}" isConfirmation=${isConfirmation} pendingAction=${pendingAction ?? "none"}`);
+
   if (isConfirmation && pendingAction) {
     // Map the stored tag to a meaningful intent so downstream agents don't
     // re-run the previous analysis.
@@ -38,6 +40,8 @@ export const intentAgent = async (
         cost_cutting_advice:   { domain: "travel",    action: "cost_optimization"   },
       };
     const mapped = pendingIntentMap[pendingAction] ?? { domain: "general", action: "planning" };
+
+    console.log(`[IntentAgent] CONFIRMED pendingAction="${pendingAction}" → domain="${mapped.domain}" action="${mapped.action}"`);
 
     return {
       intent: {
@@ -63,6 +67,7 @@ export const intentAgent = async (
   const hasActivePlanContext = !!(state.knownFacts?.targetAmount || state.knownFacts?.goalType);
   if (isConfirmation && isShortMessage && hasActivePlanContext) {
     const inferredAction = "savings_recovery";
+    console.log(`[IntentAgent] FALLBACK confirmation (no pendingAction) → inferring "${inferredAction}"`);
     return {
       intent: {
         domain: "saving",
