@@ -189,12 +189,24 @@ const buildAffordabilityReasoningAnswer = (state) => {
     const purchaseLabel = (() => {
         if (goalType === "electronics")
             return "this purchase";
-        if (goalType === "trip" || goalType === "vacation" || goalType === "holiday")
+        if (goalType === "phone" || goalType === "smartphone")
+            return "this phone";
+        if (goalType === "car" || goalType === "vehicle" || goalType === "automobile")
+            return "this car";
+        if (goalType === "bike" || goalType === "motorcycle")
+            return "this bike";
+        if (goalType === "house" || goalType === "property" || goalType === "mortgage")
+            return "this property";
+        if (goalType === "appliance")
+            return "this appliance";
+        if (goalType === "education" || goalType === "course")
+            return "this course";
+        if (goalType === "wedding")
+            return "this wedding";
+        if (goalType === "medical")
+            return "this procedure";
+        if (goalType === "trip" || goalType === "vacation" || goalType === "holiday" || goalType === "travel")
             return "this trip";
-        if (goalType === "house" || goalType === "mortgage")
-            return "this property goal";
-        if (goalType === "car")
-            return "this car purchase";
         return "this";
     })();
     const verdict = !hasTargetCost
@@ -226,7 +238,14 @@ const buildAffordabilityReasoningAnswer = (state) => {
     if (comparableCosts.length >= 2) {
         const minCost = Math.min(...comparableCosts);
         const maxCost = Math.max(...comparableCosts);
-        const goalLabel = goalType === "trip" || goalType === "vacation" || goalType === "holiday" ? "trip" : "option";
+        // Use contextual label based on goal type
+        const goalLabel = goalType === "trip" || goalType === "vacation" || goalType === "holiday" || goalType === "travel"
+            ? "trip"
+            : goalType === "car" || goalType === "vehicle" || goalType === "automobile"
+                ? "car"
+                : goalType === "house" || goalType === "property"
+                    ? "property"
+                    : "option";
         reasoningParts.push(`A budget ${goalLabel} fits in the ${formatMoney(minCost, currency)}–${formatMoney(maxCost, currency)} range.`);
     }
     else if (estimatedCost !== undefined) {

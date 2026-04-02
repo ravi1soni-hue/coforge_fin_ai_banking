@@ -62,20 +62,62 @@ const buildSearchQuery = (state) => {
         ? state.knownFacts.destination
         : undefined;
     const year = new Date().getFullYear();
+    // ─────────────────────────────────────────────────────────────
+    // Vehicles
+    // ─────────────────────────────────────────────────────────────
     if (goalType === "car") {
         return `average new car price ${year}`;
     }
-    if (goalType === "house") {
+    if (goalType === "bike" || goalType === "motorcycle") {
+        return `average motorcycle price ${year}`;
+    }
+    // ─────────────────────────────────────────────────────────────
+    // Real Estate
+    // ─────────────────────────────────────────────────────────────
+    if (goalType === "house" || goalType === "property") {
         const loc = destination ?? extractLocationHint(state.question);
         return loc
             ? `average house price ${loc} ${year}`
             : `average house price ${year}`;
     }
-    if (goalType === "electronics") {
+    // ─────────────────────────────────────────────────────────────
+    // Electronics & Appliances
+    // ─────────────────────────────────────────────────────────────
+    if (goalType === "electronics" || goalType === "appliance") {
         const device = extractDeviceHint(state.question);
         return device ? `${device} price ${year}` : null;
     }
-    // Trip / holiday – extract destination from question if not in knownFacts
+    // Phone specifically (separate from generic electronics)
+    if (goalType === "phone" || goalType === "smartphone") {
+        const device = extractDeviceHint(state.question);
+        if (device) {
+            return `${device} price ${year}`;
+        }
+        // If no specific device model found, search for generic smartphone
+        return `average smartphone price ${year}`;
+    }
+    // ─────────────────────────────────────────────────────────────
+    // Education
+    // ─────────────────────────────────────────────────────────────
+    if (goalType === "education" || goalType === "course") {
+        const courseType = destination ?? extractLocationHint(state.question) ?? "online course";
+        return `${courseType} average cost ${year}`;
+    }
+    // ─────────────────────────────────────────────────────────────
+    // Life Events
+    // ─────────────────────────────────────────────────────────────
+    if (goalType === "wedding") {
+        const loc = destination ?? extractLocationHint(state.question);
+        return loc
+            ? `average wedding cost ${loc} ${year}`
+            : `average wedding cost ${year}`;
+    }
+    if (goalType === "medical") {
+        return `average medical procedure cost ${year}`;
+    }
+    // ─────────────────────────────────────────────────────────────
+    // Trips / Holidays
+    // ─────────────────────────────────────────────────────────────
     const dest = destination ?? extractLocationHint(state.question);
     const days = extractDaysHint(state.question);
     const isTrip = /\btrip\b|\bholiday\b|\bvacation\b|\bbeach\b|\btravel\b/i.test(state.question);
@@ -87,7 +129,9 @@ const buildSearchQuery = (state) => {
         const days = extractDaysHint(state.question);
         return days ? `${days} day holiday average cost ${year}` : null;
     }
+    // ─────────────────────────────────────────────────────────────
     // Fallback: use intent subject if available
+    // ─────────────────────────────────────────────────────────────
     if (state.intent?.subject) {
         return `${state.intent.subject} price ${year}`;
     }
