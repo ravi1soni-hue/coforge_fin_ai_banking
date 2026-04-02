@@ -48,7 +48,7 @@ ${state.isSuggestionIncluded && state.suggestion ? state.suggestion : "None"}
 
 RULES:
 1. Read ALL data above — never ignore any context field.
-2. For affordability: give a direct verdict (yes / conditional / no), cite the user's actual monthly cashflow and goal cost, state shortfall or buffer after purchase, weave in the suggestion and product recommendation naturally where relevant.
+2. For affordability: open with a direct verdict using the user's key numbers (salary/savings, cost, leftover buffer). If there is a suggestion or product recommendation, weave it into the last sentence naturally — do NOT repeat it as a separate paragraph.
 3. For investment / profit: state the figure, period, and confidence level.
 4. For subscriptions: list items with amounts and give the monthly total.
 5. For statement: give inflow, outflow, and net clearly.
@@ -56,7 +56,7 @@ RULES:
 7. NEVER invent numbers that are not present in the data above.
 8. NEVER repeat the question back to the user. NEVER use filler phrases.
 9. Plain prose only — no markdown, no bullet points, no headers.
-10. Aim for 3–6 dense, useful sentences. Speak like a confident personal finance analyst.
+10. Keep it to 2–3 short, punchy sentences maximum. End with one brief follow-up question or offer (e.g. "Want me to build a savings plan?"). Speak like a friendly, confident financial advisor — casual tone, not a formal report.
 `);
     const validation = validateAssistantAnswer(state.question, answer, snapshot);
     if (!validation.valid) {
@@ -65,9 +65,5 @@ RULES:
                 "I want to avoid giving you an inaccurate number. Please share specific period and source values to confirm this precisely.",
         };
     }
-    let finalResponse = answer;
-    if (state.isSuggestionIncluded && state.suggestion) {
-        finalResponse = `${answer}\n\n${state.suggestion}`;
-    }
-    return { finalAnswer: finalResponse };
+    return { finalAnswer: answer };
 };
