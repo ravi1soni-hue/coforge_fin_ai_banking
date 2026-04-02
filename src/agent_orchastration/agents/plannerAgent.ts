@@ -81,7 +81,7 @@ Return ONLY valid JSON, no markdown:
   //    confirmed "Yes do it" for a savings plan), do NOT let the LLM override
   //    queryType back to "affordability" just because the Paris trip facts are
   //    still in the session.
-  const nonAffordabilityActions = ["planning", "forecast", "review", "optimization", "statement", "repayment_planning", "goal_impact"];
+  const nonAffordabilityActions = ["planning", "forecast", "review", "optimization", "statement", "repayment_planning", "goal_impact", "recovery"];
   if (
     nonAffordabilityActions.includes(state.intent?.action ?? "") &&
     cleanLlmFacts.queryType === "affordability"

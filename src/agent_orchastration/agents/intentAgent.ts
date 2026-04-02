@@ -26,6 +26,7 @@ export const intentAgent = async (
     const pendingIntentMap: Record<string, { domain: string; action: string }> =
       {
         savings_plan:          { domain: "saving",   action: "planning"            },
+        savings_recovery:      { domain: "saving",   action: "recovery"            },
         cashflow_forecast:     { domain: "cashflow",  action: "forecast"            },
         investment_review:     { domain: "investing", action: "review"              },
         subscription_review:   { domain: "spending",  action: "optimization"        },
@@ -50,6 +51,28 @@ export const intentAgent = async (
       confirmedFollowUpAction: pendingAction,
       // Clear the flag so subsequent turns don't re-trigger this path.
       knownFacts: { ...state.knownFacts, pendingFollowUpAction: undefined },
+    };
+  }
+
+  // ── Fallback: no pendingFollowUpAction tag, but the message is a short
+  //    confirmation and there is active financial context (e.g. a trip or
+  //    purchase was discussed).  Route to savings_recovery so the assistant
+  //    delivers a post-purchase plan instead of re-running affordability.
+  const isShortMessage = state.question.trim().split(/\s+/).length <= 10;
+  const hasActivePlanContext = !!(state.knownFacts?.targetAmount || state.knownFacts?.goalType);
+  if (isConfirmation && isShortMessage && hasActivePlanContext) {
+    const inferredAction = "savings_recovery";
+    return {
+      intent: {
+        domain: "saving",
+        action: "recovery",
+        subject:
+          (state.knownFacts?.destination as string | undefined) ??
+          (state.knownFacts?.subject as string | undefined),
+        confidence: 0.8,
+      },
+      confirmedFollowUpAction: inferredAction,
+      knownFacts: state.knownFacts,
     };
   }
   // ─────────────────────────────────────────────────────────────────────────

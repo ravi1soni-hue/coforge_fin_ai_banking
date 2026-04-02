@@ -18,10 +18,15 @@ export const synthesisAgent = async (
 
   // Deterministic shortcut for pure factual lookups (balance, statement, investment value).
   // Uses verified account/transaction data to prevent LLM from hallucinating numbers.
+  // Skip deterministic shortcut when the user is confirming a follow-up action —
+  // we must deliver the requested plan/recovery, not a pre-canned factual answer.
   const snapshot = buildDeterministicSnapshot(state);
-  const directAnswer = tryBuildDeterministicAnswer(state.question, snapshot);
-  if (directAnswer) {
-    return { finalAnswer: directAnswer };
+  const confirmedActionForShortcut = state.confirmedFollowUpAction;
+  if (!confirmedActionForShortcut) {
+    const directAnswer = tryBuildDeterministicAnswer(state.question, snapshot);
+    if (directAnswer) {
+      return { finalAnswer: directAnswer };
+    }
   }
 
   const topProduct = Array.isArray(state.productRecommendations)
@@ -71,6 +76,7 @@ RULES:
 3. CONFIRMED FOLLOW-UP ACTION overrides everything else. When it is NOT "none", your PRIMARY task is to deliver that specific output using the user's real numbers from KNOWN FACTS:
    - "repayment_plan": Give a concrete 0% instalment repayment schedule. Use targetAmount from knownFacts as the trip cost. Suggest 3, 6, and 12-month options with the monthly payment for each. State which fits within the user's monthly surplus.
    - "goal_impact_analysis": Compare paying upfront vs using the 0% instalment plan. Show how each option affects the user's other named goals (Japan trip, car, etc.) and emergency buffer. Give a clear recommendation.
+   - "savings_recovery": The user has ALREADY decided to go on the trip/make the purchase. Do NOT re-run an affordability check. Instead deliver a concrete post-purchase savings recovery plan: (a) state how much they will have LEFT after the purchase (availableSavings minus targetAmount), (b) state their net monthly surplus, (c) show a simple month-by-month rebuild timeline back to the original savings level. Mention any impact on their named goals (Japan trip, car, etc.). End with a positive, achievable outlook.
    - "savings_plan": Build a month-by-month savings plan to reach the target. State monthly contribution needed and the timeline.
    - "goal_planning": Outline a clear goal-based savings or spending plan from the user's current financial position.
    - "cashflow_forecast": Summarise projected monthly cashflow for the next 3 months based on income/expenses.
@@ -91,10 +97,13 @@ RULES:
 
   const validation = validateAssistantAnswer(state.question, answer, snapshot);
   if (!validation.valid) {
+    // Still tag the follow-up action so the next turn can detect confirmations
+    const pendingFollowUpAction = detectFollowUpAction(answer);
     return {
       finalAnswer:
         validation.safeAnswer ??
         "I want to avoid giving you an inaccurate number. Please share specific period and source values to confirm this precisely.",
+      knownFacts: { ...state.knownFacts, pendingFollowUpAction },
     };
   }
 
@@ -129,7 +138,10 @@ function detectFollowUpAction(answer: string): string {
   // Goal impact / option comparison
   if (/option.*goal|goal.*option|impact.*goal|goal.*impact|which.*option|affect.*goal/.test(lastQuestion))
     return "goal_impact_analysis";
-  if (/buffer|rebuild|savings.plan|save.up|saving.plan|top.up/.test(lastQuestion))
+  // Post-purchase / post-trip RECOVERY plan (buffer rebuild, savings restore) — must check BEFORE generic savings_plan
+  if (/buffer|rebuild|recover|restore|replenish|bounce.back|after.the.trip|after.trip|post.trip/.test(lastQuestion))
+    return "savings_recovery";
+  if (/savings.plan|save.up|saving.plan|top.up/.test(lastQuestion))
     return "savings_plan";
   if (/cash.?flow|forecast|monthly.surplus/.test(lastQuestion))
     return "cashflow_forecast";
