@@ -24,13 +24,11 @@ export class ChatService {
         const fallbackFacts = await this.loadFallbackBankingFactsForSession(persistedProfileFacts, request.knownFacts);
         const persistedFacts = this.sessionKnownFacts.get(sessionKey) ?? {};
         const normalizedIncomingFacts = this.normalizeKnownFactsPayload(request.knownFacts ?? {});
-        const extractedFacts = this.extractFactsFromMessage(request.message);
         const mergedKnownFacts = {
             ...fallbackFacts,
             ...persistedProfileFacts,
             ...persistedFacts,
             ...normalizedIncomingFacts,
-            ...extractedFacts,
         };
         this.sessionKnownFacts.set(sessionKey, mergedKnownFacts);
         await this.persistFinancialFactsToDb(request.userId, mergedKnownFacts);
@@ -52,6 +50,10 @@ export class ChatService {
                 type: "ERROR",
                 message: "Sorry, I ran into an internal problem while answering. Please try again.",
             };
+        }
+        // ✅ Persist LLM-extracted facts back to session so follow-up turns retain full context
+        if (resultState.knownFacts && Object.keys(resultState.knownFacts).length > 0) {
+            this.sessionKnownFacts.set(sessionKey, { ...mergedKnownFacts, ...resultState.knownFacts });
         }
         /* ---------------- FOLLOW‑UP CASE ---------------- */
         if (Array.isArray(resultState.missingFacts) &&
@@ -83,78 +85,6 @@ export class ChatService {
     }
     getSessionKey(userId, sessionId) {
         return `${userId}::${sessionId ?? "default"}`;
-    }
-    extractFactsFromMessage(message) {
-        const text = message.trim();
-        const lowerText = text.toLowerCase();
-        const facts = {};
-        if (/\balone\b|\bsolo\b/.test(lowerText)) {
-            facts.travelersCount = 1;
-        }
-        if (/\bnext month\b/i.test(text)) {
-            facts.timeframe = "next_month";
-        }
-        // Amount detection: symbol prefix (£500), symbol suffix (500£), or word suffix (500 euros)
-        const amountPrefixMatch = text.match(/([£$€])\s?(\d[\d,]*(?:\.\d{1,2})?)/);
-        const amountSuffixMatch = text.match(/(\d[\d,]*(?:\.\d{1,2})?)\s?([£$€])/);
-        const currencyWordMatch = text.match(/(\d[\d,]*(?:\.\d{1,2})?)\s*(?:euros?|pounds?|dollars?|gbp|usd|eur|jpy|yen|inr|aud|cad)\b/i);
-        const amountValue = amountPrefixMatch?.[2] ?? amountSuffixMatch?.[1] ?? currencyWordMatch?.[1];
-        const amountCurrency = amountPrefixMatch?.[1] ?? amountSuffixMatch?.[2];
-        if (amountValue) {
-            const normalized = Number(amountValue.replace(/,/g, ""));
-            if (!Number.isNaN(normalized)) {
-                facts.targetAmount = normalized;
-            }
-            if (amountCurrency === "$") {
-                facts.currency = "USD";
-            }
-            else if (amountCurrency === "£") {
-                facts.currency = "GBP";
-            }
-            else if (amountCurrency === "€") {
-                facts.currency = "EUR";
-            }
-            else if (!amountCurrency && currencyWordMatch) {
-                const word = currencyWordMatch[0].replace(currencyWordMatch[1], "").trim().toLowerCase();
-                if (/euros?|eur/.test(word))
-                    facts.currency = "EUR";
-                else if (/pounds?|gbp/.test(word))
-                    facts.currency = "GBP";
-                else if (/dollars?|usd/.test(word))
-                    facts.currency = "USD";
-                else if (/jpy|yen/.test(word))
-                    facts.currency = "JPY";
-                else if (/inr/.test(word))
-                    facts.currency = "INR";
-                else if (/aud/.test(word))
-                    facts.currency = "AUD";
-                else if (/cad/.test(word))
-                    facts.currency = "CAD";
-            }
-            facts.queryType = facts.queryType ?? "affordability";
-        }
-        if (/\bbuy\b|\bpurchase\b|\bmajor expense\b|\bbig expense\b/i.test(text)) {
-            facts.queryType = facts.queryType ?? "affordability";
-        }
-        if (/\bholiday|trip|travel|vacation|afford|budget\b/i.test(text)) {
-            facts.queryType = facts.queryType ?? "affordability";
-        }
-        if (/\bsubscription|subscriptions\b/i.test(text)) {
-            facts.queryType = "subscriptions";
-        }
-        if (/\binvestment\b.*\bprofit\b|\bprofit\b.*\binvestment\b/i.test(text)) {
-            facts.queryType = "investment_performance";
-            if (/\blast month\b/i.test(text)) {
-                facts.period = "last_month";
-            }
-        }
-        if (/\bbank statement\b|\bstatement\b/i.test(text)) {
-            facts.queryType = "bank_statement";
-            if (/\b1 month\b|\bone month\b|\blast month\b/i.test(text)) {
-                facts.period = "last_month";
-            }
-        }
-        return facts;
     }
     normalizeFinancialFacts(source) {
         const currentBalance = this.parseNumericFact(source.currentBalance ?? source.availableSavings);

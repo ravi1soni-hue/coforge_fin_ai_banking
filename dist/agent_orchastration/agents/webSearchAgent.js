@@ -97,8 +97,13 @@ const fetchDuckDuckGoAnswer = async (query) => {
     return { rawAbstract, extractedPrices: allPrices, priceRange, confidence };
 };
 export const webSearchAgent = async (state, config) => {
-    // Only run for affordability queries where the user has NOT already provided a numeric amount
-    const queryType = typeof state.knownFacts?.queryType === "string" ? state.knownFacts.queryType : "";
+    // Only run for affordability queries where the user has NOT already provided a numeric amount.
+    // queryType is set by the plannerAgent LLM; fall back to intent.action for safety.
+    const queryType = typeof state.knownFacts?.queryType === "string"
+        ? state.knownFacts.queryType
+        : state.intent?.action === "affordability"
+            ? "affordability"
+            : "";
     if (queryType !== "affordability")
         return {};
     const hasUserAmount = typeof state.knownFacts?.targetAmount === "number" &&

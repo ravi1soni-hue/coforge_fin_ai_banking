@@ -25,14 +25,23 @@ Instructions:
    - currency (GBP, EUR, USD, JPY, etc. — infer from symbols or words like "euros", "pounds", "dollars")
    - duration (e.g. "3 days")
    - timeframe (e.g. "next month", "this year")
-   - travelersCount (number of people)
-2. Set a fact to null if it is NOT in the question.
-3. Determine missingFacts: facts that are CRITICAL to answer an affordability or planning question
-   but are genuinely absent from BOTH the question AND the known facts.
-   - For any affordability/planning question: need goalType AND targetAmount
-   - For trip questions: also need destination
-   - NEVER mark a fact as missing if the user already provided it in this question.
-4. If the question is about subscriptions, investments, or statements — missingFacts = [].
+   - travelersCount (number of people; words like "alone", "solo", "by myself" = 1)
+   - queryType: classify the overall intent as one of:
+       "affordability"         — user wants to know if they can afford something
+       "subscriptions"         — query is about subscriptions or recurring spending
+       "investment_performance"— user asks about investment profit/loss/returns
+       "bank_statement"        — user wants a statement or transaction summary
+       "general_finance"       — everything else
+2. Set a non-queryType fact to null if it is NOT in the question.
+3. Determine missingFacts STRICTLY as follows:
+   - A fact is missing ONLY when it is absent from BOTH the current question AND the already known facts above.
+   - NEVER list a fact as missing if it already appears in the known facts, even if the user did not repeat it.
+   - If the user's message is a short follow-up answer (e.g. a single word, a number, "alone", "yes", "no"),
+     treat it as a reply to a previous question. In this case use the known facts as the primary context
+     and extract only what the short answer adds.
+   - For affordability/planning: need goalType AND targetAmount (only if absent from known facts)
+   - For trip questions: also need destination (only if absent from known facts)
+   - If queryType is subscriptions, investment_performance, or bank_statement — missingFacts = [].
 
 Return ONLY valid JSON, no markdown:
 {
@@ -43,7 +52,8 @@ Return ONLY valid JSON, no markdown:
     "currency": string | null,
     "duration": string | null,
     "timeframe": string | null,
-    "travelersCount": number | null
+    "travelersCount": number | null,
+    "queryType": string
   },
   "missingFacts": string[]
 }`);
