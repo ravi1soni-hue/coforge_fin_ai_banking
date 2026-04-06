@@ -34,118 +34,59 @@ export const synthesisAgent = async (
 
   console.log(`[SynthesisAgent] confirmedAction="${confirmedAction}" question="${state.question}"`);
 
-  // ── ISOLATED PATH: user confirmed a follow-up offer ──────────────────────
-  // Use conversation history to understand exactly what was offered and deliver it.
+  // ── CONFIRMATION PATH: user confirmed a follow-up offer ─────────────────
+  // confirmedFollowUpAction is now a natural-language task description set by
+  // intentAgent's LLM-based detection. We use it + conversation history directly
+  // — no template lookup, no keyword tags, no brittle action maps.
   if (isConfirmedAction) {
     const kf = state.knownFacts ?? {};
     const availSavings   = kf.availableSavings ?? kf.spendable_savings ?? kf.currentBalance;
     const targetAmt      = kf.targetAmount;
     const destination    = kf.destination ?? kf.goalType ?? "the purchase";
     const monthlySurplus = kf.netMonthlySavings ?? kf.netMonthlySurplus;
-    const goals          = kf.savingsGoals ? JSON.stringify(kf.savingsGoals) : "none";
     const homeCurrency   = (kf.profileCurrency ?? kf.currency ?? "GBP") as string;
     const tripCurrency   = (kf.targetCurrency ?? homeCurrency) as string;
 
-    const remainingAfterPurchase =
-      typeof availSavings === "number" && typeof targetAmt === "number"
-        ? (availSavings - targetAmt).toFixed(0)
-        : "N/A";
-    const monthsToRebuild =
-      typeof monthlySurplus === "number" && monthlySurplus > 0 && typeof availSavings === "number" && typeof targetAmt === "number"
-        ? Math.ceil((availSavings - (availSavings - targetAmt)) / monthlySurplus)
-        : undefined;
+    // Include the recent conversation so the LLM can see exactly what was offered.
+    const recentHistory = (state.conversationHistory ?? []).slice(-8)
+      .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+      .join("\n");
 
-    // Extract last assistant message from conversation history — this is the EXACT offer
-    // the user just confirmed. Using it as context prevents the LLM from guessing what was offered.
-    const lastAssistantMsg = Array.isArray(state.conversationHistory)
-      ? [...state.conversationHistory].reverse().find(m => m.role === "assistant")?.content ?? ""
-      : "";
+    console.log(`[SynthesisAgent] CONFIRMATION PATH — task="${confirmedAction.slice(0, 100)}"`);
 
-    // Extract the closing question/offer from the last assistant message
-    const lastOfferSentence = lastAssistantMsg
-      .split(/(?<=[.!?])\s+/)
-      .filter(s => s.includes("?"))
-      .pop() ?? lastAssistantMsg.slice(-200);
+    const continuationAnswer = await llm.generateText(
+      `You are a personal banking AI assistant helping ${kf.userName ?? "a customer"}.
 
-    console.log(`[SynthesisAgent] ISOLATED PATH confirmed="${confirmedAction}" lastOffer="${lastOfferSentence.slice(0, 80)}"`);
+RECENT CONVERSATION:
+${recentHistory}
+User: ${state.question}
 
-    const actionInstructions: Record<string, string> = {
-      cost_cutting_advice:
-        `Give exactly 3 concrete ways to lower the cost of the ${destination} trip from ${tripCurrency}${targetAmt ?? "N/A"}. ` +
-        `For each: one sentence with the specific action + estimated saving in ${tripCurrency} (e.g. "Book a hostel instead of a hotel — saves ~${tripCurrency}200"). ` +
-        `End with the revised trip total: "Revised total: ${tripCurrency}[sum]". ` +
-        `NEVER mention the user's savings balance. NEVER say "leaving you with X". NEVER assess affordability.`,
-      savings_recovery:
-        `Build a concrete post-trip savings recovery plan. ` +
-        `After the ${destination} trip (${tripCurrency}${targetAmt ?? "N/A"}) the user will have ~${homeCurrency}${remainingAfterPurchase} left. ` +
-        `Their monthly surplus is ${homeCurrency}${monthlySurplus ?? "N/A"}. ` +
-        `${monthsToRebuild !== undefined ? `At this pace it takes ~${monthsToRebuild} months to restore the full buffer.` : ""} ` +
-        `Mention impact on goals: ${goals}. Give a rebuild timeline + one tip to speed recovery. ` +
-        `NEVER say "you can afford it". Focus entirely on the recovery plan.`,
-      repayment_plan:
-        `Give a 0% instalment repayment schedule for ${tripCurrency}${targetAmt ?? "N/A"}. ` +
-        `Show 3-month, 6-month, and 12-month options with the monthly payment for each. ` +
-        `State which fits within the monthly surplus of ${homeCurrency}${monthlySurplus ?? "N/A"}.`,
-      goal_impact_analysis:
-        `Compare: (1) pay ${tripCurrency}${targetAmt ?? "N/A"} upfront vs (2) use 0% instalments. ` +
-        `Show how each affects the user's savings goals: ${goals}. Give a clear recommendation.`,
-      savings_plan:
-        `Build a savings plan to reach ${tripCurrency}${targetAmt ?? "N/A"} for ${destination}. ` +
-        `State monthly contribution needed and timeline using monthly surplus of ${homeCurrency}${monthlySurplus ?? "N/A"}.`,
-      goal_planning:
-        `Outline a goal-based savings plan to reach ${tripCurrency}${targetAmt ?? "N/A"} for ${destination}. ` +
-        `Monthly surplus: ${homeCurrency}${monthlySurplus ?? "N/A"}. State timeline and monthly target.`,
-      cashflow_forecast:
-        `Project monthly cashflow for the next 3 months. ` +
-        `Monthly income: ${homeCurrency}${kf.monthlyIncome ?? "N/A"}, expenses: ${homeCurrency}${kf.monthlyExpenses ?? "N/A"}.`,
-      investment_review:
-        `Summarise the investment portfolio: ${JSON.stringify(kf.investments ?? "none")}. ` +
-        `State total value, monthly contribution, and whether performance data is available.`,
-      subscription_review:
-        `List subscriptions: ${JSON.stringify(kf.subscriptions ?? "none")}. ` +
-        `Give the monthly total and suggest 1-2 to cancel.`,
-      statement_summary:
-        `Give the most recent monthly statement: total inflow, total outflow, net cashflow.`,
-    };
+TASK TO EXECUTE NOW:
+The user just confirmed your previous offer. Execute this specific task and nothing else:
+"${confirmedAction}"
 
-    // Primary instruction: use the specific action map when available.
-    // Fallback: use the last assistant message to understand what was offered and deliver it exactly.
-    const instructions = actionInstructions[confirmedAction]
-      ?? (lastOfferSentence
-          ? `The user confirmed your previous offer: "${lastOfferSentence}"\n` +
-            `Deliver exactly what was offered. Be concrete: give 3 specific options with estimated amounts in ${tripCurrency} each. ` +
-            `End with a revised total if applicable. Do NOT re-run the affordability analysis.`
-          : `Give 3 specific, actionable cost-saving tips for the ${destination} trip (${tripCurrency}${targetAmt ?? "N/A"}). ` +
-            `Include an estimated saving per tip. End with a revised total.`);
+KEY FINANCIAL FIGURES (use only what is relevant to the task above — do not recite all of them):
+- Savings available: ${homeCurrency}${availSavings ?? "N/A"}
+- Cost of trip / purchase: ${tripCurrency}${targetAmt ?? "N/A"}
+- Monthly surplus: ${homeCurrency}${monthlySurplus ?? "N/A"}
+- Goal / destination: ${destination}
 
-    const isolatedAnswer = await llm.generateText(
-      `You are a personal banking AI assistant for ${kf.userName ?? "the user"}.
-
-⚠ EXECUTION MODE — the affordability check is done and the user said YES.
-Your ONLY job right now is to execute the task below. Do NOT, under any circumstances, re-state the affordability verdict.
-FORBIDDEN OPENERS: "You've got X in savings", "You have X in spendable savings", "Covering this trip is doable", "Leaving you with X".
-Start your response with the FIRST ACTION or FIRST OPTION — not with any balance figure.
-
-HOME CURRENCY: ${homeCurrency} — use for ALL user financial figures (surplus, savings, income).
-TRIP/PURCHASE CURRENCY: ${tripCurrency} — use ONLY for the trip or purchase cost.
-
-TASK — execute this completely and precisely:
-${instructions}
-
-STYLE:
-- Plain prose only. No markdown, no bullet points, no headers.
-- 3-5 sentences maximum. End with ONE brief follow-up offer on a new topic (not affordability).
-- Friendly, confident financial advisor tone.
-`
+ABSOLUTE RULES — if any rule is broken the response is invalid:
+1. Your response MUST start with the first concrete number, option, or action.
+   FORBIDDEN first words: "You", "Your", "Based", "Covering", "Since", "Given", "As".
+2. Do NOT state the affordability verdict. Do NOT say "You can afford this",
+   "You have €X in savings", or anything about whether the trip is doable.
+3. Give SPECIFIC numbers for each option or step (monthly amounts, savings, totals).
+4. Maximum 4 sentences.
+5. End with ONE brief follow-up offer on a related but different aspect.`
     );
 
-    console.log(`[SynthesisAgent] isolated answer for "${confirmedAction}": ${isolatedAnswer.slice(0, 120)}...`);
+    console.log(`[SynthesisAgent] continuation answer: ${continuationAnswer.slice(0, 120)}...`);
 
-    const pendingFollowUpAction = detectFollowUpAction(isolatedAnswer);
     return {
-      finalAnswer: isolatedAnswer,
+      finalAnswer: continuationAnswer,
       confirmedFollowUpAction: undefined,
-      knownFacts: { ...state.knownFacts, pendingFollowUpAction },
+      knownFacts: kf,
     };
   }
   // ─────────────────────────────────────────────────────────────────────────
@@ -226,67 +167,20 @@ RULES:
 
   const validation = validateAssistantAnswer(state.question, answer, snapshot);
   if (!validation.valid) {
-    // Still tag the follow-up action so the next turn can detect confirmations
-    const pendingFollowUpAction = detectFollowUpAction(answer);
     return {
       finalAnswer:
         validation.safeAnswer ??
         "I want to avoid giving you an inaccurate number. Please share specific period and source values to confirm this precisely.",
-      knownFacts: { ...state.knownFacts, pendingFollowUpAction },
+      knownFacts: state.knownFacts,
     };
   }
-
-  // Tag what action was offered in the follow-up question so the next turn
-  // can detect a short "yes / do it" confirmation without re-running affordability.
-  const pendingFollowUpAction = detectFollowUpAction(answer);
-  console.log(`[SynthesisAgent] storing pendingFollowUpAction="${pendingFollowUpAction}" for next turn`);
 
   return {
     finalAnswer: answer,
     // Clear confirmedFollowUpAction so it doesn't persist into the next turn.
     confirmedFollowUpAction: undefined,
-    knownFacts: { ...state.knownFacts, pendingFollowUpAction },
+    knownFacts: state.knownFacts,
   };
 };
 
-/**
- * Lightweight keyword match on the last question in an answer to tag what
- * the assistant offered, e.g. "Want me to build a savings plan?" → "savings_plan".
- * Avoids an extra LLM call.
- */
-function detectFollowUpAction(answer: string): string {
-  const lastQuestion =
-    answer
-      .split(/(?<=[.!?])\s+/)
-      .filter((s) => s.includes("?"))
-      .pop()
-      ?.toLowerCase() ?? answer.toLowerCase();
-
-  // Repayment / instalment schedule — must check before generic plan/goal
-  if (/repayment|instalment|installment|monthly.cost|cost.monthly|spread.the.cost|schedule|split.*payment|run.*numbers/.test(lastQuestion))
-    return "repayment_plan";
-  // Goal impact / option comparison
-  if (/option.*goal|goal.*option|impact.*goal|goal.*impact|which.*option|affect.*goal/.test(lastQuestion))
-    return "goal_impact_analysis";
-  // Ways to cut / reduce cost — broad match covers many LLM phrasings:
-  // "find the best low-cost options", "lower the cost", "budget hotel", "cheaper itinerary", etc.
-  if (/cut.*cost|find.*ways|ways.*save|reduce.*cost|cheaper.*option|save.*on.*trip|trim.*cost|lower.*cost|lower.cost|low.cost|without.*missing|run.*option|budget.*hotel|cheaper.*hotel|hotel.*option|flight.*option|option.*hotel|find.*option|find.*low|find.*cheap|find.*best.*travel|itinerary|lower.*budget|ways.*lower|cost.*saving|saving.*tip/.test(lastQuestion))
-    return "cost_cutting_advice";
-  // Post-purchase / post-trip RECOVERY plan (buffer rebuild, savings restore)
-  if (/buffer|rebuild|recover|restore|replenish|bounce.back|after.the.trip|after.trip|post.trip|reserve|keep.*buffer|preserve.*buffer|protect.*buffer/.test(lastQuestion))
-    return "savings_recovery";
-  if (/savings.plan|save.up|saving.plan|top.up/.test(lastQuestion))
-    return "savings_plan";
-  if (/cash.?flow|forecast|monthly.surplus/.test(lastQuestion))
-    return "cashflow_forecast";
-  if (/invest|portfolio|returns|fund/.test(lastQuestion))
-    return "investment_review";
-  if (/subscription|recurring/.test(lastQuestion))
-    return "subscription_review";
-  if (/statement|transaction|history/.test(lastQuestion))
-    return "statement_summary";
-  if (/plan|goal|target|budget/.test(lastQuestion))
-    return "goal_planning";
-  return "cost_cutting_advice"; // default to cost_cutting when confirming a trip/purchase follow-up
-}
 

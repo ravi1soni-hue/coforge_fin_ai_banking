@@ -12,93 +12,76 @@ export const intentAgent = async (
     throw new Error("LlmClient not provided to graph");
   }
 
-  // ── Short-circuit: user is confirming a pending follow-up offer ──────────
-  // e.g. "Yes do it" / "Sure" / "Go ahead" after we offered a savings plan.
-  const pendingAction = state.knownFacts?.pendingFollowUpAction as string | undefined;
-  const isConfirmation =
-    /^\s*(yes|yeah|yep|sure|ok|okay|go ahead|do it|sounds good|proceed|please|absolutely|let's|let me know|continue)\b/i.test(
-      state.question.trim()
-    );
+  // ── LLM-based confirmation detection ────────────────────────────────────
+  // Replaces ALL brittle regex patterns. The LLM reads the actual conversation
+  // history and decides whether the user is confirming a previous offer,
+  // extracting the exact task description from the assistant's last message.
+  // No stored keyword tags, no static pattern tables — just conversation context.
+  const prevMessages = state.conversationHistory ?? [];
+  const lastAsstMsg = [...prevMessages].reverse().find(m => m.role === "assistant")?.content ?? "";
+  const wordCount = state.question.trim().split(/\s+/).length;
 
-  console.log(`[IntentAgent] question="${state.question}" isConfirmation=${isConfirmation} pendingAction=${pendingAction ?? "none"}`);
+  // Pre-filter: only attempt LLM confirmation detection when the message is
+  // short (≤10 words) AND there is a prior assistant message that asked a question.
+  // This avoids the LLM overhead for clearly new or long questions.
+  const mightBeConfirmation =
+    wordCount <= 10 &&
+    lastAsstMsg.length > 0 &&
+    lastAsstMsg.includes("?");
 
-  if (isConfirmation && pendingAction) {
-    // Map the stored tag to a meaningful intent so downstream agents don't
-    // re-run the previous analysis.
-    const pendingIntentMap: Record<string, { domain: string; action: string }> =
-      {
-        savings_plan:          { domain: "saving",   action: "planning"            },
-        savings_recovery:      { domain: "saving",   action: "recovery"            },
-        cashflow_forecast:     { domain: "cashflow",  action: "forecast"            },
-        investment_review:     { domain: "investing", action: "review"              },
-        subscription_review:   { domain: "spending",  action: "optimization"        },
-        statement_summary:     { domain: "banking",   action: "statement"           },
-        goal_planning:         { domain: "saving",    action: "planning"            },
-        general_planning:      { domain: "general",   action: "planning"            },
-        repayment_plan:        { domain: "finance",   action: "repayment_planning"  },
-        goal_impact_analysis:  { domain: "finance",   action: "goal_impact"         },
-        cost_cutting_advice:   { domain: "travel",    action: "cost_optimization"   },
-      };
-    const mapped = pendingIntentMap[pendingAction] ?? { domain: "travel", action: "cost_optimization" };
+  console.log(`[IntentAgent] question="${state.question}" wordCount=${wordCount} mightBeConfirmation=${mightBeConfirmation}`);
 
-    console.log(`[IntentAgent] CONFIRMED pendingAction="${pendingAction}" → domain="${mapped.domain}" action="${mapped.action}"`);
+  if (mightBeConfirmation) {
+    try {
+      const detection = await llm.generateJSON<{ isConfirmation: boolean; task: string | null }>(`
+You are a conversation intent classifier for a banking assistant.
 
-    return {
-      intent: {
-        domain: mapped.domain,
-        action: mapped.action,
-        subject:
-          (state.knownFacts?.subject as string | undefined) ??
-          (state.knownFacts?.destination as string | undefined),
-        confidence: 0.95,
-      },
-      // Mark what was confirmed so the graph can fast-path and synthesisAgent knows what to deliver.
-      confirmedFollowUpAction: pendingAction,
-      // Clear the flag so subsequent turns don't re-trigger this path.
-      knownFacts: { ...state.knownFacts, pendingFollowUpAction: undefined },
-    };
-  }
+The assistant's PREVIOUS response (last ~300 characters shown):
+"${lastAsstMsg.slice(-300)}"
 
-  // ── Fallback: no pendingFollowUpAction tag, but the message is a short
-  //    confirmation and there is active financial context.
-  //    Use conversation history to infer what the last offer was, defaulting
-  //    to cost_cutting_advice for trip/purchase contexts.
-  const isShortMessage = state.question.trim().split(/\s+/).length <= 10;
-  const hasActivePlanContext = !!(state.knownFacts?.targetAmount || state.knownFacts?.goalType);
-  if (isConfirmation && isShortMessage && hasActivePlanContext) {
-    // Try to infer action from the last assistant message in conversation history
-    const lastAssistantMsg = Array.isArray(state.conversationHistory)
-      ? [...state.conversationHistory].reverse().find(m => m.role === "assistant")?.content?.toLowerCase() ?? ""
-      : "";
+The user's CURRENT message:
+"${state.question}"
 
-    let inferredAction = "cost_cutting_advice"; // safe default for trip/purchase context
-    if (/repayment|instalment|installment|spread.*cost|run.*numbers/.test(lastAssistantMsg))
-      inferredAction = "repayment_plan";
-    else if (/recover|rebuild|restore|replenish|bounce.back|after.*trip/.test(lastAssistantMsg))
-      inferredAction = "savings_recovery";
-    else if (/savings.plan|save.up|top.up/.test(lastAssistantMsg))
-      inferredAction = "savings_plan";
-    else if (/cash.?flow|forecast/.test(lastAssistantMsg))
-      inferredAction = "cashflow_forecast";
-    else if (/invest|portfolio/.test(lastAssistantMsg))
-      inferredAction = "investment_review";
-    else if (/subscription/.test(lastAssistantMsg))
-      inferredAction = "subscription_review";
-    // cost_cutting_advice is the default — catches "find low-cost options", "lower the cost", etc.
+Question: Is the user CONFIRMING or ACCEPTING the specific offer made by the assistant?
 
-    console.log(`[IntentAgent] FALLBACK confirmation (no pendingAction) → inferring "${inferredAction}" from history`);
-    return {
-      intent: {
-        domain: "travel",
-        action: "cost_optimization",
-        subject:
-          (state.knownFacts?.destination as string | undefined) ??
-          (state.knownFacts?.subject as string | undefined),
-        confidence: 0.8,
-      },
-      confirmedFollowUpAction: inferredAction,
-      knownFacts: state.knownFacts,
-    };
+Rules:
+- Short affirmations like "yes", "yes please", "sure", "go ahead", "please do that", "ok",
+  "sounds good", "let's do it", "please", "definitely" = confirmation.
+- Answers that provide a new fact (e.g. "2200 euros", "next month", "Paris") = NOT a confirmation,
+  they are answers to a question the assistant asked.
+- New questions on a different topic = NOT a confirmation.
+
+If it IS a confirmation, extract from the assistant's message the EXACT task that was offered.
+Examples of task descriptions:
+  "0% repayment schedule for EUR 2200 showing 3-month, 6-month, and 12-month options"
+  "three concrete ways to reduce the Paris trip cost below EUR 1500"
+  "post-trip savings recovery plan showing how long to rebuild the buffer"
+  "cashflow forecast for the next 3 months"
+
+If NOT a confirmation, set task to null.
+
+Return ONLY valid JSON. No markdown, no explanation.
+{ "isConfirmation": boolean, "task": string | null }`);
+
+      console.log(`[IntentAgent] LLM detection → isConfirmation=${detection.isConfirmation} task="${detection.task ?? "none"}"`);
+
+      if (detection.isConfirmation && detection.task) {
+        return {
+          intent: {
+            domain: "general",
+            action: "conversation",
+            subject: (state.knownFacts?.destination as string | undefined) ?? undefined,
+            confidence: 0.95,
+          },
+          // Store the natural-language task description — NOT a brittle keyword tag.
+          confirmedFollowUpAction: detection.task,
+          knownFacts: state.knownFacts,
+        };
+      }
+    } catch (err) {
+      // If the LLM detection call fails, fall through to regular intent classification.
+      console.warn("[IntentAgent] LLM confirmation detection failed, falling back:", err);
+    }
   }
   // ─────────────────────────────────────────────────────────────────────────
 
