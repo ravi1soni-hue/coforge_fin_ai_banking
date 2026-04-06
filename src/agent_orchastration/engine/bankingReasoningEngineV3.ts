@@ -357,6 +357,45 @@ export class BankingReasoningEngine {
     const history = state.conversationHistory ?? [];
     console.log(`[EngineV3] question="${state.question}" historyLen=${history.length}`);
 
+    // ─────────────────────────────────────────────────────────────────────
+    // STEP 0 — Confirmation fast-path (runs BEFORE any LLM call)
+    //
+    // Two ways to detect a pending offer — BOTH must fail before we proceed:
+    //   A) _pendingOffer in knownFacts (persisted across restarts via sessionRepo)
+    //   B) last assistant message in history contains an offer phrase
+    //
+    // If either fires AND the user is being affirmative, skip extractFacts +
+    // classifyIntent entirely and deliver the promised schedule directly.
+    // ─────────────────────────────────────────────────────────────────────
+    const wordCount     = state.question.trim().split(/\s+/).length;
+    const isAffirmative = /^(yes|yeah|sure|ok|okay|please|yep|go ahead|do it|do that|yes please|sounds good|absolutely|of course|great|perfect|please do|definitely|run it|show me|go for it|lets do it|let's do it)\b/i.test(state.question.trim());
+    const storedOffer   = typeof (state.knownFacts as Record<string, unknown> | undefined)?._pendingOffer === "string"
+      ? (state.knownFacts as Record<string, unknown>)._pendingOffer as string
+      : null;
+    const lastAssistant0 = [...history].reverse().find(m => m.role === "assistant")?.content ?? "";
+    const historyOffer   = /want me to|shall i|would you like|let me|i can show|i can work|i can calculate|run the numbers/i.test(lastAssistant0);
+
+    console.log(
+      `[EngineV3] step0: wordCount=${wordCount} isAff=${isAffirmative} ` +
+      `storedOffer="${storedOffer?.slice(0, 50) ?? "null"}" historyOffer=${historyOffer} ` +
+      `lastAssistantLen=${lastAssistant0.length}`
+    );
+
+    if (isAffirmative && wordCount <= 12 && (storedOffer || historyOffer)) {
+      // Resolve the task description
+      let priorTask: string = storedOffer ?? "";
+      if (!priorTask && historyOffer) {
+        const tm = lastAssistant0.match(
+          /(?:want me to|shall i|i can show you?|i can|would you like me to|let me|run the numbers on)\s+([^.?!\n]{5,180})/i
+        );
+        priorTask = tm ? tm[1].trim() : "run the instalment schedule";
+      }
+      const fastFacts: Record<string, unknown> = { ...(state.knownFacts ?? {}), _pendingOffer: null };
+      console.log(`[EngineV3] CONFIRMATION fast-path → priorTask="${priorTask.slice(0, 80)}"`);
+      const answer = await this.deliverPriorOffer(state, history, priorTask, fastFacts);
+      return { finalAnswer: answer, missingFacts: [], knownFacts: fastFacts };
+    }
+
     // 1. Extract facts from current message, merge with session
     const { extractedFacts, missingFacts, followUpQuestion } =
       await this.extractFacts(state, history);
@@ -373,14 +412,6 @@ export class BankingReasoningEngine {
       `[EngineV3] intent=${contract.intent} confidence=${contract.confidence} ` +
       `entities=[${contract.entities.join(",")}] questions=[${contract.questions.join(",")}]`
     );
-
-    // 3a. Confirmed-offer short-circuit — user said YES to a prior offer.
-    // Bypass resolver entirely: no DB call, no re-affordability, deliver what was promised.
-    if (contract.priorTask) {
-      console.log(`[EngineV3] priorTask short-circuit → delivering offer: "${contract.priorTask.slice(0, 80)}"`);
-      const answer = await this.deliverPriorOffer(state, history, contract.priorTask, mergedFacts);
-      return { finalAnswer: answer, missingFacts: [], knownFacts: mergedFacts };
-    }
 
     // 4. Greeting short-circuit (no history, exploration)
     if (contract.intent === "GENERAL_EXPLORATION" && history.length === 0) {
@@ -403,6 +434,14 @@ export class BankingReasoningEngine {
 
     // 8. LLM generates user-facing answer using pre-computed data
     const answer = await this.generateAnswer(state, history, contract, precomputed, mergedFacts);
+
+    // 9. Persist any offer embedded in the answer so Turn N+1 can detect it
+    //    even if the process restarts (Railway resets in-memory state).
+    const newOfferMatch = answer.match(
+      /(?:want me to|shall i|would you like me to)\s+([^.?!\n]{5,180})/i
+    );
+    mergedFacts._pendingOffer = newOfferMatch ? newOfferMatch[1].trim() : null;
+    console.log(`[EngineV3] _pendingOffer stored: "${String(mergedFacts._pendingOffer).slice(0, 60)}"`);
 
     return { finalAnswer: answer, missingFacts: [], knownFacts: mergedFacts };
   }
@@ -635,32 +674,27 @@ Return:
       }
     }
 
-    const historyText = history
-      .slice(-6)
-      .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
-      .join("\n");
-
     const precomputedBlock = scheduleLines.length
-      ? `PRE-COMPUTED SCHEDULE (use these exact numbers — do NOT recalculate):\n${scheduleLines.join("\n")}`
-      : `TASK: "${priorTask}"`;
+      ? scheduleLines.join("\n")
+      : `Task: ${priorTask}`;
 
-    return this.llm.generateText(`You are a personal banking advisor delivering a specific plan the user just requested.
+    // Deliberately minimal prompt — no conversation history to avoid LLM re-summarising it.
+    // The only context given is the pre-computed numbers so there is nothing to hallucinate.
+    return this.llm.generateText(
+      `OUTPUT ONLY a short payment schedule. Do not write any other sentences.
 
-CONVERSATION SO FAR:
-${historyText}
-User: ${state.question}
-
+SCHEDULE DATA (copy these numbers exactly, do not recalculate):
 ${precomputedBlock}
 
-ABSOLUTE RULES — violating any of these is a failure:
-1. Affordability has ALREADY been answered in the conversation above. Do NOT mention it again.
-2. Do NOT say "You can afford", "You have X in savings", or repeat the savings balance.
-3. Do NOT restate anything the assistant already said in prior turns.
-4. Open with the first concrete number or option from the schedule — never with "You", "Your", "Based", "Since", "Given", "Great", "Sure".
-5. Show the schedule as a short numbered or bulleted list.
-6. Maximum 5 lines of output.
-7. Close with ONE brief offer about a related next step (e.g., rebuilding savings, setting up a reminder).
-8. Use ${hc} for home-currency amounts, ${gc} for goal-specific amounts.`);
+FORMAT RULES (strict):
+- First line: "Here are your 0% instalment options for ${gc}${amt?.toFixed(0) ?? "the amount"}:"
+- Then one bullet per period: "• X months → ${gc}Y/month"
+- If a plan fits the monthly surplus, append " (fits your budget)"
+- Last line: "Lump-sum: pay ${gc}${amt?.toFixed(0) ?? "the amount"} now, ${hc}${amt != null && savings != null ? (savings - amt).toFixed(0) : "?"} remaining in savings."
+- Final line: "Which option works best for you?"
+- NO sentences about affordability, savings balance, emergency buffer, or goals.
+- NO introductory phrases like "Sure", "Great", "Based on", "You can afford".
+- Maximum 8 lines total.`);
   }
 
   // ─── LLM Answer Generator ────────────────────────────────────────────────────
