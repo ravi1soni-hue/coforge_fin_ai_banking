@@ -374,6 +374,14 @@ export class BankingReasoningEngine {
       `entities=[${contract.entities.join(",")}] questions=[${contract.questions.join(",")}]`
     );
 
+    // 3a. Confirmed-offer short-circuit — user said YES to a prior offer.
+    // Bypass resolver entirely: no DB call, no re-affordability, deliver what was promised.
+    if (contract.priorTask) {
+      console.log(`[EngineV3] priorTask short-circuit → delivering offer: "${contract.priorTask.slice(0, 80)}"`);
+      const answer = await this.deliverPriorOffer(state, history, contract.priorTask, mergedFacts);
+      return { finalAnswer: answer, missingFacts: [], knownFacts: mergedFacts };
+    }
+
     // 4. Greeting short-circuit (no history, exploration)
     if (contract.intent === "GENERAL_EXPLORATION" && history.length === 0) {
       return {
@@ -578,6 +586,76 @@ Return:
     } catch {
       return { extractedFacts: {}, missingFacts: [], followUpQuestion: "" };
     }
+  }
+
+  // ─── Confirmed-offer Delivery (bypasses resolver + DB entirely) ─────────────
+  // Called when user said YES to a prior assistant offer.
+  // Computes the plan deterministically from knownFacts, then asks LLM to format it.
+  // NEVER re-runs affordability analysis. NEVER queries the vector DB.
+
+  private async deliverPriorOffer(
+    state: GraphStateType,
+    history: Array<{ role: string; content: string }>,
+    priorTask: string,
+    kf: Record<string, unknown>
+  ): Promise<string> {
+    const hc  = homeCurrency(kf);
+    const gc  = goalCurrency(kf);
+    const amt = numFact(kf, "targetAmount");
+    const surplus = numFact(kf, "netMonthlySavings", "netMonthlySurplus");
+    const savings = numFact(kf, "availableSavings", "spendable_savings", "currentBalance");
+
+    // Pre-compute schedule in TypeScript — zero LLM calls for data, zero DB calls
+    const scheduleLines: string[] = [];
+    const isScheduleTask = /schedule|instalment|installment|plan|payment|repay|breakdown|spread|monthly/i.test(priorTask);
+
+    if (isScheduleTask && amt != null) {
+      const periods = [3, 6, 12, 24];
+      scheduleLines.push(`0% instalment options for ${gc}${amt.toFixed(0)}:`);
+      for (const p of periods) {
+        const monthly = (amt / p).toFixed(0);
+        const fits = surplus != null && amt / p <= surplus;
+        scheduleLines.push(`  ${String(p).padStart(2)} months → ${gc}${monthly}/month${fits ? " ✓ fits surplus" : ""}`);
+      }
+      if (surplus != null) {
+        const affordable = periods.filter(p => amt / p <= surplus);
+        scheduleLines.push(
+          affordable.length
+            ? `Plans fitting your ${hc}${surplus.toFixed(0)}/month surplus: ${affordable.map(p => `${p}m`).join(", ")}`
+            : `All options exceed your ${hc}${surplus.toFixed(0)}/month surplus — savings draw needed`
+        );
+      }
+      if (savings != null) {
+        scheduleLines.push(`Lump-sum option: pay ${gc}${amt.toFixed(0)} now, ${hc}${(savings - amt).toFixed(0)} savings remaining`);
+      }
+    }
+
+    const historyText = history
+      .slice(-6)
+      .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+      .join("\n");
+
+    const precomputedBlock = scheduleLines.length
+      ? `PRE-COMPUTED SCHEDULE (use these exact numbers — do NOT recalculate):\n${scheduleLines.join("\n")}`
+      : `TASK: "${priorTask}"`;
+
+    return this.llm.generateText(`You are a personal banking advisor delivering a specific plan the user just requested.
+
+CONVERSATION SO FAR:
+${historyText}
+User: ${state.question}
+
+${precomputedBlock}
+
+ABSOLUTE RULES — violating any of these is a failure:
+1. Affordability has ALREADY been answered in the conversation above. Do NOT mention it again.
+2. Do NOT say "You can afford", "You have X in savings", or repeat the savings balance.
+3. Do NOT restate anything the assistant already said in prior turns.
+4. Open with the first concrete number or option from the schedule — never with "You", "Your", "Based", "Since", "Given", "Great", "Sure".
+5. Show the schedule as a short numbered or bulleted list.
+6. Maximum 5 lines of output.
+7. Close with ONE brief offer about a related next step (e.g., rebuilding savings, setting up a reminder).
+8. Use ${hc} for home-currency amounts, ${gc} for goal-specific amounts.`);
   }
 
   // ─── LLM Answer Generator ────────────────────────────────────────────────────
