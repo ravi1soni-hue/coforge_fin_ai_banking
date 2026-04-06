@@ -101,7 +101,7 @@ export class VectorRepository {
         "id",
         "content",
         "metadata",
-        sql<number>`embedding <-> ${sql`${JSON.stringify(queryEmbedding)}::vector`}`.as("distance"),
+        sql<number>`embedding <=> ${sql`${JSON.stringify(queryEmbedding)}::vector`}`.as("distance"),
       ])
       .where("user_id", "=", userId)
       .where("is_active", "=", true);

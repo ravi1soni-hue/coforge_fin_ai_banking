@@ -3,6 +3,7 @@ import { IncomingMessage } from "http";
 import crypto from "crypto";
 import { container } from "../config/di.container.js";
 import type { ChatService } from "../services/chat/chat.service.js";
+import type { UserRepository } from "../repo/user.repo.js";
 import {
   parseClientSocketMessage,
   type ServerSocketMessage,
@@ -13,8 +14,9 @@ import {
  */
 const userConnections = new Map<string, Set<WebSocket>>();
 
-// ✅ Resolve singleton from Awilix (typed)
+// ✅ Resolve singletons from Awilix (typed)
 const chatService = container.resolve<ChatService>("chatService");
+const userRepo = container.resolve<UserRepository>("userRepo");
 
 const buildErrorMessage = ({
   requestId,
@@ -215,7 +217,7 @@ export const initWebSocket = (server: any): void => {
 
   wss.on(
     "connection",
-    (ws: TrackedWebSocket, req: IncomingMessage) => {
+    async (ws: TrackedWebSocket, req: IncomingMessage) => {
       const url = new URL(
         req.url ?? "",
         `http://${req.headers.host}`
@@ -226,12 +228,21 @@ export const initWebSocket = (server: any): void => {
         typeof req.headers["x-user-id"] === "string"
           ? req.headers["x-user-id"]
           : undefined;
-      const userId =
-        queryUserId?.trim() ||
-        headerUserId?.trim() ||
-        `anonymous-${crypto.randomUUID()}`;
+      const rawExternalId = queryUserId?.trim() || headerUserId?.trim();
+      let userId: string;
 
-      if (!queryUserId && !headerUserId) {
+      if (rawExternalId) {
+        // Resolve external_user_id → internal UUID (vector_documents.user_id is UUID FK to users.id)
+        const user = await userRepo.findByExternalId(rawExternalId).catch(() => undefined);
+        userId = user?.id ?? rawExternalId;
+        if (!user) {
+          console.warn(
+            "⚠️ No DB user found for external_user_id; using raw id for session",
+            { rawExternalId }
+          );
+        }
+      } else {
+        userId = `anonymous-${crypto.randomUUID()}`;
         console.warn(
           "⚠️ WebSocket connection opened without explicit userId; assigned fallback id",
           { url: req.url, assignedUserId: userId }

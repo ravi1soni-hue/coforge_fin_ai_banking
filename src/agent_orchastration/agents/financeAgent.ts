@@ -70,11 +70,13 @@ Return format:
 }
 `);
 
-  const facetsToExtract =
-    facetDecision.requiredFacets.filter(
+  const rawFacets =
+    facetDecision.requiredFacets?.filter(
       (f): f is FinancialFacet =>
         ALLOWED_FINANCIAL_FACETS.includes(f)
-    ) ?? ["cashflow_summary"];
+    ) ?? [];
+  const facetsToExtract: FinancialFacet[] =
+    rawFacets.length > 0 ? rawFacets : ["cashflow_summary"];
 
   // Step 2: Fetch RAG financial context from pgvector
   const context = await vectorQueryService.getContext(
