@@ -95,13 +95,34 @@ export class BankingReasoningEngine {
     const wordCount = question.trim().split(/\s+/).length;
     const lastAssistant = [...history].reverse().find(m => m.role === "assistant")?.content ?? "";
 
-    // Only attempt classification when the message is short and the last assistant
-    // message contained an offer — avoids unnecessary LLM calls for clearly new questions.
     const lastMsgHasOffer = /want me to|shall i|would you like|let me|i can show|i can work|i can map|i can calculate/i.test(lastAssistant);
+
+    // ── Deterministic fast-path ─────────────────────────────────────────────
+    // Run this BEFORE any LLM call. Short affirmative after an explicit offer
+    // is always CONFIRM_OFFER. We must NOT let the LLM override this with
+    // NEW_QUESTION (the LLM sometimes misclassifies short e.g. "yes please run
+    // the numbers" as a new query when the prev assistant turn is context-heavy).
+    if (wordCount <= 10 && lastMsgHasOffer) {
+      const isAffirmative =
+        /^(yes|sure|ok|okay|please|yep|go ahead|do it|yes please|sounds good|absolutely|of course|great|perfect|please do|definitely)\b/i.test(
+          question.trim()
+        );
+      if (isAffirmative) {
+        const taskMatch = lastAssistant.match(
+          /(?:want me to|shall i|i can show you|i can show|i can|would you like me to|let me)\s+([^.?!\n]{10,180})/i
+        );
+        const offeredTask = taskMatch ? taskMatch[1].trim() : "continue from the last offer";
+        console.log(`[ReasoningEngine] deterministic CONFIRM_OFFER — task="${offeredTask.slice(0, 80)}"`);
+        return { type: "CONFIRM_OFFER", offeredTask };
+      }
+    }
+    // ── End deterministic fast-path ────────────────────────────────────────
+
     if (wordCount > 15 || !lastMsgHasOffer) {
       return { type: "NEW_QUESTION", offeredTask: null };
     }
 
+    // Short, non-affirmative message with an offer present — use LLM to classify
     const recentStr = history
       .slice(-6)
       .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
@@ -144,9 +165,23 @@ Return ONLY valid JSON (no markdown):
   "offeredTask": "<exact task extracted from last assistant message, or null>"
 }
 `);
+      // Safety override: if LLM says NEW_QUESTION but deterministic check would say
+      // CONFIRM_OFFER (affirmative + offer present), trust the deterministic rule.
+      if (result.type === "NEW_QUESTION" && lastMsgHasOffer) {
+        const lowerQ = question.trim().toLowerCase();
+        const startsAffirmative = /^(yes|sure|ok|okay|please|yep|go ahead|do it|sounds good|absolutely|of course|great|perfect|please do|definitely)/.test(lowerQ);
+        if (startsAffirmative) {
+          const taskMatch = lastAssistant.match(
+            /(?:want me to|shall i|i can show you|i can show|i can|would you like me to|let me)\s+([^.?!\n]{10,180})/i
+          );
+          const offeredTask = taskMatch ? taskMatch[1].trim() : "continue from the last offer";
+          console.log(`[ReasoningEngine] LLM override → CONFIRM_OFFER task="${offeredTask.slice(0, 80)}"`);
+          return { type: "CONFIRM_OFFER", offeredTask };
+        }
+      }
       return result;
     } catch {
-      // LLM failed — fallback to regex
+      // LLM threw — fallback
       const isAffirmative =
         /^(yes|sure|ok|okay|please|yep|go ahead|do it|yes please|sounds good|absolutely|of course|great|perfect|please do|definitely)\b/i.test(
           question.trim()
