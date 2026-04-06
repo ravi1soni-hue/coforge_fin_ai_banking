@@ -7,6 +7,8 @@ import {
 import { Kysely, sql } from "kysely";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { ChatRepository } from "../../repo/chat.repo.js";
+import { SessionRepository } from "../../repo/session.repo.js";
 
 /* ---------------- Types ---------------- */
 
@@ -29,6 +31,8 @@ export class ChatService {
 
   private readonly assistantService: FinancialAssistantService;
   private readonly db: Kysely<unknown>;
+  private readonly chatRepo: ChatRepository;
+  private readonly sessionRepo: SessionRepository;
   private financialProfileTableReady?: Promise<void>;
   private fallbackBankingFacts?: Record<string, unknown>;
   private fallbackBankingFactsLoading?: Promise<Record<string, unknown>>;
@@ -44,12 +48,18 @@ export class ChatService {
   constructor({
     assistantService,
     db,
+    chatRepo,
+    sessionRepo,
   }: {
     assistantService: FinancialAssistantService;
     db: Kysely<unknown>;
+    chatRepo: ChatRepository;
+    sessionRepo: SessionRepository;
   }) {
     this.assistantService = assistantService;
     this.db = db;
+    this.chatRepo = chatRepo;
+    this.sessionRepo = sessionRepo;
 
     console.log(
       "✅ assistantService REAL instance:",
@@ -74,8 +84,13 @@ export class ChatService {
         persistedProfileFacts,
         request.knownFacts
       );
+    const cachedFacts = this.sessionKnownFacts.get(sessionKey);
     const persistedFacts =
-      this.sessionKnownFacts.get(sessionKey) ?? {};
+      cachedFacts ??
+      (await this.sessionRepo.getKnownFacts(
+        request.userId,
+        request.sessionId ?? "default"
+      ));
     const normalizedIncomingFacts =
       this.normalizeKnownFactsPayload(
         request.knownFacts ?? {}
@@ -98,10 +113,23 @@ export class ChatService {
       request.userId,
       mergedKnownFacts
     );
+    // Persist full session known facts (non-blocking)
+    void this.sessionRepo.setKnownFacts(
+      request.userId,
+      request.sessionId ?? "default",
+      mergedKnownFacts
+    );
 
     // Build conversation history (last 10 turns to cap token usage)
     const historyKey = sessionKey;
-    const existingHistory = this.sessionConversationHistory.get(historyKey) ?? [];
+    const cachedHistory = this.sessionConversationHistory.get(historyKey);
+    const existingHistory =
+      cachedHistory ??
+      (await this.chatRepo.getHistory(
+        request.userId,
+        request.sessionId ?? "default",
+        10
+      ));
     const conversationHistory = [
       ...existingHistory,
       { role: "user" as const, content: request.message },
@@ -135,9 +163,12 @@ export class ChatService {
 
     // ✅ Persist LLM-extracted facts back to session so follow-up turns retain full context
     if (resultState.knownFacts && Object.keys(resultState.knownFacts).length > 0) {
-      this.sessionKnownFacts.set(
-        sessionKey,
-        { ...mergedKnownFacts, ...resultState.knownFacts }
+      const updatedFacts = { ...mergedKnownFacts, ...resultState.knownFacts };
+      this.sessionKnownFacts.set(sessionKey, updatedFacts);
+      void this.sessionRepo.setKnownFacts(
+        request.userId,
+        request.sessionId ?? "default",
+        updatedFacts
       );
     }
 
@@ -152,6 +183,8 @@ export class ChatService {
         ...conversationHistory,
         { role: "assistant" as const, content: followUpMsg },
       ].slice(-10));
+      void this.chatRepo.saveMessage(request.userId, request.sessionId ?? "default", "user", request.message);
+      void this.chatRepo.saveMessage(request.userId, request.sessionId ?? "default", "assistant", followUpMsg);
 
       return {
         type: "FOLLOW_UP",
@@ -175,6 +208,8 @@ export class ChatService {
       ...conversationHistory,
       { role: "assistant" as const, content: validation },
     ].slice(-10));
+    void this.chatRepo.saveMessage(request.userId, request.sessionId ?? "default", "user", request.message);
+    void this.chatRepo.saveMessage(request.userId, request.sessionId ?? "default", "assistant", validation);
     return {
       type: "FINAL",
       message: validation,

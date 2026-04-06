@@ -76,13 +76,11 @@ Return format:
         ALLOWED_FINANCIAL_FACETS.includes(f)
     ) ?? ["cashflow_summary"];
 
-  // Step 2: Fetch RAG financial context
+  // Step 2: Fetch RAG financial context from pgvector
   const context = await vectorQueryService.getContext(
+    state.userId,
     `financial data for user ${state.userId}. Question: ${state.question}`,
-    {
-      topK: 8,
-      filter: (doc) => doc.metadata?.userId === state.userId,
-    }
+    { topK: 8 }
   );
 
   // Step 3: Extract only the required facets from vector context

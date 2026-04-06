@@ -1,84 +1,148 @@
-import { VectorDocument } from "../models/vector.document.js";
+import { Kysely, sql } from "kysely";
+import { Database } from "../db/schema/index.js";
 
-export interface VectorSearchResult {
-  doc: VectorDocument;
-  score: number;
+/* ---------------- Types ---------------- */
+
+export interface VectorSearchOptions {
+  topK?: number;
+  domain?: string;
+  facets?: string[];
+  source?: string;
 }
 
+export interface CreateVectorDocumentInput {
+  user_id: string;
+  content: string;
+  embedding: readonly number[];
+  domain?: string | null;
+  facet?: string | null;
+  source?: string | null;
+  metadata?: unknown;
+  embedding_model: string;
+  embedding_version?: number;
+}
+
+export interface VectorSearchResult {
+  id: string;
+  content: string;
+  metadata: unknown;
+  distance: number;
+}
+
+/* ======================================================
+ * VectorRepository — pgvector DB-backed implementation
+ * ====================================================== */
+
 export class VectorRepository {
-  private readonly documents: VectorDocument[] = [];
+  private readonly db: Kysely<Database>;
 
-  /**
-   * Store a single vector document
-   */
-  addDocument(doc: VectorDocument): void {
-    this.documents.push(doc);
+  constructor({ db }: { db: Kysely<Database> }) {
+    this.db = db;
+    console.log("✅ VectorRepository using pgvector DB");
   }
 
-  /**
-   * Bulk insert vector documents
-   */
-  addDocuments(docs: VectorDocument[] = []): void {
-    this.documents.push(...docs);
+  async insertDb(input: CreateVectorDocumentInput): Promise<string> {
+    return this.db.transaction().execute(async (trx) => {
+      const result = await trx
+        .insertInto("vector_documents")
+        .values({
+          user_id: input.user_id,
+          content: input.content,
+          embedding: sql`${JSON.stringify(input.embedding)}::vector`,
+          domain: input.domain ?? null,
+          facet: input.facet ?? null,
+          source: input.source ?? null,
+          metadata: input.metadata ?? {},
+          embedding_model: input.embedding_model,
+          embedding_version: input.embedding_version ?? 1,
+          is_active: true,
+        })
+        .returning("id")
+        .executeTakeFirstOrThrow();
+
+      return result.id;
+    });
   }
 
-  /**
-   * Remove documents matching a predicate
-   */
-  removeDocuments(filterFn: (doc: VectorDocument) => boolean): number {
-    const before = this.documents.length;
-    const retained = this.documents.filter((doc) => !filterFn(doc));
+  async bulkInsertDb(docs: CreateVectorDocumentInput[]): Promise<void> {
+    if (!docs.length) return;
 
-    this.documents.length = 0;
-    this.documents.push(...retained);
-
-    return before - this.documents.length;
+    await this.db.transaction().execute(async (trx) => {
+      await trx
+        .insertInto("vector_documents")
+        .values(
+          docs.map((d) => ({
+            user_id: d.user_id,
+            content: d.content,
+            embedding: sql`${JSON.stringify(d.embedding)}::vector`,
+            domain: d.domain ?? null,
+            facet: d.facet ?? null,
+            source: d.source ?? null,
+            metadata: d.metadata ?? {},
+            embedding_model: d.embedding_model,
+            embedding_version: d.embedding_version ?? 1,
+            is_active: true,
+          }))
+        )
+        .execute();
+    });
   }
 
-  /**
-   * Get top-K similar documents
-   */
-  findSimilar(
-    queryEmbedding: number[],
-    topK: number = 5,
-    filterFn?: (doc: VectorDocument) => boolean
-  ): VectorSearchResult[] {
-    const scored: VectorSearchResult[] = [];
+  async searchDb(
+    userId: string,
+    queryEmbedding: readonly number[],
+    options: VectorSearchOptions = {}
+  ): Promise<VectorSearchResult[]> {
+    const { topK = 5, domain, facets, source } = options;
 
-    for (const doc of this.documents) {
-      if (filterFn && !filterFn(doc)) continue;
+    let query = this.db
+      .selectFrom("vector_documents")
+      .select([
+        "id",
+        "content",
+        "metadata",
+        sql<number>`embedding <-> ${sql`${JSON.stringify(queryEmbedding)}::vector`}`.as("distance"),
+      ])
+      .where("user_id", "=", userId)
+      .where("is_active", "=", true);
 
-      const score = this.cosineSimilarity(
-        queryEmbedding,
-        doc.embedding
-      );
-
-      scored.push({ doc, score });
+    if (domain) {
+      query = query.where("domain", "=", domain);
     }
 
-    return scored
-      .sort((a, b) => b.score - a.score)
-      .slice(0, topK);
+    if (facets?.length) {
+      query = query.where("facet", "in", facets);
+    }
+
+    if (source) {
+      query = query.where("source", "=", source);
+    }
+
+    return query.orderBy("distance", "asc").limit(topK).execute();
   }
 
-  /**
-   * Cosine similarity between two vectors
-   */
-  private cosineSimilarity(vecA: number[], vecB: number[]): number {
-    if (vecA.length !== vecB.length) {
-      throw new Error("Vector dimensions do not match");
-    }
+  async deactivateDb(id: string, userId: string): Promise<void> {
+    await this.db.transaction().execute(async (trx) => {
+      await trx
+        .updateTable("vector_documents")
+        .set({
+          is_active: false,
+          updated_at: sql`EXTRACT(EPOCH FROM now()) * 1000`,
+        })
+        .where("id", "=", id)
+        .where("user_id", "=", userId)
+        .execute();
+    });
+  }
 
-    let dot = 0;
-    let normA = 0;
-    let normB = 0;
-
-    for (let i = 0; i < vecA.length; i++) {
-      dot += vecA[i] * vecB[i];
-      normA += vecA[i] * vecA[i];
-      normB += vecB[i] * vecB[i];
-    }
-
-    return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+  async deactivateAllForUser(userId: string): Promise<void> {
+    await this.db
+      .updateTable("vector_documents")
+      .set({
+        is_active: false,
+        updated_at: sql`EXTRACT(EPOCH FROM now()) * 1000`,
+      })
+      .where("user_id", "=", userId)
+      .execute();
   }
 }

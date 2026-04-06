@@ -1,14 +1,7 @@
-import { VectorRepository, VectorSearchResult } from "../../repo/vector.repo.js";
-
+import { VectorRepository, VectorSearchOptions } from "../../repo/vector.repo.js";
 import { getEmbeddingForText } from "../../services/embedding/embedding.helper.js";
 
-/**
- * Options for vector search
- */
-export interface VectorQueryOptions {
-  topK?: number;
-  filter?: (doc: VectorSearchResult["doc"]) => boolean;
-}
+export { VectorSearchOptions };
 
 export class VectorQueryService {
   private readonly vectorRepo: VectorRepository;
@@ -18,39 +11,39 @@ export class VectorQueryService {
   }
 
   /**
-   * Retrieve contextual text for a query
+   * Retrieve contextual text for a query using pgvector similarity search
    */
   async getContext(
+    userId: string,
     query: string,
-    { topK = 3, filter }: VectorQueryOptions = {}
+    options: VectorSearchOptions = {}
   ): Promise<string> {
     if (!query?.trim()) return "";
 
     // 1️⃣ Generate query embedding
-    const queryEmbedding: number[] = await getEmbeddingForText(query);
+    const queryEmbedding = await getEmbeddingForText(query);
 
-    // 2️⃣ Fetch similar vectors
-    const results = this.vectorRepo.findSimilar(
+    // 2️⃣ Fetch similar vectors from DB (pgvector)
+    const results = await this.vectorRepo.searchDb(
+      userId,
       queryEmbedding,
-      topK,
-      filter
+      {
+        topK: options.topK ?? 8,
+        domain: options.domain,
+        facets: options.facets,
+        source: options.source,
+      }
     );
 
-    // 3️⃣ Build context text
+    // 3️⃣ Build LLM context string
     return this.buildContext(results);
   }
 
-  /**
-   * Convert vector matches into LLM-usable context
-   */
-  private buildContext(results: VectorSearchResult[] = []): string {
+  private buildContext(results: Array<{ content: string; distance: number }>): string {
     if (!results.length) return "";
 
     return results
-      .map(
-        (item, index) =>
-          `Context ${index + 1}:\n${item.doc.text}`
-      )
+      .map((item, index) => `Context ${index + 1}:\n${item.content}`)
       .join("\n\n");
   }
 }

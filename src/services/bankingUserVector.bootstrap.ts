@@ -46,18 +46,8 @@ export const bootstrapBankingUserVectors = async (): Promise<void> => {
   const docs = buildVectorDocuments(parsed);
   const vectorRepo = container.resolve<VectorRepository>("vectorRepo");
 
-  const removed = vectorRepo.removeDocuments((doc) => {
-    const source =
-      typeof doc.metadata?.source === "string"
-        ? doc.metadata.source
-        : "";
-    const sourceUserId =
-      typeof doc.metadata?.userId === "string"
-        ? doc.metadata.userId
-        : "";
-
-    return source === "banking_user_data.json" && sourceUserId === userId;
-  });
+  // Deactivate stale docs for this user in DB (replaces old in-memory removeDocuments)
+  await vectorRepo.deactivateAllForUser(userId);
 
   for (const doc of docs) {
     await processString(doc.text, {
@@ -72,7 +62,7 @@ export const bootstrapBankingUserVectors = async (): Promise<void> => {
   alreadyBootstrapped = true;
   lastBootstrapSignature = signature;
   console.log(
-    `✅ Bootstrapped ${docs.length} banking profile documents into vector store (removed stale docs: ${removed})`
+    `✅ Bootstrapped ${docs.length} banking profile documents into pgvector DB for user ${userId}`
   );
 };
 
