@@ -39,7 +39,7 @@ export const intentAgent = async (
         goal_impact_analysis:  { domain: "finance",   action: "goal_impact"         },
         cost_cutting_advice:   { domain: "travel",    action: "cost_optimization"   },
       };
-    const mapped = pendingIntentMap[pendingAction] ?? { domain: "general", action: "planning" };
+    const mapped = pendingIntentMap[pendingAction] ?? { domain: "travel", action: "cost_optimization" };
 
     console.log(`[IntentAgent] CONFIRMED pendingAction="${pendingAction}" → domain="${mapped.domain}" action="${mapped.action}"`);
 
@@ -60,18 +60,37 @@ export const intentAgent = async (
   }
 
   // ── Fallback: no pendingFollowUpAction tag, but the message is a short
-  //    confirmation and there is active financial context (e.g. a trip or
-  //    purchase was discussed).  Route to savings_recovery so the assistant
-  //    delivers a post-purchase plan instead of re-running affordability.
+  //    confirmation and there is active financial context.
+  //    Use conversation history to infer what the last offer was, defaulting
+  //    to cost_cutting_advice for trip/purchase contexts.
   const isShortMessage = state.question.trim().split(/\s+/).length <= 10;
   const hasActivePlanContext = !!(state.knownFacts?.targetAmount || state.knownFacts?.goalType);
   if (isConfirmation && isShortMessage && hasActivePlanContext) {
-    const inferredAction = "savings_recovery";
-    console.log(`[IntentAgent] FALLBACK confirmation (no pendingAction) → inferring "${inferredAction}"`);
+    // Try to infer action from the last assistant message in conversation history
+    const lastAssistantMsg = Array.isArray(state.conversationHistory)
+      ? [...state.conversationHistory].reverse().find(m => m.role === "assistant")?.content?.toLowerCase() ?? ""
+      : "";
+
+    let inferredAction = "cost_cutting_advice"; // safe default for trip/purchase context
+    if (/repayment|instalment|installment|spread.*cost|run.*numbers/.test(lastAssistantMsg))
+      inferredAction = "repayment_plan";
+    else if (/recover|rebuild|restore|replenish|bounce.back|after.*trip/.test(lastAssistantMsg))
+      inferredAction = "savings_recovery";
+    else if (/savings.plan|save.up|top.up/.test(lastAssistantMsg))
+      inferredAction = "savings_plan";
+    else if (/cash.?flow|forecast/.test(lastAssistantMsg))
+      inferredAction = "cashflow_forecast";
+    else if (/invest|portfolio/.test(lastAssistantMsg))
+      inferredAction = "investment_review";
+    else if (/subscription/.test(lastAssistantMsg))
+      inferredAction = "subscription_review";
+    // cost_cutting_advice is the default — catches "find low-cost options", "lower the cost", etc.
+
+    console.log(`[IntentAgent] FALLBACK confirmation (no pendingAction) → inferring "${inferredAction}" from history`);
     return {
       intent: {
-        domain: "saving",
-        action: "recovery",
+        domain: "travel",
+        action: "cost_optimization",
         subject:
           (state.knownFacts?.destination as string | undefined) ??
           (state.knownFacts?.subject as string | undefined),
