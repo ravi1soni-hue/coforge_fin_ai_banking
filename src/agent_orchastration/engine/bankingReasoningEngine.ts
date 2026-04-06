@@ -1,16 +1,17 @@
 /**
- * Banking Reasoning Engine
- *
- * Single-class orchestration engine that replaces the 10-agent LangGraph chain.
+ * Banking Reasoning Engine — v2
  *
  * Pipeline per turn:
- *   1. classifyTurn  — LLM reads full history and decides: CONFIRM_OFFER | PROVIDE_FACT | NEW_QUESTION | GREETING
- *   2a. CONFIRM_OFFER → preComputeOffer (deterministic numbers) → LLM formats the output   ← KEY FIX
- *   2b. NEW_QUESTION / PROVIDE_FACT → extractFacts → maybe FOLLOW_UP → financialAnalysis
+ *   1. classifyTurn  → TurnDecision { action, contract? }
+ *      Deterministic fast-path for short affirmatives; buildContract() asks the LLM
+ *      to emit a full IntentDataContract from context — no keyword matching in hot path.
+ *   2a. CONFIRM_OFFER → resolveData(contract) → resolverRegistry[category] → LLM formats
+ *   2b. NEW_QUESTION / PROVIDE_FACT → analysisPipeline (unchanged)
+ *   2c. GENERAL_EXPLORATION → zero data fetch, LLM reasons freely from history
  *
- * Pre-computing confirmed-offer answers is the critical architectural change.
- * The LLM receives a table of repayment options / budget lines / recovery months —
- * not raw savings vs trip-cost figures — so it CANNOT revert to affordability mode.
+ * IntentDataContract.needs drives ALL data resolution.
+ * resolveData() reads `needs` flags — it never inspects `category`.
+ * Resolvers are pluggable pure functions: add one per new banking use-case.
  */
 
 import { LlmClient } from "../llm/llmClient.js";
@@ -18,26 +19,82 @@ import { VectorQueryService } from "../services/vector.query.service.js";
 import type { GraphStateType } from "../graph/state.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Internal types
+// Semantic intent taxonomy
+// Describes the shape of computation needed — not the banking domain.
+// New use-cases: add a Resolver and register it. The enum is the only change.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type TurnType = "CONFIRM_OFFER" | "PROVIDE_FACT" | "NEW_QUESTION" | "GREETING";
+type IntentCategory =
+  | "COMPUTE_SCHEDULE"      // any periodic payment / savings schedule
+  | "BREAKDOWN_ALLOCATION"  // any budget split into named categories
+  | "TIMELINE_PROJECTION"   // any recovery / goal / milestone timeline
+  | "FETCH_PORTFOLIO"       // any portfolio / investment / balance lookup
+  | "AUDIT_RECURRING"       // any recurring charge / subscription audit
+  | "CASHFLOW_ANALYSIS"     // income vs expenses / net position
+  | "GENERAL_EXPLORATION";  // open-ended — zero pre-computation
 
-interface TurnClassification {
-  type: TurnType;
-  offeredTask: string | null;
+// ─────────────────────────────────────────────────────────────────────────────
+// IntentDataContract
+// The LLM emits this in buildContract(). resolveData() reads `needs` to decide
+// what to fetch from knownFacts and the vector DB — never reads `category`.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface IntentDataContract {
+  category:   IntentCategory;
+  task:       string;
+  needs: {
+    targetAmount:       boolean;
+    surplus:            boolean;
+    savings:            boolean;
+    goals:              boolean;
+    investments:        boolean;
+    transactions:       boolean;
+    subscriptions:      boolean;
+    periodMonths?:      number;
+    allocationWeights?: Record<string, number>;
+  };
+  vectorQuery: string;
 }
 
-type OfferType =
-  | "INSTALMENT_PLAN"   // 0% plan, repayment schedule, payment options
-  | "BUDGET_PLAN"       // trip budget breakdown, daily budget, cost trimming
-  | "SAVINGS_RECOVERY"  // rebuild savings after purchase
-  | "GENERAL";          // everything else
+// ─────────────────────────────────────────────────────────────────────────────
+// ResolvedData — populated by resolveData() from knownFacts + vectorDB
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ResolvedData {
+  targetAmount: number | null;
+  surplus:      number | null;
+  savings:      number | null;
+  homeCurrency: string;
+  goalCurrency: string;
+  destination:  string;
+  days:         number;
+  dbContext:    string;
+  kf:           Record<string, unknown>;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Resolver — pure function: (contract, resolved) → pre-computed string for LLM
+// ─────────────────────────────────────────────────────────────────────────────
+
+type Resolver = (contract: IntentDataContract, data: ResolvedData) => string;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TurnDecision
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface TurnDecision {
+  action:   "CONFIRM_OFFER" | "PROVIDE_FACT" | "NEW_QUESTION" | "GREETING";
+  contract: IntentDataContract | null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EngineResult
+// ─────────────────────────────────────────────────────────────────────────────
 
 export interface EngineResult {
-  finalAnswer: string;
+  finalAnswer:  string;
   missingFacts: string[];
-  knownFacts: Record<string, unknown>;
+  knownFacts:   Record<string, unknown>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -56,52 +113,45 @@ export class BankingReasoningEngine {
     const history = state.conversationHistory ?? [];
     const hasHistory = history.some(m => m.role === "assistant");
 
-    console.log(`[ReasoningEngine] question="${state.question}" historyLen=${history.length} hasHistory=${hasHistory}`);
+    console.log(`[ReasoningEngine] question="${state.question}" historyLen=${history.length}`);
 
-    // ── 1. Turn classification ──────────────────────────────────────────────
-    const turn: TurnClassification = hasHistory
-      ? await this.classifyTurn(state.question, history)
-      : { type: "NEW_QUESTION", offeredTask: null };
+    const decision: TurnDecision = hasHistory
+      ? await this.classifyTurn(state, history)
+      : { action: "NEW_QUESTION", contract: null };
 
-    console.log(`[ReasoningEngine] turn=${turn.type} task="${(turn.offeredTask ?? "").slice(0, 80)}"`);
+    console.log(`[ReasoningEngine] action=${decision.action} category=${decision.contract?.category ?? "n/a"}`);
 
-    // ── 2. Greeting ─────────────────────────────────────────────────────────
-    if (turn.type === "GREETING") {
+    if (decision.action === "GREETING") {
       return {
-        finalAnswer:
-          "Hello! I'm your AI banking advisor. Ask me about affordability, investments, subscriptions, spending patterns, or financial planning.",
+        finalAnswer: "Hello! I'm your AI banking advisor. Ask me about affordability, investments, subscriptions, spending patterns, or financial planning.",
         missingFacts: [],
         knownFacts: state.knownFacts ?? {},
       };
     }
 
-    // ── 3. Confirmed offer → pre-compute then format ─────────────────────────
-    if (turn.type === "CONFIRM_OFFER" && turn.offeredTask) {
-      return this.executeConfirmedOffer(state, turn.offeredTask, history);
+    if (decision.action === "CONFIRM_OFFER" && decision.contract) {
+      return this.executeContract(state, decision.contract, history);
     }
 
-    // ── 4. New question or provided fact → analysis pipeline ────────────────
     return this.analysisPipeline(state, history);
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // Turn Classification
+  // Turn Classification → TurnDecision
   // ─────────────────────────────────────────────────────────────────────────────
 
   private async classifyTurn(
-    question: string,
+    state: GraphStateType,
     history: Array<{ role: string; content: string }>
-  ): Promise<TurnClassification> {
+  ): Promise<TurnDecision> {
+    const { question } = state;
     const wordCount = question.trim().split(/\s+/).length;
     const lastAssistant = [...history].reverse().find(m => m.role === "assistant")?.content ?? "";
-
     const lastMsgHasOffer = /want me to|shall i|would you like|let me|i can show|i can work|i can map|i can calculate/i.test(lastAssistant);
 
     // ── Deterministic fast-path ─────────────────────────────────────────────
-    // Run this BEFORE any LLM call. Short affirmative after an explicit offer
-    // is always CONFIRM_OFFER. We must NOT let the LLM override this with
-    // NEW_QUESTION (the LLM sometimes misclassifies short e.g. "yes please run
-    // the numbers" as a new query when the prev assistant turn is context-heavy).
+    // Short affirmative after an explicit offer → CONFIRM_OFFER, always.
+    // Run before any LLM call — the LLM sometimes misclassifies short messages.
     if (wordCount <= 10 && lastMsgHasOffer) {
       const isAffirmative =
         /^(yes|sure|ok|okay|please|yep|go ahead|do it|yes please|sounds good|absolutely|of course|great|perfect|please do|definitely)\b/i.test(
@@ -111,25 +161,26 @@ export class BankingReasoningEngine {
         const taskMatch = lastAssistant.match(
           /(?:want me to|shall i|i can show you|i can show|i can|would you like me to|let me)\s+([^.?!\n]{10,180})/i
         );
-        const offeredTask = taskMatch ? taskMatch[1].trim() : "continue from the last offer";
-        console.log(`[ReasoningEngine] deterministic CONFIRM_OFFER — task="${offeredTask.slice(0, 80)}"`);
-        return { type: "CONFIRM_OFFER", offeredTask };
+        const task = taskMatch ? taskMatch[1].trim() : "continue from the last offer";
+        console.log(`[ReasoningEngine] deterministic CONFIRM_OFFER task="${task.slice(0, 80)}"`);
+        const contract = await this.buildContract(task, state);
+        return { action: "CONFIRM_OFFER", contract };
       }
     }
     // ── End deterministic fast-path ────────────────────────────────────────
 
     if (wordCount > 15 || !lastMsgHasOffer) {
-      return { type: "NEW_QUESTION", offeredTask: null };
+      return { action: "NEW_QUESTION", contract: null };
     }
 
-    // Short, non-affirmative message with an offer present — use LLM to classify
+    // Short non-affirmative with offer present — let LLM classify
     const recentStr = history
       .slice(-6)
       .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
       .join("\n");
 
     try {
-      const result = await this.llm.generateJSON<TurnClassification>(`
+      const raw = await this.llm.generateJSON<{ action: TurnDecision["action"]; task: string | null }>(`
 You are a turn classifier for a banking AI assistant.
 
 RECENT CONVERSATION:
@@ -137,268 +188,308 @@ ${recentStr}
 
 NEW USER MESSAGE: "${question}"
 
-Classify this message into exactly one category:
-
-CONFIRM_OFFER — the user is agreeing to the specific action the assistant offered.
-  The assistant's last message must contain an explicit offer ("Want me to...", "Shall I...",
-  "I can show you...", "Would you like me to...").
-  Affirmative responses: "yes", "yes please", "sure", "go ahead", "please do that",
-  "yes please check", "yes please map it out", "ok", "sounds good", "definitely".
-
-PROVIDE_FACT — the user is answering a specific question the assistant asked.
-  Example: assistant asked "How much will it cost?" → user replies "around 2200 euros".
-
-NEW_QUESTION — user is asking something new or the message is a new query/statement.
-
-GREETING — hello, thanks, goodbye, small talk.
+Classify into ONE category:
+  CONFIRM_OFFER — user agrees to the specific action the assistant offered.
+  PROVIDE_FACT  — user is answering a specific question the assistant asked.
+  NEW_QUESTION  — user is asking something new.
+  GREETING      — small talk / thanks / goodbye.
 
 Rules:
-- A message beginning with "yes" after an explicit offer → CONFIRM_OFFER.
-- A number, amount, date, or location as a reply to a direct question → PROVIDE_FACT.
+- "yes" / affirmative after an explicit offer → CONFIRM_OFFER.
+- A number or fact as a direct reply to a question → PROVIDE_FACT.
 - Do NOT set CONFIRM_OFFER if the last assistant message had no offer.
-- For CONFIRM_OFFER: extract from the assistant's last message the EXACT task offered.
-  Focus on the "Want me to..." or "Shall I..." clause.
+- For CONFIRM_OFFER: extract the offered task from the "Want me to..." / "Shall I..." clause.
 
-Return ONLY valid JSON (no markdown):
-{
-  "type": "CONFIRM_OFFER" | "PROVIDE_FACT" | "NEW_QUESTION" | "GREETING",
-  "offeredTask": "<exact task extracted from last assistant message, or null>"
-}
+Return ONLY valid JSON: { "action": "...", "task": "<offered task string or null>" }
 `);
-      // Safety override: if LLM says NEW_QUESTION but deterministic check would say
-      // CONFIRM_OFFER (affirmative + offer present), trust the deterministic rule.
-      if (result.type === "NEW_QUESTION" && lastMsgHasOffer) {
+
+      // Safety override: if LLM disagrees with deterministic logic, trust deterministic
+      if (raw.action === "NEW_QUESTION" && lastMsgHasOffer) {
         const lowerQ = question.trim().toLowerCase();
-        const startsAffirmative = /^(yes|sure|ok|okay|please|yep|go ahead|do it|sounds good|absolutely|of course|great|perfect|please do|definitely)/.test(lowerQ);
-        if (startsAffirmative) {
+        if (/^(yes|sure|ok|okay|please|yep|go ahead|do it|sounds good|absolutely|of course|great|perfect|please do|definitely)/.test(lowerQ)) {
           const taskMatch = lastAssistant.match(
             /(?:want me to|shall i|i can show you|i can show|i can|would you like me to|let me)\s+([^.?!\n]{10,180})/i
           );
-          const offeredTask = taskMatch ? taskMatch[1].trim() : "continue from the last offer";
-          console.log(`[ReasoningEngine] LLM override → CONFIRM_OFFER task="${offeredTask.slice(0, 80)}"`);
-          return { type: "CONFIRM_OFFER", offeredTask };
+          const task = taskMatch ? taskMatch[1].trim() : "continue from the last offer";
+          console.log(`[ReasoningEngine] LLM override → CONFIRM_OFFER task="${task.slice(0, 80)}"`);
+          const contract = await this.buildContract(task, state);
+          return { action: "CONFIRM_OFFER", contract };
         }
       }
-      return result;
-    } catch {
-      // LLM threw — fallback
-      const isAffirmative =
-        /^(yes|sure|ok|okay|please|yep|go ahead|do it|yes please|sounds good|absolutely|of course|great|perfect|please do|definitely)\b/i.test(
-          question.trim()
-        );
-      if (isAffirmative && lastMsgHasOffer) {
-        const taskMatch = lastAssistant.match(
-          /(?:want me to|shall i|i can show you|i can|would you like me to|let me)\s+([^.?!\n]{10,180})/i
-        );
-        return {
-          type: "CONFIRM_OFFER",
-          offeredTask: taskMatch ? taskMatch[1].trim() : "continue from the last offer",
-        };
+
+      if (raw.action === "CONFIRM_OFFER" && raw.task) {
+        const contract = await this.buildContract(raw.task, state);
+        return { action: "CONFIRM_OFFER", contract };
       }
-      return { type: "NEW_QUESTION", offeredTask: null };
+
+      return { action: raw.action ?? "NEW_QUESTION", contract: null };
+    } catch {
+      return { action: "NEW_QUESTION", contract: null };
     }
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // Confirmed Offer Execution
+  // Contract Builder
+  // LLM emits a full IntentDataContract — no domain keywords in the hot path.
+  // fallbackContract() is keyword-based and only runs on LLM error.
   // ─────────────────────────────────────────────────────────────────────────────
 
-  private async executeConfirmedOffer(
+  private async buildContract(task: string, state: GraphStateType): Promise<IntentDataContract> {
+    try {
+      const contract = await this.llm.generateJSON<IntentDataContract>(`
+You are a data-contract builder for a banking AI reasoning engine.
+
+TASK TO DELIVER: "${task}"
+
+KNOWN SESSION FACTS:
+${JSON.stringify(state.knownFacts ?? {}, null, 2)}
+
+Step 1 — Map the task to ONE IntentCategory:
+  COMPUTE_SCHEDULE      — any payment schedule, instalment plan, savings rate
+  BREAKDOWN_ALLOCATION  — any budget breakdown, cost split, daily category allocation
+  TIMELINE_PROJECTION   — any recovery timeline, goal milestone, rebuild projection
+  FETCH_PORTFOLIO       — any investment performance, ISA/fund balance, portfolio view
+  AUDIT_RECURRING       — any subscription list, recurring charge review, cancellation audit
+  CASHFLOW_ANALYSIS     — any income/expense analysis, monthly net position
+  GENERAL_EXPLORATION   — open-ended, conversational, or does not fit any above category
+
+Step 2 — List what data is genuinely needed to compute the answer (only true when required):
+  targetAmount:  a specific cost, goal, or loan amount
+  surplus:       monthly net income surplus
+  savings:       spendable savings balance
+  goals:         named savings goals and targets
+  investments:   investment portfolio data
+  transactions:  transaction or cashflow history
+  subscriptions: recurring charges list
+  periodMonths:  (number) only if a specific repayment period was mentioned
+  allocationWeights: (object { "category": fraction }) only if custom splits apply
+
+Step 3 — Write a precise vectorQuery to search the user's financial DB for required data.
+  Be specific about the data type, not the domain topic.
+
+Return ONLY valid JSON:
+{
+  "category": "COMPUTE_SCHEDULE",
+  "task": "${task.replace(/"/g, '\\"')}",
+  "needs": {
+    "targetAmount": true,
+    "surplus": true,
+    "savings": true,
+    "goals": false,
+    "investments": false,
+    "transactions": false,
+    "subscriptions": false
+  },
+  "vectorQuery": "payment schedule and surplus data"
+}
+`);
+      return contract;
+    } catch {
+      return this.fallbackContract(task);
+    }
+  }
+
+  // Keyword fallback — only runs if LLM throws. Domain keywords are isolated here.
+  private fallbackContract(task: string): IntentDataContract {
+    const t = task.toLowerCase();
+    if (/instalment|repayment|spread.*pay|payment.*plan|0%|schedule|run.*numbers/i.test(t))
+      return { category: "COMPUTE_SCHEDULE",     task, needs: { targetAmount: true,  surplus: true,  savings: true,  goals: false, investments: false, transactions: false, subscriptions: false }, vectorQuery: "payment schedule surplus data" };
+    if (/budget|breakdown|daily.*budget|allocation|map.*out|itinerar/i.test(t))
+      return { category: "BREAKDOWN_ALLOCATION", task, needs: { targetAmount: true,  surplus: false, savings: true,  goals: false, investments: false, transactions: false, subscriptions: false }, vectorQuery: "trip budget allocation data" };
+    if (/recover|rebuild|restore|timeline|goal.*sav|sav.*for/i.test(t))
+      return { category: "TIMELINE_PROJECTION",  task, needs: { targetAmount: false, surplus: true,  savings: true,  goals: true,  investments: false, transactions: false, subscriptions: false }, vectorQuery: "savings goals timeline data" };
+    if (/invest|isa|fund|portfolio|return|performance|growth/i.test(t))
+      return { category: "FETCH_PORTFOLIO",      task, needs: { targetAmount: false, surplus: false, savings: false, goals: false, investments: true,  transactions: false, subscriptions: false }, vectorQuery: "investment portfolio balance data" };
+    if (/subscri|recurring|streaming|cancel|membership/i.test(t))
+      return { category: "AUDIT_RECURRING",      task, needs: { targetAmount: false, surplus: false, savings: false, goals: false, investments: false, transactions: false, subscriptions: true  }, vectorQuery: "recurring subscriptions charges data" };
+    if (/cashflow|income|expense|spending|statement|balance/i.test(t))
+      return { category: "CASHFLOW_ANALYSIS",    task, needs: { targetAmount: false, surplus: true,  savings: true,  goals: false, investments: false, transactions: true,  subscriptions: false }, vectorQuery: "monthly cashflow income expenses data" };
+    return   { category: "GENERAL_EXPLORATION",  task, needs: { targetAmount: false, surplus: false, savings: false, goals: false, investments: false, transactions: false, subscriptions: false }, vectorQuery: task };
+  }
+
+  // ─── Pluggable resolver registry ─────────────────────────────────────────────
+  // Pure functions: (contract, resolved) → pre-computed data table for the LLM.
+  // Add one resolver + register it to support any new banking use-case.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  private readonly resolverRegistry: Record<IntentCategory, Resolver> = {
+
+    COMPUTE_SCHEDULE: (_contract, d) => {
+      if (d.targetAmount === null) return "Target amount not in session — use best available estimate.";
+      const { targetAmount: amt, surplus, savings, goalCurrency: gc, homeCurrency: hc } = d;
+      const periods = [3, 6, 12];
+      const lines = [`Payment schedule options for ${gc}${amt.toFixed(0)}:`];
+      for (const p of periods) {
+        lines.push(`  ${String(p).padStart(2)} months:  ${gc}${(amt / p).toFixed(0)}/month`);
+      }
+      if (surplus !== null) {
+        lines.push(`Monthly surplus available: ${hc}${surplus.toFixed(0)}`);
+        const fits = periods.filter(p => amt / p <= surplus);
+        lines.push(fits.length > 0
+          ? `Fundable from surplus alone: ${fits.map(p => `${p}-month`).join(", ")}`
+          : `No period fits within surplus — all plans draw from savings`);
+      }
+      if (savings !== null) {
+        lines.push(`Savings remaining if paid as lump sum: ${hc}${(savings - amt).toFixed(0)}`);
+      }
+      return lines.join("\n");
+    },
+
+    BREAKDOWN_ALLOCATION: (contract, d) => {
+      if (d.targetAmount === null) return "Target amount not in session — use best available estimate.";
+      const { targetAmount: amt, savings, goalCurrency: gc, homeCurrency: hc, days } = d;
+      const weights = contract.needs.allocationWeights ?? {
+        accommodation: 0.40, food: 0.22, transport: 0.22, activities: 0.16,
+      };
+      const lines = [`Budget allocation for ${gc}${amt.toFixed(0)} (${days} days):`];
+      for (const [cat, w] of Object.entries(weights)) {
+        const total = amt * w;
+        lines.push(`  ${cat.padEnd(16)} ${gc}${total.toFixed(0)}  (${gc}${(total / days).toFixed(0)}/day)`);
+      }
+      const accomSave = amt * (weights.accommodation ?? 0.40) * 0.35;
+      const foodSave  = amt * (weights.food ?? 0.22) * 0.30;
+      lines.push(`Trimming opportunities:`);
+      lines.push(`  Mid-range hotel:   save ${gc}${accomSave.toFixed(0)}`);
+      lines.push(`  Self-catering:     save ${gc}${foodSave.toFixed(0)}`);
+      lines.push(`Trimmed total: ${gc}${(amt - accomSave - foodSave).toFixed(0)}`);
+      if (savings !== null) lines.push(`Savings remaining after full spend: ${hc}${(savings - amt).toFixed(0)}`);
+      return lines.join("\n");
+    },
+
+    TIMELINE_PROJECTION: (_contract, d) => {
+      const { targetAmount: amt, surplus, savings, homeCurrency: hc } = d;
+      if (surplus === null || savings === null) return "Insufficient numeric data — use DB context below.";
+      const lines = [`Timeline projection:`];
+      if (amt !== null) {
+        lines.push(`  Savings after purchase:        ${hc}${(savings - amt).toFixed(0)}`);
+        lines.push(`  Months to rebuild at ${hc}${surplus.toFixed(0)}/mo: ${Math.ceil(amt / surplus)}`);
+        const boosted = surplus + 200;
+        lines.push(`  Months at ${hc}${boosted.toFixed(0)}/mo (+${hc}200 boost):  ${Math.ceil(amt / boosted)}`);
+      } else {
+        lines.push(`  Current savings:  ${hc}${savings.toFixed(0)}`);
+        lines.push(`  Monthly surplus:  ${hc}${surplus.toFixed(0)}`);
+        lines.push(`  Goal details sourced from DB context.`);
+      }
+      return lines.join("\n");
+    },
+
+    FETCH_PORTFOLIO:   (_contract, d) =>
+      d.dbContext.slice(0, 1200) || "Portfolio data: no DB results — use available session context.",
+
+    AUDIT_RECURRING:   (_contract, d) =>
+      d.dbContext.slice(0, 1200) || "Subscription data: no DB results — use available session context.",
+
+    CASHFLOW_ANALYSIS: (_contract, d) => {
+      const { surplus, savings, homeCurrency: hc, dbContext } = d;
+      const lines: string[] = [];
+      if (surplus !== null) lines.push(`Net monthly surplus: ${hc}${surplus.toFixed(0)}`);
+      if (savings !== null) lines.push(`Spendable savings:   ${hc}${savings.toFixed(0)}`);
+      if (dbContext) lines.push(`\nDetailed cashflow data:\n${dbContext.slice(0, 1000)}`);
+      return lines.join("\n") || "Cashflow data: no DB results — use available session context.";
+    },
+
+    // Zero pre-computation — LLM reasons freely from history + DB context
+    GENERAL_EXPLORATION: () => "",
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Contract Execution: resolveData → resolver → LLM formats
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  private async executeContract(
     state: GraphStateType,
-    offeredTask: string,
+    contract: IntentDataContract,
     history: Array<{ role: string; content: string }>
   ): Promise<EngineResult> {
-    const kf = state.knownFacts ?? {};
-    const offerType = this.classifyOfferType(offeredTask);
+    console.log(`[ReasoningEngine] executeContract category=${contract.category} task="${contract.task.slice(0, 80)}"`);
 
-    console.log(
-      `[ReasoningEngine] executeConfirmedOffer offerType=${offerType} task="${offeredTask.slice(0, 100)}"`
-    );
-
-    // Pre-compute deterministic numbers — the LLM gets these as FACTS not raw figures
-    const precomputed = this.preComputeOffer(offerType, kf);
-
-    // Fetch extra context from DB (non-blocking fallback)
-    let dbContext = "";
-    try {
-      dbContext = await this.vectorQuery.getContext(
-        state.userId,
-        `${offeredTask} financial data for user ${state.userId}`,
-        { topK: 5 }
-      );
-    } catch {
-      // ignore — pre-computed data is sufficient
-    }
+    const resolved   = await this.resolveData(contract, state);
+    const precomputed = this.resolverRegistry[contract.category](contract, resolved);
 
     const recentStr = history
       .slice(-6)
       .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
       .join("\n");
 
-    const deliveryInstructions = this.buildDeliveryInstructions(offerType, kf);
-
     const answer = await this.llm.generateText(`
-You are a financial reasoning engine — a senior banking advisor delivering a specific analysis.
-A user has CONFIRMED an offer made by the banking advisor. Your job is to deliver that specific thing.
+You are a financial reasoning engine delivering a specific banking analysis.
+The user has CONFIRMED an offer. Deliver exactly that — nothing else.
 
 CONVERSATION:
 ${recentStr}
 User: ${state.question}
 
-TASK TO DELIVER: "${offeredTask}"
+TASK: "${contract.task}"
 
 PRE-COMPUTED DATA (use these numbers exactly — do not recalculate):
-${precomputed}
-${dbContext ? `\nADDITIONAL DATABASE CONTEXT:\n${dbContext.slice(0, 800)}\n` : ""}
-DELIVERY INSTRUCTIONS:
-${deliveryInstructions}
-
-ABSOLUTE RULES (breaking any rule = invalid response):
-1. Do NOT mention affordability. Do NOT say "you can afford", "you have X in savings", or restate whether the purchase is possible.
-2. Do NOT start with "You", "Your", "Based", "Given", "Since", "As", "Covering", "The trip", "This trip".
-3. Start with the first concrete number, option, or step from the pre-computed data.
-4. Use bullet points or a short numbered list if presenting multiple options.
+${precomputed || "(open-ended — reason from conversation history and DB context below)"}
+${resolved.dbContext && contract.category !== "GENERAL_EXPLORATION" ? `\nDB CONTEXT:\n${resolved.dbContext.slice(0, 600)}` : ""}
+RULES:
+1. Do NOT mention affordability or restate whether the user can afford anything.
+2. Do NOT start with "You", "Your", "Based", "Given", "Since", "As".
+3. Start directly with the first concrete number, option, or step.
+4. Use bullet points or a numbered list for multiple options.
 5. Maximum 6 lines or 4 bullet points.
-6. End with ONE brief forward-looking offer on the NEXT decision in this financial journey.
-   (e.g. "Want me to..." or "Shall I..." on a different aspect — not the same thing again.)
+6. End with ONE forward-looking offer on the NEXT logical step (different from what was just delivered).
 `);
 
-    console.log(`[ReasoningEngine] confirmed-offer answer="${answer.slice(0, 120)}..."`);
+    console.log(`[ReasoningEngine] contract answer="${answer.slice(0, 120)}..."`);
 
     return {
-      finalAnswer: answer,
+      finalAnswer:  answer,
       missingFacts: [],
-      knownFacts: kf,
+      knownFacts:   state.knownFacts ?? {},
     };
   }
 
-  private classifyOfferType(task: string): OfferType {
-    const t = task.toLowerCase();
-    // Payment / instalment plan — deliberately broad to catch all natural phrasings
-    // e.g. "run a quick plan to spread the payments", "spread the cost", "0% options"
-    if (/instalment|repayment|spread.*pay|pay.*spread|payment.?plan|plan.*payment|plan.*spread|payment.?option|plan.?option|spread.*cost|0%|monthly.?payment|check.*plan|best.*plan|quick.*plan|payment.*schedul|schedul.*payment/i.test(t))
-      return "INSTALMENT_PLAN";
-    if (/budget|map.*out|daily.*budget|spending.*plan|breakdown|trim.*cost|cut.*cost|return.*healthier|cheaper.*way|save.*on.*trip|lower.?cost|itinerar/i.test(t))
-      return "BUDGET_PLAN";
-    if (/recover|rebuild|restore|replenish|top.*up|after.*trip|post.*trip|savings.*after|bring.*back/i.test(t))
-      return "SAVINGS_RECOVERY";
-    // Default to INSTALMENT_PLAN so the LLM never receives raw savings/trip figures
-    // (the GENERAL fallback feeds affordability numbers straight to the LLM → loop).
-    return "INSTALMENT_PLAN";
-  }
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Data Resolver — reads contract.needs flags, never contract.category
+  // ─────────────────────────────────────────────────────────────────────────────
 
-  private preComputeOffer(offerType: OfferType, kf: Record<string, unknown>): string {
+  private async resolveData(
+    contract: IntentDataContract,
+    state: GraphStateType
+  ): Promise<ResolvedData> {
+    const kf = state.knownFacts ?? {};
     const hc = String(kf.profileCurrency ?? kf.currency ?? "GBP");
     const gc = String(kf.targetCurrency ?? hc);
-    const amount =
-      typeof kf.targetAmount === "number" ? kf.targetAmount : null;
-    const savings =
-      typeof kf.availableSavings === "number"
-        ? kf.availableSavings
-        : typeof kf.spendable_savings === "number"
-        ? kf.spendable_savings
-        : typeof kf.currentBalance === "number"
-        ? kf.currentBalance
-        : null;
-    const surplus =
-      typeof kf.netMonthlySavings === "number"
-        ? kf.netMonthlySavings
-        : typeof kf.netMonthlySurplus === "number"
-        ? kf.netMonthlySurplus
-        : null;
+
+    const targetAmount = contract.needs.targetAmount
+      ? (typeof kf.targetAmount === "number" ? kf.targetAmount : null)
+      : null;
+
+    const surplus = contract.needs.surplus
+      ? (typeof kf.netMonthlySavings  === "number" ? kf.netMonthlySavings
+       : typeof kf.netMonthlySurplus  === "number" ? kf.netMonthlySurplus
+       : null)
+      : null;
+
+    const savings = contract.needs.savings
+      ? (typeof kf.availableSavings   === "number" ? kf.availableSavings
+       : typeof kf.spendable_savings  === "number" ? kf.spendable_savings
+       : typeof kf.currentBalance     === "number" ? kf.currentBalance
+       : null)
+      : null;
+
     const destination = typeof kf.destination === "string" ? kf.destination : "the purchase";
-    const duration = typeof kf.duration === "string" ? kf.duration : "";
-    const days = Number(duration.replace(/\D/g, "")) || 3;
+    const durationStr = typeof kf.duration    === "string" ? kf.duration    : "";
+    const days = Number(durationStr.replace(/\D/g, "")) || 3;
 
-    const lines: string[] = [];
-
-    if (offerType === "INSTALMENT_PLAN" && amount !== null) {
-      const m3 = amount / 3;
-      const m6 = amount / 6;
-      const m12 = amount / 12;
-      lines.push(`0% Instalment Plan options for ${gc}${amount.toFixed(0)}:`);
-      lines.push(`  3 months:  ${gc}${m3.toFixed(0)}/month   (total: ${gc}${amount.toFixed(0)})`);
-      lines.push(`  6 months:  ${gc}${m6.toFixed(0)}/month   (total: ${gc}${amount.toFixed(0)})`);
-      lines.push(`  12 months: ${gc}${m12.toFixed(0)}/month  (total: ${gc}${amount.toFixed(0)})`);
-      if (surplus !== null) {
-        lines.push(`Monthly surplus available from income: ${hc}${surplus.toFixed(0)}`);
-        const fits = ([3, 6, 12] as const).filter(m => amount / m <= surplus);
-        if (fits.length > 0) {
-          lines.push(`Plans fundable from monthly surplus alone: ${fits.map(m => `${m}-month`).join(", ")}`);
-        } else {
-          lines.push(`No option fits within monthly surplus — payments would draw from savings buffer`);
-          lines.push(`Best option: 12-month plan (${gc}${m12.toFixed(0)}/month) minimises savings impact`);
-        }
+    // GENERAL_EXPLORATION → zero DB fetch; all other categories use vectorQuery
+    let dbContext = "";
+    if (contract.category !== "GENERAL_EXPLORATION") {
+      try {
+        dbContext = await this.vectorQuery.getContext(
+          state.userId,
+          `${contract.vectorQuery} for user ${state.userId}`,
+          { topK: 8 }
+        );
+      } catch {
+        // non-fatal — resolvers handle empty dbContext gracefully
       }
-      if (savings !== null) {
-        lines.push(`Savings remaining if paid as a lump sum: ${hc}${(savings - amount).toFixed(0)}`);
-      }
-    } else if (offerType === "BUDGET_PLAN" && amount !== null) {
-      const daily = amount / days;
-      const accomFraction = 0.40;
-      const foodFraction = 0.22;
-      const transportFraction = 0.22;
-      const actFraction = 0.16;
-      lines.push(`Budget plan for ${gc}${amount.toFixed(0)} trip (${days} days):`);
-      lines.push(`  Accommodation: ${gc}${(amount * accomFraction).toFixed(0)}  (${gc}${(amount * accomFraction / days).toFixed(0)}/night)`);
-      lines.push(`  Food & drink:  ${gc}${(amount * foodFraction).toFixed(0)}`);
-      lines.push(`  Flights + local transport: ${gc}${(amount * transportFraction).toFixed(0)}`);
-      lines.push(`  Activities:    ${gc}${(amount * actFraction).toFixed(0)}`);
-      lines.push(`  Daily rate:    ${gc}${daily.toFixed(0)}/day`);
-      lines.push(`Trimming options:`);
-      const trimmedAccom = amount * accomFraction * 0.65;
-      const trimmedFood  = amount * foodFraction  * 0.70;
-      const totalTrimmed = amount - (amount * accomFraction - trimmedAccom) - (amount * foodFraction - trimmedFood);
-      lines.push(`  Mid-range hotel:               save ${gc}${(amount * accomFraction - trimmedAccom).toFixed(0)}`);
-      lines.push(`  Self-catering 1-2 meals/day:   save ${gc}${(amount * foodFraction - trimmedFood).toFixed(0)}`);
-      lines.push(`Trimmed total: ${gc}${totalTrimmed.toFixed(0)}  (vs original ${gc}${amount.toFixed(0)})`);
-      if (savings !== null) {
-        lines.push(`Savings remaining after trimmed trip: ${hc}${(savings - totalTrimmed).toFixed(0)}`);
-      }
-    } else if (offerType === "SAVINGS_RECOVERY" && savings !== null && amount !== null) {
-      const afterTrip = savings - amount;
-      lines.push(`Post-trip savings recovery:`);
-      lines.push(`  Savings after trip:      ${hc}${afterTrip.toFixed(0)}`);
-      lines.push(`  Amount to rebuild:       ${hc}${amount.toFixed(0)}`);
-      if (surplus !== null && surplus > 0) {
-        const baseMonths = Math.ceil(amount / surplus);
-        lines.push(`  At current monthly surplus (${hc}${surplus.toFixed(0)}): ${baseMonths} months to rebuild`);
-        const boosted = surplus + 200;
-        const boostedMonths = Math.ceil(amount / boosted);
-        lines.push(`  Boosted by ${hc}200/month (e.g. pause one investment): ${boostedMonths} months to rebuild`);
-      }
-      lines.push(`  Fastest route: use a 0% instalment plan for the trip — keep savings intact, spread cost over 6-12 months`);
     }
 
-    return lines.join("\n") || "Insufficient numeric data in session — present a concise plan based on available context.";
-  }
-
-  private buildDeliveryInstructions(offerType: OfferType, kf: Record<string, unknown>): string {
-    const gc = String(kf.targetCurrency ?? kf.profileCurrency ?? kf.currency ?? "GBP");
-    switch (offerType) {
-      case "INSTALMENT_PLAN":
-        return (
-          `Present the 3 instalment options as a clear comparison using the pre-computed table.\n` +
-          `Identify which best fits the monthly surplus.\n` +
-          `Recommend ONE specific option with a 1-line rationale.\n` +
-          `Do NOT discuss whether the trip is affordable.`
-        );
-      case "BUDGET_PLAN":
-        return (
-          `Present the budget breakdown by category using the pre-computed numbers.\n` +
-          `Highlight the 2 trimming opportunities with exact ${gc} savings.\n` +
-          `State the total achievable saving and the resulting lower total cost.\n` +
-          `Do NOT discuss whether the trip is affordable.`
-        );
-      case "SAVINGS_RECOVERY":
-        return (
-          `Present the 2 recovery timeline options (base + boosted) using the pre-computed data.\n` +
-          `Recommend the most realistic path with a concrete action the user can take NOW.\n` +
-          `Do NOT discuss whether the trip is affordable.`
-        );
-      default:
-        return "Deliver the specific information the user confirmed. Be concrete and actionable.";
-    }
+    return { targetAmount, surplus, savings, homeCurrency: hc, goalCurrency: gc, destination, days, dbContext, kf };
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
