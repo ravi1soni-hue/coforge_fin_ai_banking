@@ -424,14 +424,19 @@ export class BankingReasoningEngine {
     const hasOffer      = /want me to|shall i|would you like|let me|i can show|i can work|i can calculate/i.test(lastAssistant);
     const isAffirmative = /^(yes|sure|ok|okay|please|yep|go ahead|do it|yes please|sounds good|absolutely|of course|great|perfect|please do|definitely)\b/i.test(state.question.trim());
 
-    // Deterministic fast-path: short affirmative after an explicit offer
+    // Deterministic fast-path: short affirmative after an explicit offer.
+    // IMPORTANT: do NOT call classifyFromPriorTask here — the LLM will omit the
+    // priorTask field in its JSON response, causing the short-circuit in run() to
+    // silently fall through to the resolver (which re-runs affordability).
+    // Instead return the contract directly with priorTask guaranteed to be set.
     if (wordCount <= 10 && hasOffer && isAffirmative) {
       const taskMatch = lastAssistant.match(
         /(?:want me to|shall i|i can show you?|i can|would you like me to|let me)\s+([^.?!\n]{10,180})/i
       );
       const priorTask = taskMatch ? taskMatch[1].trim() : "continue from the last offer";
-      console.log(`[EngineV3] deterministic CONFIRM priorTask="${priorTask.slice(0, 60)}"`);
-      return this.classifyFromPriorTask(priorTask, mergedFacts);
+      console.log(`[EngineV3] deterministic CONFIRM — bypassing LLM, priorTask="${priorTask.slice(0, 80)}"`);
+      // intent is irrelevant here — run() short-circuits on priorTask before any resolver is touched
+      return { intent: "LOAN_PLANNING", questions: [], entities: [], time_range: "n/a", confidence: 1.0, priorTask };
     }
 
     try {
