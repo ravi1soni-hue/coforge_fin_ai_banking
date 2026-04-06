@@ -79,8 +79,30 @@ Return ONLY valid JSON. No markdown, no explanation.
         };
       }
     } catch (err) {
-      // If the LLM detection call fails, fall through to regular intent classification.
-      console.warn("[IntentAgent] LLM confirmation detection failed, falling back:", err);
+      // LLM detection failed (timeout / garbled JSON). Use a simple deterministic
+      // safety net so the system doesn't silently fall into full affordability mode.
+      // This is intentionally narrow: only fires when the LLM threw, not on every turn.
+      console.warn("[IntentAgent] LLM confirmation detection failed, applying safety fallback:", err);
+
+      const simpleAffirmation = /^(yes|sure|ok|okay|please|yep|yup|go ahead|do it|let's|let's do it|please do that|yes please|sounds good|definitely|absolutely|of course|great|perfect)\b/i;
+      if (simpleAffirmation.test(state.question.trim()) && lastAsstMsg.includes("?")) {
+        // Extract the offer text from common "Want me to / Shall I / Let me" patterns.
+        const offerMatch = lastAsstMsg.match(
+          /(?:want me to|shall i|would you like me to|let me)\s+([^.?!]{10,120})/i
+        );
+        const fallbackTask = offerMatch ? offerMatch[1].trim() : "continue from the previous offer";
+        console.warn(`[IntentAgent] Safety fallback activated — task="${fallbackTask.slice(0, 60)}"`);
+        return {
+          intent: {
+            domain: "general",
+            action: "conversation",
+            subject: (state.knownFacts?.destination as string | undefined) ?? undefined,
+            confidence: 0.80,
+          },
+          confirmedFollowUpAction: fallbackTask,
+          knownFacts: state.knownFacts,
+        };
+      }
     }
   }
   // ─────────────────────────────────────────────────────────────────────────

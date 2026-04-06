@@ -12,6 +12,7 @@ import { reasoningAgent } from "../agents/reasoningAgent.js";
 import { productRecommendationAgent } from "../agents/productRecommendationAgent.js";
 import { suggestionAgent } from "../agents/suggestionAgent.js";
 import { synthesisAgent } from "../agents/synthesisAgent.js";
+import { confirmationAgent } from "../agents/confirmationAgent.js";
 
 export const financialAssistantGraph = new StateGraph(GraphState)
   .addNode("intentAgent", intentAgent)
@@ -24,6 +25,7 @@ export const financialAssistantGraph = new StateGraph(GraphState)
   .addNode("productRecommendationAgent", productRecommendationAgent)
   .addNode("suggestionAgent", suggestionAgent)
   .addNode("synthesisAgent", synthesisAgent)
+  .addNode("confirmationAgent", confirmationAgent)
 
   // ✅ Start flow
   .addEdge(START, "intentAgent")
@@ -36,13 +38,16 @@ export const financialAssistantGraph = new StateGraph(GraphState)
     {
       askUser: "followUpQuestionAgent",
       financeAgent: "financeAgent",
-      // Confirmation fast-path: skip financeAgent + webSearchAgent to avoid Railway timeout
-      lightPath: "reasoningAgent",
+      // Confirmation fast-path: user confirmed a prior offer → dedicated single-step agent
+      lightPath: "confirmationAgent",
     }
   )
 
   // ✅ Ask user → END (wait for reply)
   .addEdge("followUpQuestionAgent", END)
+
+  // ✅ Confirmation fast-path: single agent → END (no redundant agents, no state pollution)
+  .addEdge("confirmationAgent", END)
 
   // ✅ Main analysis flow
   .addEdge("financeAgent", "webSearchAgent")
