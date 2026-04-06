@@ -1,11 +1,13 @@
 import http from "http";
-import { db } from "./db.js";
+
+import { sql } from 'kysely';
 
 import app from "./app.js";
 import { ENV } from "./config/env.js";
 import { initWebSocket } from "./sockets/socket.js";
 
 import ingestionRoutes from "./routes/ingestion.route.js";
+import { db } from "./db/index.js";
 //import { configureLangSmith } from "./config/langsmith.config.js";
 
 //configureLangSmith();
@@ -14,10 +16,12 @@ const server = http.createServer(app);
 
 async function start() {
   try {
-    //console.log("⏳ Checking database connection...");
-    //await db.selectFrom("users").selectAll().execute();
+    console.log("⏳ Checking database connection...");
+  
+// Correct Kysely syntax for raw SQL execution
+await sql`SELECT 1`.execute(db); 
 
-    //console.log("✅ Database connected");
+    console.log("✅ Database connected");
 
     
 

@@ -14,4 +14,7 @@ export const ENV = {
   PORT: Number(process.env.PORT) || 3000,
   OPENAI_API_KEY: requireEnv("OPENAI_API_KEY"),
   DATABASE_URL: requireEnv("DATABASE_URL"),
+  DATABASE_USER: requireEnv("DATABASE_USER"),
+  DATABASE_PASSWORD: requireEnv("DATABASE_PASSWORD"),
+  JWT_SECRET: requireEnv("JWT_SECRET")
 };

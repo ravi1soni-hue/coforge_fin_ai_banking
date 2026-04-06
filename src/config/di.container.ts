@@ -7,7 +7,8 @@ import { FinancialAssistantService } from "../agent_orchastration/services/Finan
 import { OpenAIClient } from "../agent_orchastration/llm/openAIClient.js";
 import { ChatService } from "../services/chat/chat.service.js";
 import { ENV } from "./env.js";
-import { db } from "../db.js";
+import { db } from "../db/index.js";
+
 
 const compiledGraph = financialAssistantGraph.compile();
 export const container = createContainer();

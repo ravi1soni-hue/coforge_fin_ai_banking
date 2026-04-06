@@ -1,42 +1,52 @@
-import { Transform } from "stream";
+import { Transform, type Readable } from "stream";
 import crypto from "crypto";
-import type { Readable } from "stream";
 
 import { splitTextByLines } from "../utils/text.resizer.js";
 import { getEmbeddingForText } from "./embedding/embedding.helper.js";
-import { VectorDocument } from "../models/vector.document.js";
 import { container } from "../config/di.container.js";
 import type { VectorRepository } from "../repo/vector.repo.js";
 
-/* ---------------- Types ---------------- */
+/* -------------------------------------------------
+ * Types
+ * ------------------------------------------------- */
 
 export interface IngestionMeta {
+  user_id: string;            // REQUIRED
+  domain?: string;
+  facet?: string;
+  source?: string;
   [key: string]: unknown;
 }
 
-/* ---------------- Resolve Awilix Singleton ---------------- */
+/* -------------------------------------------------
+ * Resolve repository once (DB-backed)
+ * ------------------------------------------------- */
 
 const vectorRepo = container.resolve<VectorRepository>("vectorRepo");
 
-/* ---------------- JSON STREAM ---------------- */
+/* -------------------------------------------------
+ * JSON STREAM INGESTION
+ * ------------------------------------------------- */
 
 export const ingestJsonStream = async (
   readableStream: Readable,
-  meta: IngestionMeta = {}
+  meta: IngestionMeta
 ): Promise<void> => {
+  if (!meta?.user_id) {
+    throw new Error("user_id is required for vector ingestion");
+  }
+
   return new Promise((resolve, reject) => {
     let buffer = "";
 
     const transformer = new Transform({
-      transform(chunk, _encoding, callback) {
+      async transform(chunk, _encoding, callback) {
         buffer += chunk.toString("utf8");
 
         try {
           const parsed = JSON.parse(buffer);
-
-          // ✅ Successfully parsed full JSON
           buffer = "";
-          handleParsedJson(parsed, meta);
+          await handleParsedJson(parsed, meta);
         } catch (err) {
           if (!isRecoverableJsonError(err)) {
             return callback(err as Error);
@@ -62,12 +72,18 @@ export const ingestJsonStream = async (
   });
 };
 
-/* ---------------- STRING STREAM ---------------- */
+/* -------------------------------------------------
+ * STRING STREAM INGESTION
+ * ------------------------------------------------- */
 
 export const ingestStringStream = async (
   readableStream: Readable,
-  meta: IngestionMeta = {}
+  meta: IngestionMeta
 ): Promise<void> => {
+  if (!meta?.user_id) {
+    throw new Error("user_id is required for vector ingestion");
+  }
+
   return new Promise((resolve, reject) => {
     let buffer = "";
 
@@ -90,14 +106,13 @@ export const ingestStringStream = async (
   });
 };
 
-/* ---------------- CORE PROCESSING ---------------- */
+/* -------------------------------------------------
+ * CORE INGESTION LOGIC (DB ONLY)
+ * ------------------------------------------------- */
 
-/**
- * Ingest text -> chunk -> embed -> store vectors
- */
 export const processString = async (
   text: string,
-  metaData: IngestionMeta = {}
+  metaData: IngestionMeta
 ): Promise<void> => {
   if (!text || !text.trim()) return;
 
@@ -105,66 +120,68 @@ export const processString = async (
 
   for (let i = 0; i < textChunks.length; i++) {
     const chunk = textChunks[i];
-
     if (!chunk || !chunk.trim()) continue;
 
     console.log(`📌 Processing chunk ${i + 1}/${textChunks.length}`);
 
     try {
-      // 1️⃣ Generate embedding
+      /* 1️⃣ Generate embedding */
       const embedding = await getEmbeddingForText(chunk);
-
       if (!Array.isArray(embedding) || embedding.length === 0) {
         console.warn("⚠️ Empty embedding, skipping chunk");
         continue;
       }
 
-      // 2️⃣ Create vector document
-      const vectorDoc = new VectorDocument({
-        id: crypto.randomUUID(),
-        text: chunk,
+      /* 2️⃣ Persist to database */
+      await vectorRepo.insertDb({
+        user_id: metaData.user_id,
+        content: chunk,
         embedding,
+        domain: metaData.domain ?? null,
+        facet: metaData.facet ?? null,
+        source: metaData.source ?? "string_ingestion",
         metadata: {
           ...metaData,
           chunkIndex: i,
           chunkCount: textChunks.length,
         },
+        embedding_model: "text-embedding-3-large",
+        embedding_version: 1,
       });
 
-      // 3️⃣ Store in vector repository
-      vectorRepo.addDocument(vectorDoc);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : String(err);
+      const message = err instanceof Error ? err.message : String(err);
       console.error(`❌ Failed to process chunk ${i}`, message);
     }
   }
 };
 
-/* ---------------- Helpers ---------------- */
+/* -------------------------------------------------
+ * Helpers
+ * ------------------------------------------------- */
 
-const handleParsedJson = (
+const handleParsedJson = async (
   json: unknown,
   meta: IngestionMeta
-): void => {
-  console.log("[JSON RECEIVED]", meta);
-
+): Promise<void> => {
   if (Array.isArray(json)) {
-    json.forEach(item => processJsonItem(item, meta));
+    for (const item of json) {
+      await processJsonItem(item, meta);
+    }
   } else {
-    processJsonItem(json, meta);
+    await processJsonItem(json, meta);
   }
 };
 
-const processJsonItem = (
+const processJsonItem = async (
   item: unknown,
   meta: IngestionMeta
-): void => {
-  // Hook for:
-  // - data normalization
-  // - field extraction
-  // - re-routing to processString
-  console.log("Processed JSON item:", item, meta);
+): Promise<void> => {
+  // You can normalize JSON here and call processString
+  // Example:
+  if (typeof item === "string") {
+    await processString(item, meta);
+  }
 };
 
 const isRecoverableJsonError = (error: unknown): boolean => {
