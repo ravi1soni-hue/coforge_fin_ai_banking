@@ -33,13 +33,29 @@ export class UserRepository {
         .executeTakeFirst();
     }
   
-    async create(user: NewUser): Promise<User> {
+    
+    
+    async create(userData: Partial<NewUser> & { external_user_id: string }): Promise<User> {
       return await this.db
         .insertInto('users')
-        .values(user)
+        .values({
+          // Required field
+          external_user_id: userData.external_user_id,
+  
+          // Optional fields (will be null in DB if undefined, unless defaulted)
+          full_name: userData.full_name ?? null,
+          country_code: userData.country_code ?? null,
+          base_currency: userData.base_currency ?? null,
+          timezone: userData.timezone ?? null,
+  
+          // Handle defaults for status and metadata
+          status: userData.status ?? UserStatus.ACTIVE,
+          metadata: userData.metadata ? JSON.stringify(userData.metadata) : JSON.stringify({}),
+        })
         .returningAll()
         .executeTakeFirstOrThrow();
     }
+    
   
     async update(id: string, updateWith: UserUpdate): Promise<User | undefined> {
       return await this.db

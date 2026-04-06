@@ -30,8 +30,14 @@ export interface CreateSyncDTO {
 
 
 export class FinancialSyncRepository {
-  constructor(private readonly db: Kysely<Database>) {}
-
+  private readonly db: Kysely<Database>;
+  constructor({
+    db,
+  }: {
+    db: Kysely<Database>;
+  }) {
+    this.db = db;
+  }
   /**
    * CREATE: Starts a new sync job (maps DTO -> DB)
    */

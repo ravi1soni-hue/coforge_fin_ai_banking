@@ -8,7 +8,7 @@ export interface MessagesTable {
   id: Generated<string>;
 
   conversation_id: string;
-  user_id: string;
+  sender_id: string;
 
   // FK → graph_state.id
   graph_state_id: string | null;

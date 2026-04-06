@@ -26,7 +26,7 @@ export interface VectorDocumentsTable {
   metadata: unknown;
 
   // Versioning
-  embedding_model: string ;
+  embedding_model: string;
   embedding_version: number;
   is_active: boolean;
 

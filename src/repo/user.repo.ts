@@ -12,7 +12,14 @@ export type NewUser = Insertable<UsersTable>;
 export type UserUpdate = Updateable<UsersTable>;
 
 export class UserRepository {
-  constructor(private db: Kysely<Database>) {}
+  private readonly db: Kysely<Database>;
+  constructor({
+    db,
+  }: {
+    db: Kysely<Database>;
+  }) {
+    this.db = db;
+  }
 
   /**
    * Find a user by their internal UUID

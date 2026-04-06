@@ -12,7 +12,9 @@ CREATE TABLE IF NOT EXISTS messages (
 
   -- Matches string (using TEXT for flexibility with app-side strings)
   conversation_id TEXT NOT NULL,
-  user_id TEXT NOT NULL,
+   
+  -- Foreign Key link to Users table
+  sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 
   -- Matches string | null
   -- Link to graph_state (ensure graph_state.id is also UUID)
@@ -39,6 +41,6 @@ CREATE TABLE IF NOT EXISTS messages (
 
 -- Indexing for chat history performance
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
-CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
 CREATE INDEX IF NOT EXISTS idx_messages_graph_state_id ON messages(graph_state_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);

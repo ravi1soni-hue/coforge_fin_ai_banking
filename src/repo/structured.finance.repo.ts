@@ -117,7 +117,14 @@ export interface InvestmentSummaryUpsertDTO {
   
 
   export class StructuredFinancialRepository {
-    constructor(private readonly db: Kysely<Database>) {}
+    private readonly db: Kysely<Database>;
+  constructor({
+    db,
+  }: {
+    db: Kysely<Database>;
+  }) {
+    this.db = db;
+  }
   
     async syncAllFinancialData(params: {
       balances: AccountBalanceUpsertDTO[];

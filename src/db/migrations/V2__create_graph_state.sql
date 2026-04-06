@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS graph_state (
 
   -- Matches string (TEXT is the Postgres standard for strings)
   conversation_id TEXT NOT NULL,
-  user_id TEXT NOT NULL,
+   -- Foreign Key link to Users table
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 
   /*
     Status codes:
