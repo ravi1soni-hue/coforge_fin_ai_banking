@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import { processString } from "./ingestion.service.js";
 import { container } from "../config/di.container.js";
 import type { VectorRepository } from "../repo/vector.repo.js";
+import type { UserRepository } from "../repo/user.repo.js";
 
 interface BankingUserData {
   userProfile?: {
@@ -42,7 +43,18 @@ export const bootstrapBankingUserVectors = async (): Promise<void> => {
 
   const parsed = parseJsonWithComments(rawData) as BankingUserData;
 
-  const userId = parsed.userProfile?.userId ?? "unknown_user";
+  const externalUserId = parsed.userProfile?.userId ?? "unknown_user";
+
+  // Resolve external_user_id → internal UUID (vector_documents.user_id is a UUID FK)
+  const userRepo = container.resolve<UserRepository>("userRepo");
+  const userRow = await userRepo.findByExternalId(externalUserId).catch(() => undefined);
+  if (!userRow) {
+    throw new Error(
+      `Cannot bootstrap vectors: no user found in DB for external_user_id="${externalUserId}". Run the seed script first.`
+    );
+  }
+  const userId = userRow.id; // internal UUID
+
   const docs = buildVectorDocuments(parsed);
   const vectorRepo = container.resolve<VectorRepository>("vectorRepo");
 

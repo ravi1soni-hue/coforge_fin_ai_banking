@@ -1,7 +1,8 @@
-import { VectorRepository, VectorSearchOptions } from "../../repo/vector.repo.js";
+import { VectorRepository } from "../../repo/vector.repo.js";
+import type { VectorSearchOptions } from "../../repo/vector.repo.js";
 import { getEmbeddingForText } from "../../services/embedding/embedding.helper.js";
 
-export { VectorSearchOptions };
+export type { VectorSearchOptions };
 
 export class VectorQueryService {
   private readonly vectorRepo: VectorRepository;
