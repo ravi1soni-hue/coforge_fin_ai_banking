@@ -58,18 +58,18 @@ export const synthesisAgent = async (
         ? Math.ceil((availSavings - (availSavings - targetAmt)) / monthlySurplus)
         : undefined;
 
-    // Build a concise prior-conversation snippet so the LLM has full context
-    const historySnippet = Array.isArray(state.conversationHistory) && state.conversationHistory.length > 0
-      ? state.conversationHistory
-          .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
-          .join("\n")
-      : "";
+    // ONE-LINE context only — the full affordability history is intentionally excluded
+    // to prevent the LLM from being biased back into repeating the affordability verdict.
+    const priorContextLine = destination !== "the purchase"
+      ? `Context: ${kf.userName ?? "User"} is planning a trip to ${destination} costing ${tripCurrency}${targetAmt ?? "N/A"}. The affordability check is done; they confirmed and want the action below.`
+      : `Context: ${kf.userName ?? "User"} confirmed a follow-up action (${confirmedAction}). Execute it directly.`;
 
     const actionInstructions: Record<string, string> = {
       cost_cutting_advice:
-        `Suggest 3-4 concrete ways to reduce the cost of the ${destination} trip by 15-25% without ruining the experience. ` +
-        `For each tip give an estimated saving in ${tripCurrency}. End with the new revised total cost. ` +
-        `Do NOT mention whether it is affordable. Do NOT say "leaving you with X". Just practical cost-reduction tips.`,
+        `Give exactly 3 concrete ways to lower the cost of the ${destination} trip from ${tripCurrency}${targetAmt ?? "N/A"}. ` +
+        `For each way: one sentence describing the action + estimated saving in ${tripCurrency} (e.g. "Book a budget hotel instead of mid-range — saves ~${tripCurrency}200"). ` +
+        `End with the new revised total: "Revised total: ${tripCurrency}[total after savings]". ` +
+        `Do NOT mention the user's savings balance. Do NOT say "leaving you with X". Do NOT assess affordability.`,
       savings_recovery:
         `Build a concrete post-trip savings recovery plan. ` +
         `The trip to ${destination} costs ${tripCurrency}${targetAmt ?? "N/A"}. ` +
@@ -116,21 +116,24 @@ export const synthesisAgent = async (
     const isolatedAnswer = await llm.generateText(
       `You are a personal banking AI assistant for ${kf.userName ?? "the user"}.
 
-HOME CURRENCY: ${homeCurrency} — use this for ALL the user's financial figures (savings, income, expenses, surplus).
+⚠ EXECUTION MODE: The affordability check is COMPLETE. The user said YES. Execute ONLY the task below.
+Do NOT re-state the affordability verdict. Do NOT open with "You've got X in savings". Do NOT say "leaving you with X".
+
+HOME CURRENCY: ${homeCurrency} — use this for ALL the user's own financial figures (savings, income, surplus).
 TRIP/PURCHASE CURRENCY: ${tripCurrency} — use this ONLY for the trip or purchase cost.
 
-YOUR TASK (execute this completely and precisely):
+${priorContextLine}
+
+YOUR TASK (execute completely and precisely — this is what the user asked for):
 ${instructions}
 
 STYLE RULES:
 - Plain prose only. No markdown, no bullet points, no headers.
 - 3-4 short punchy sentences. End with ONE brief follow-up offer.
 - Speak like a friendly, confident financial advisor.
-- Do NOT open with "Sure!", "Of course!", or any filler phrase.
-- Do NOT perform or repeat any affordability analysis from a prior turn. Focus ONLY on the TASK above.
-
-PRIOR CONVERSATION (background reference only — do not repeat or re-analyse this):
-${historySnippet || "None."}`
+- Do NOT open with "Sure!", "Of course!", or "You've got X in your savings/account".
+- Start with the ACTION or its result, not with the user's balance.
+`
     );
 
     console.log(`[SynthesisAgent] isolated answer for "${confirmedAction}": ${isolatedAnswer.slice(0, 120)}...`);
@@ -262,12 +265,13 @@ function detectFollowUpAction(answer: string): string {
   // Goal impact / option comparison
   if (/option.*goal|goal.*option|impact.*goal|goal.*impact|which.*option|affect.*goal/.test(lastQuestion))
     return "goal_impact_analysis";
-  // Post-purchase / post-trip RECOVERY plan (buffer rebuild, savings restore) — must check BEFORE generic savings_plan
+  // Ways to cut / reduce cost — checked BEFORE savings_recovery so "lower the cost + preserve buffer"
+  // maps to cost-cutting rather than recovery (the primary offer in that phrasing is cost reduction)
+  if (/cut.*cost|find.*ways|ways.*save|reduce.*cost|cheaper.*option|save.*on.*trip|trim.*cost|lower.*cost|without.*missing|run.*option|budget.*hotel|cheaper.*hotel|hotel.*option|flight.*option|option.*hotel/.test(lastQuestion))
+    return "cost_cutting_advice";
+  // Post-purchase / post-trip RECOVERY plan (buffer rebuild, savings restore)
   if (/buffer|rebuild|recover|restore|replenish|bounce.back|after.the.trip|after.trip|post.trip/.test(lastQuestion))
     return "savings_recovery";
-  // Ways to cut / reduce cost (e.g. "find ways to cut the trip cost")
-  if (/cut.*cost|find.*ways|ways.*save|reduce.*cost|cheaper.*option|save.*on.*trip|trim.*cost|lower.*cost|without.*missing/.test(lastQuestion))
-    return "cost_cutting_advice";
   if (/savings.plan|save.up|saving.plan|top.up/.test(lastQuestion))
     return "savings_plan";
   if (/cash.?flow|forecast|monthly.surplus/.test(lastQuestion))

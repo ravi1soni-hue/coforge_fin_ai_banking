@@ -161,11 +161,13 @@ export class ChatService {
       };
     }
 
-    // ✅ Persist LLM-extracted facts back to session so follow-up turns retain full context
+    // ✅ Persist LLM-extracted facts back to session so follow-up turns retain full context.
+    // Use await (not void) so pendingFollowUpAction is guaranteed written to DB before the
+    // response is returned — critical for Railway restarts between conversational turns.
     if (resultState.knownFacts && Object.keys(resultState.knownFacts).length > 0) {
       const updatedFacts = { ...mergedKnownFacts, ...resultState.knownFacts };
       this.sessionKnownFacts.set(sessionKey, updatedFacts);
-      void this.sessionRepo.setKnownFacts(
+      await this.sessionRepo.setKnownFacts(
         request.userId,
         request.sessionId ?? "default",
         updatedFacts

@@ -17,6 +17,18 @@ export const plannerAgent = async (
     return { missingFacts: [] };
   }
 
+  // Fast-path: user is confirming a pending follow-up action.
+  // Skip LLM fact extraction entirely — it would just see a short confirmation
+  // like "yes please suggest" and extract nothing useful, while risking clobbering
+  // the facts already in state.knownFacts.
+  if (state.confirmedFollowUpAction) {
+    return {
+      missingFacts: [],
+      knownFacts: state.knownFacts,
+      confirmedFollowUpAction: state.confirmedFollowUpAction,
+    };
+  }
+
   // Use the LLM to extract every fact stated in the message and decide
   // what is genuinely still missing — no brittle regex, no hardcoded lists.
   const extraction = await llm.generateJSON<{
