@@ -1,9 +1,5 @@
 import type { GraphStateType } from "../../agent_orchastration/graph/state.js";
 import { FinancialAssistantService } from "../../agent_orchastration/services/FinancialAssistantService.js";
-import {
-  buildDeterministicSnapshot,
-  validateAssistantAnswer,
-} from "../../agent_orchastration/services/deterministicFinance.service.js";
 import { Kysely, sql } from "kysely";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -200,44 +196,17 @@ export class ChatService {
       resultState.finalAnswer ??
       "I couldn’t generate an answer. Please try again.";
 
-    const validation = this.validateFinalAnswer(
-      request.message,
-      finalMessage,
-      { ...initialState, ...resultState } as GraphStateType
-    );
     // Record assistant final response in conversation history
     this.sessionConversationHistory.set(historyKey, [
       ...conversationHistory,
-      { role: "assistant" as const, content: validation },
+      { role: "assistant" as const, content: finalMessage },
     ].slice(-10));
     void this.chatRepo.saveMessage(request.userId, request.sessionId ?? "default", "user", request.message);
-    void this.chatRepo.saveMessage(request.userId, request.sessionId ?? "default", "assistant", validation);
+    void this.chatRepo.saveMessage(request.userId, request.sessionId ?? "default", "assistant", finalMessage);
     return {
       type: "FINAL",
-      message: validation,
+      message: finalMessage,
     };
-  }
-
-  private validateFinalAnswer(
-    question: string,
-    answer: string,
-    resultState: GraphStateType
-  ): string {
-    const snapshot = buildDeterministicSnapshot(resultState);
-    const validation = validateAssistantAnswer(
-      question,
-      answer,
-      snapshot
-    );
-
-    if (!validation.valid) {
-      return (
-        validation.safeAnswer ??
-        "I want to avoid giving you an inaccurate number. Please share the specific period and source values to confirm this precisely."
-      );
-    }
-
-    return answer;
   }
 
   private getSessionKey(

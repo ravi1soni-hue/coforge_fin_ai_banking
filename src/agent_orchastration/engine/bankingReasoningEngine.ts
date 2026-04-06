@@ -239,13 +239,17 @@ ABSOLUTE RULES (breaking any rule = invalid response):
 
   private classifyOfferType(task: string): OfferType {
     const t = task.toLowerCase();
-    if (/instalment|repayment|payment.?option|plan.?option|spread.*cost|0%|monthly.?payment|check.*plan|best.*plan/i.test(t))
+    // Payment / instalment plan — deliberately broad to catch all natural phrasings
+    // e.g. "run a quick plan to spread the payments", "spread the cost", "0% options"
+    if (/instalment|repayment|spread.*pay|pay.*spread|payment.?plan|plan.*payment|plan.*spread|payment.?option|plan.?option|spread.*cost|0%|monthly.?payment|check.*plan|best.*plan|quick.*plan|payment.*schedul|schedul.*payment/i.test(t))
       return "INSTALMENT_PLAN";
-    if (/budget|map.*out|daily.*budget|spending.*plan|breakdown|trim.*cost|cut.*cost|return.*healthier|cheaper.*way|save.*on.*trip/i.test(t))
+    if (/budget|map.*out|daily.*budget|spending.*plan|breakdown|trim.*cost|cut.*cost|return.*healthier|cheaper.*way|save.*on.*trip|lower.?cost|itinerar/i.test(t))
       return "BUDGET_PLAN";
     if (/recover|rebuild|restore|replenish|top.*up|after.*trip|post.*trip|savings.*after|bring.*back/i.test(t))
       return "SAVINGS_RECOVERY";
-    return "GENERAL";
+    // Default to INSTALMENT_PLAN so the LLM never receives raw savings/trip figures
+    // (the GENERAL fallback feeds affordability numbers straight to the LLM → loop).
+    return "INSTALMENT_PLAN";
   }
 
   private preComputeOffer(offerType: OfferType, kf: Record<string, unknown>): string {
@@ -329,15 +333,9 @@ ABSOLUTE RULES (breaking any rule = invalid response):
         lines.push(`  Boosted by ${hc}200/month (e.g. pause one investment): ${boostedMonths} months to rebuild`);
       }
       lines.push(`  Fastest route: use a 0% instalment plan for the trip — keep savings intact, spread cost over 6-12 months`);
-    } else {
-      // GENERAL — expose known numeric facts only
-      if (amount !== null)  lines.push(`Goal cost: ${gc}${amount.toFixed(0)}`);
-      if (savings !== null) lines.push(`Available savings: ${hc}${savings.toFixed(0)}`);
-      if (surplus !== null) lines.push(`Monthly surplus: ${hc}${surplus.toFixed(0)}`);
-      lines.push(`Goal/destination: ${destination}`);
     }
 
-    return lines.join("\n") || "Insufficient data in session for deterministic pre-computation.";
+    return lines.join("\n") || "Insufficient numeric data in session — present a concise plan based on available context.";
   }
 
   private buildDeliveryInstructions(offerType: OfferType, kf: Record<string, unknown>): string {
