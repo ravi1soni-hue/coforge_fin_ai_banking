@@ -143,11 +143,11 @@ export class ChatService {
       conversationHistory,
     };
 
-    let resultState: GraphStateType;
+    let resultState: Partial<GraphStateType> & { userId: string; question: string };
 
     try {
       resultState =
-        await this.assistantService.run(initialState);
+        await this.assistantService.run(initialState) as Partial<GraphStateType> & { userId: string; question: string };
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : String(error);
@@ -203,7 +203,7 @@ export class ChatService {
     const validation = this.validateFinalAnswer(
       request.message,
       finalMessage,
-      resultState
+      { ...initialState, ...resultState } as GraphStateType
     );
     // Record assistant final response in conversation history
     this.sessionConversationHistory.set(historyKey, [
