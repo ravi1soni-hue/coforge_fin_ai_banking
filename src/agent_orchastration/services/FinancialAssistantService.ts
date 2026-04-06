@@ -1,7 +1,7 @@
 import type { GraphStateType } from "../graph/state.js";
 import type { LlmClient } from "../llm/llmClient.js";
 import { VectorQueryService } from "./vector.query.service.js";
-import { BankingReasoningEngine } from "../engine/bankingReasoningEngine.js";
+import { BankingReasoningEngine } from "../engine/bankingReasoningEngineV3.js";
 
 export class FinancialAssistantService {
   private readonly engine: BankingReasoningEngine;
