@@ -140,8 +140,10 @@ export function extractTimeHorizon(message) {
  * Matches "to Paris", "to New York", "to Japan" style phrases.
  */
 export function extractDestination(message) {
-    const m = /\bto\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\b/.exec(message);
-    return m?.[1];
+    const m = /\b(?:to|about)\s+([a-zA-Z][a-zA-Z]+(?:\s+[a-zA-Z][a-zA-Z]+)?)\b/i.exec(message);
+    if (!m)
+        return undefined;
+    return m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase();
 }
 // ─── Goal type hint from domain keywords ─────────────────────────────────────
 /**
@@ -150,7 +152,7 @@ export function extractDestination(message) {
  */
 export function inferGoalTypeFromMessage(message) {
     const lower = message.toLowerCase();
-    if (/\b(trip|travel|holiday|vacation|flight|hotel|paris|tokyo|dubai|rome)\b/.test(lower))
+    if (/\b(trip|travel|holiday|vacation|flight|hotel|paris|tokyo|dubai|rome|japan|france|italy|spain|germany|portugal|greece|usa|america|london|bangkok|bali|maldives|singapore|australia|canada|india|morocco|turkey|egypt)\b/.test(lower))
         return "TRIP";
     if (/\b(house|home|mortgage|rent|property|deposit|flat|apartment)\b/.test(lower))
         return "HOUSING";

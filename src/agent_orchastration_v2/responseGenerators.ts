@@ -327,24 +327,26 @@ export async function generatePlanSimulation(
   const upfrontRemaining = availableSavings - cost;
   const canAffordLumpSum = upfrontRemaining >= 0;
 
+  const fmt = (n: number) => Math.round(n).toLocaleString("en-GB");
+
   const lumpSumNote = canAffordLumpSum
-    ? `Paying upfront would reduce savings to ${homeCurrency}${upfrontRemaining.toFixed(0)}, reducing your emergency cushion.`
-    : `A lump-sum payment is not viable — you would be ${homeCurrency}${Math.abs(upfrontRemaining).toFixed(0)} short.`;
+    ? `Paying upfront would reduce savings to ${homeCurrency} ${fmt(upfrontRemaining)}, reducing your emergency cushion.`
+    : `A lump-sum payment is not viable — you would be ${homeCurrency} ${fmt(Math.abs(upfrontRemaining))} short.`;
 
   // All numbers are pre-computed — no LLM needed, build the string directly
   return Promise.resolve(
-    `You can fund this ${label} using the following options:\n\n` +
+    `You can fund ${label} using the following options:\n\n` +
     `🔹 OPTION 1: 3-Month Plan\n` +
-    `• Monthly payment: ${goalCurrency}${plans[0].monthly}\n` +
-    `• Savings impact: No savings used (${homeCurrency}${availableSavings} stays intact)\n` +
+    `• Monthly payment: ${goalCurrency} ${fmt(plans[0].monthly)}\n` +
+    `• Savings impact: No savings used (${homeCurrency} ${fmt(availableSavings)} stays intact)\n` +
     `• Best if you want to finish quickly\n\n` +
     `🔹 OPTION 2: 6-Month Plan\n` +
-    `• Monthly payment: ${goalCurrency}${plans[1].monthly}\n` +
-    `• Savings impact: No savings used (${homeCurrency}${availableSavings} stays intact)\n` +
+    `• Monthly payment: ${goalCurrency} ${fmt(plans[1].monthly)}\n` +
+    `• Savings impact: No savings used (${homeCurrency} ${fmt(availableSavings)} stays intact)\n` +
     `• Balanced monthly commitment\n\n` +
     `🔹 OPTION 3: 12-Month Plan\n` +
-    `• Monthly payment: ${goalCurrency}${plans[2].monthly}\n` +
-    `• Savings impact: No savings used (${homeCurrency}${availableSavings} stays intact)\n` +
+    `• Monthly payment: ${goalCurrency} ${fmt(plans[2].monthly)}\n` +
+    `• Savings impact: No savings used (${homeCurrency} ${fmt(availableSavings)} stays intact)\n` +
     `• Lowest monthly pressure\n\n` +
     `✅ Why instalments help:\n` +
     `• Keeps your emergency buffer intact\n` +
