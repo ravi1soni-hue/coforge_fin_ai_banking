@@ -59,7 +59,23 @@ export class PipelineV2 {
             // ── PATH A: User consented to plan simulation ──────────────────────────
             console.log("[PipelineV2] PATH A — plan simulation (consent detected)");
             response = await this.handlePlanSimulation(req, profile, v2State, history);
-            await this.store.save(req.userId, sid, { stage: "PLAN_SUGGESTED" });
+            await this.store.save(req.userId, sid, {
+                stage: "PLAN_SUGGESTED",
+                goal: v2State.goal,
+                lastVerdict: v2State.lastVerdict,
+                profile,
+            });
+        }
+        else if (v2State.stage === "PLAN_SUGGESTED" && extractRequestedPlanMonths(req.message) !== undefined) {
+            // ── PATH E: Follow-up plan request — user asking for a different duration ─
+            console.log("[PipelineV2] PATH E — follow-up plan request after PLAN_SUGGESTED");
+            response = await this.handlePlanSimulation(req, profile, v2State, history);
+            await this.store.save(req.userId, sid, {
+                stage: "PLAN_SUGGESTED",
+                goal: v2State.goal,
+                lastVerdict: v2State.lastVerdict,
+                profile,
+            });
         }
         else if (v2State.stage === "AWAITING_COST") {
             // ── PATH B: We asked for amount last turn — user is replying ──────────
