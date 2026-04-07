@@ -374,29 +374,29 @@ VERDICT CONTEXT: ${
       : "User cannot afford lump sum — instalment plan is the only viable path."
 }
 
-MANDATORY OUTPUT FORMAT — follow this EXACTLY, including emojis and bullets:
+MANDATORY OUTPUT FORMAT — follow this EXACTLY:
 
-💡 <One-line context sentence about the goal and why instalments are being presented>
+You can fund this ${label} using the following options:
 
 🔹 OPTION 1: 3-Month Plan
 • Monthly payment: ${goalCurrency}${plans[0].monthly}
-• Savings impact: ${homeCurrency}${availableSavings} fully preserved
-• Suitable for: <1-line descriptor for who this suits>
+• Savings impact: No savings used (${homeCurrency}${availableSavings} stays intact)
+• Best if you want to finish quickly
 
 🔹 OPTION 2: 6-Month Plan
 • Monthly payment: ${goalCurrency}${plans[1].monthly}
-• Savings impact: ${homeCurrency}${availableSavings} fully preserved
-• Suitable for: <1-line descriptor for who this suits>
+• Savings impact: No savings used (${homeCurrency}${availableSavings} stays intact)
+• Balanced monthly commitment
 
 🔹 OPTION 3: 12-Month Plan
 • Monthly payment: ${goalCurrency}${plans[2].monthly}
-• Savings impact: ${homeCurrency}${availableSavings} fully preserved
-• Suitable for: <1-line descriptor for who this suits>
+• Savings impact: No savings used (${homeCurrency}${availableSavings} stays intact)
+• Lowest monthly pressure
 
-✅ Why this helps:
-• ${whyInstalmentsHelps}
-• <Benefit 2 — e.g. cash flow stays predictable>
+✅ Why instalments help:
+• Keeps your emergency buffer intact
 • ${lumpSumNote}
+• Protects you from unexpected expenses
 
 STRICT RULES:
 1. Use the EXACT format above — no deviations, no prose paragraphs, no plain sentences.
@@ -404,7 +404,7 @@ STRICT RULES:
 3. Do NOT restate the affordability verdict.
 4. Do NOT add any follow-up offer at the end.
 5. Monthly payment values are already given above — copy them exactly.
-6. "Savings impact" must always say "${homeCurrency}${availableSavings} fully preserved" for all three options.`,
+6. "Savings impact" must always say "No savings used (${homeCurrency}${availableSavings} stays intact)" for all three options.`,
   );
 }
 
