@@ -325,86 +325,31 @@ export async function generatePlanSimulation(
   }));
 
   const upfrontRemaining = availableSavings - cost;
-  const monthsToReplenish =
-    netMonthlySurplus && netMonthlySurplus > 0
-      ? Math.ceil(cost / netMonthlySurplus)
-      : null;
-
   const canAffordLumpSum = upfrontRemaining >= 0;
-
-  const preComputed = [
-    `Goal cost: ${goalCurrency}${cost}`,
-    `Current savings: ${homeCurrency}${availableSavings}`,
-    `3-month plan: ${goalCurrency}${plans[0].monthly}/month (savings stay intact: ${homeCurrency}${availableSavings})`,
-    `6-month plan: ${goalCurrency}${plans[1].monthly}/month (savings stay intact: ${homeCurrency}${availableSavings})`,
-    `12-month plan: ${goalCurrency}${plans[2].monthly}/month (savings stay intact: ${homeCurrency}${availableSavings})`,
-    canAffordLumpSum
-      ? `Lump-sum payment leaves: ${homeCurrency}${upfrontRemaining.toFixed(0)} in savings`
-      : null,
-    netMonthlySurplus && netMonthlySurplus > 0
-      ? `Monthly surplus: ${homeCurrency}${netMonthlySurplus}`
-      : null,
-    canAffordLumpSum && monthsToReplenish
-      ? `Months to replenish savings after lump sum: ${monthsToReplenish} months`
-      : null,
-  ].filter(Boolean).join("\n");
-
-  const recentHistory = historyBlock(history);
-
-  const whyInstalmentsHelps = canAffordLumpSum
-    ? `Spreading payments preserves your full ${homeCurrency}${availableSavings} emergency buffer while still funding ${label}.`
-    : `Spreading the cost over time lets you achieve ${label} without needing the full amount upfront. Your ${homeCurrency}${availableSavings} savings remain completely untouched as an emergency buffer.`;
 
   const lumpSumNote = canAffordLumpSum
     ? `Paying upfront would reduce savings to ${homeCurrency}${upfrontRemaining.toFixed(0)}, reducing your emergency cushion.`
     : `A lump-sum payment is not viable — you would be ${homeCurrency}${Math.abs(upfrontRemaining).toFixed(0)} short.`;
 
-  return llm.generateText(
-    `${SYSTEM_PREAMBLE}
-${recentHistory ? `RECENT CONVERSATION (for context only):\n${recentHistory}\n\n` : ""}The user confirmed they want the instalment/plan breakdown for ${label}.
-
-PRE-COMPUTED FIGURES — use ONLY these exact numbers, never recalculate:
-${preComputed}
-
-VERDICT CONTEXT: ${
-  verdict === "COMFORTABLE"
-    ? "User can afford lump sum — instalment plan is optional cash-flow optimisation."
-    : verdict === "RISKY"
-      ? "Lump sum risks depleting the emergency buffer — instalment plan protects cash flow."
-      : "User cannot afford lump sum — instalment plan is the only viable path."
-}
-
-MANDATORY OUTPUT FORMAT — follow this EXACTLY:
-
-You can fund this ${label} using the following options:
-
-🔹 OPTION 1: 3-Month Plan
-• Monthly payment: ${goalCurrency}${plans[0].monthly}
-• Savings impact: No savings used (${homeCurrency}${availableSavings} stays intact)
-• Best if you want to finish quickly
-
-🔹 OPTION 2: 6-Month Plan
-• Monthly payment: ${goalCurrency}${plans[1].monthly}
-• Savings impact: No savings used (${homeCurrency}${availableSavings} stays intact)
-• Balanced monthly commitment
-
-🔹 OPTION 3: 12-Month Plan
-• Monthly payment: ${goalCurrency}${plans[2].monthly}
-• Savings impact: No savings used (${homeCurrency}${availableSavings} stays intact)
-• Lowest monthly pressure
-
-✅ Why instalments help:
-• Keeps your emergency buffer intact
-• ${lumpSumNote}
-• Protects you from unexpected expenses
-
-STRICT RULES:
-1. Use the EXACT format above — no deviations, no prose paragraphs, no plain sentences.
-2. Use ONLY the pre-computed figures — never recalculate.
-3. Do NOT restate the affordability verdict.
-4. Do NOT add any follow-up offer at the end.
-5. Monthly payment values are already given above — copy them exactly.
-6. "Savings impact" must always say "No savings used (${homeCurrency}${availableSavings} stays intact)" for all three options.`,
+  // All numbers are pre-computed — no LLM needed, build the string directly
+  return Promise.resolve(
+    `You can fund this ${label} using the following options:\n\n` +
+    `🔹 OPTION 1: 3-Month Plan\n` +
+    `• Monthly payment: ${goalCurrency}${plans[0].monthly}\n` +
+    `• Savings impact: No savings used (${homeCurrency}${availableSavings} stays intact)\n` +
+    `• Best if you want to finish quickly\n\n` +
+    `🔹 OPTION 2: 6-Month Plan\n` +
+    `• Monthly payment: ${goalCurrency}${plans[1].monthly}\n` +
+    `• Savings impact: No savings used (${homeCurrency}${availableSavings} stays intact)\n` +
+    `• Balanced monthly commitment\n\n` +
+    `🔹 OPTION 3: 12-Month Plan\n` +
+    `• Monthly payment: ${goalCurrency}${plans[2].monthly}\n` +
+    `• Savings impact: No savings used (${homeCurrency}${availableSavings} stays intact)\n` +
+    `• Lowest monthly pressure\n\n` +
+    `✅ Why instalments help:\n` +
+    `• Keeps your emergency buffer intact\n` +
+    `• ${lumpSumNote}\n` +
+    `• Protects you from unexpected expenses`
   );
 }
 
