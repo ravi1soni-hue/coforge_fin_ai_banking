@@ -257,7 +257,7 @@ export async function generateAffordabilityAnswer(
           ? "Since this exceeds your available savings, would you like me to explore a savings or EMI plan?"
           : "Since this would reduce your buffer below a safe level, want me to map out a 0% instalment plan to spread the cost?"
       }"`
-    : `The verdict is COMFORTABLE — the user can afford this without risk. After confirming that, end with this exact offer on a new line: "Would you like me to run a savings plan so you can pay in 3 or 6 monthly instalments instead of upfront?" — nothing more.`;
+    : `DO NOT suggest any product, loan, EMI, or savings plan. The verdict is clear — give a plain, reassuring response and stop. No offers, no upsell.`;
 
   const recentHistory = historyBlock(history);
 
