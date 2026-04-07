@@ -10,6 +10,7 @@ import { VectorQueryService } from "../agent_orchastration/services/vector.query
 import { FinancialAssistantService } from "../agent_orchastration/services/FinancialAssistantService.js";
 import { OpenAIClient } from "../agent_orchastration/llm/openAIClient.js";
 import { ChatService } from "../services/chat/chat.service.js";
+import { ChatServiceV2 } from "../agent_orchastration_v2/ChatServiceV2.js";
 import { ENV } from "./env.js";
 import { db } from "../db.js";
 
@@ -38,5 +39,5 @@ container.register({
   structuredFinanceRepo: asClass(StructuredFinancialRepository).singleton(),
   financialSyncRepo: asClass(FinancialSyncRepository).singleton(),
 
-  chatService: asClass(ChatService).singleton(),
+  chatService: asClass(ChatServiceV2).singleton(),
 });
