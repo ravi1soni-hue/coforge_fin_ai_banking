@@ -1,59 +1,52 @@
 /**
  * Financial Assistant Graph — LangGraph StateGraph
  *
- * Simplified aligned architecture:
- *   START → intentAgent → plannerAgent → [plannerRouter]
- *     ├─ askUser    → followUpQuestionAgent → END
- *     ├─ lightPath  → confirmationAgent     → END
- *     └─ financeAgent → webSearchAgent → reasoningAgent → synthesisAgent → END
+ * Simplified 5-agent architecture:
+ *   START → intentAgent → [router]
+ *     ├─ askUser      → followUpQuestionAgent → END
+ *     ├─ confirmPath  → synthesisAgent        → END
+ *     └─ analyzePath  → financeAgent → webSearchAgent → synthesisAgent → END
  *
- * Removed from prior graph: researchAgent, productRecommendationAgent,
- * suggestionAgent, productCatalog — their logic is folded where needed.
+ * intentAgent now handles intent + fact extraction + missing facts.
  */
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { GraphState } from "./state.js";
 
 import { intentAgent } from "../agents/intentAgent.js";
-import { plannerAgent } from "../agents/plannerAgent.js";
-import { plannerRouter } from "../agents/plannerRouter.js";
 import { followUpQuestionAgent } from "../agents/followUpQuestionAgent.js";
 import { financeAgent } from "../agents/financeAgent.js";
 import { webSearchAgent } from "../agents/webSearchAgent.js";
-import { reasoningAgent } from "../agents/reasoningAgent.js";
 import { synthesisAgent } from "../agents/synthesisAgent.js";
-import { confirmationAgent } from "../agents/confirmationAgent.js";
+
+const routeFromIntent = (state: { confirmedFollowUpAction?: string; missingFacts?: string[] }) => {
+  if (state.confirmedFollowUpAction) return "confirmPath";
+  if (Array.isArray(state.missingFacts) && state.missingFacts.length > 0) return "askUser";
+  return "analyzePath";
+};
 
 export const financialAssistantGraph = new StateGraph(GraphState)
   .addNode("intentAgent", intentAgent)
-  .addNode("plannerAgent", plannerAgent)
   .addNode("followUpQuestionAgent", followUpQuestionAgent)
   .addNode("financeAgent", financeAgent)
   .addNode("webSearchAgent", webSearchAgent)
-  .addNode("reasoningAgent", reasoningAgent)
   .addNode("synthesisAgent", synthesisAgent)
-  .addNode("confirmationAgent", confirmationAgent)
 
   // Entry point
   .addEdge(START, "intentAgent")
-  .addEdge("intentAgent", "plannerAgent")
 
-  // Router: missing facts → ask user | confirmed action → fast-path | else → full analysis
-  .addConditionalEdges("plannerAgent", plannerRouter, {
-    askUser:     "followUpQuestionAgent",
-    lightPath:   "confirmationAgent",
-    financeAgent: "financeAgent",
+  // Router: missing facts → ask user | confirmed action → direct synthesis | else → full analysis
+  .addConditionalEdges("intentAgent", routeFromIntent, {
+    askUser: "followUpQuestionAgent",
+    confirmPath: "synthesisAgent",
+    analyzePath: "financeAgent",
   })
 
   // Ask user → END (wait for reply in next turn)
   .addEdge("followUpQuestionAgent", END)
 
-  // Confirmation fast-path → END (no full analysis, avoids re-running affordability)
-  .addEdge("confirmationAgent", END)
-
   // Main analysis pipeline
   .addEdge("financeAgent", "webSearchAgent")
-  .addEdge("webSearchAgent", "reasoningAgent")
-  .addEdge("reasoningAgent", "synthesisAgent")
+  .addEdge("webSearchAgent", "synthesisAgent")
   .addEdge("synthesisAgent", END);
 
 /** Compiled graph — invoke this, not the builder */
