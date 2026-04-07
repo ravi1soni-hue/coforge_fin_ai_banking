@@ -20,7 +20,7 @@
  */
 import { ConversationStore } from "./conversationStore.js";
 import { FinancialLoader } from "./financialLoader.js";
-import { isAffirmative, extractAmount, extractDestination, inferGoalTypeFromMessage, extractTimeHorizon, } from "./messageParser.js";
+import { isAffirmative, extractAmount, extractDestination, inferGoalTypeFromMessage, extractTimeHorizon, extractRequestedPlanMonths, } from "./messageParser.js";
 import { classifyIntent, computeAffordabilityVerdict, computeShouldSuggestProduct, generateCostQuestion, generateTimeHorizonQuestion, generateAffordabilityAnswer, generatePlanSimulation, generatePlanningAnswer, generateInfoAnswer, generateComparisonAnswer, generateGeneralAnswer, } from "./responseGenerators.js";
 export class PipelineV2 {
     llm;
@@ -213,7 +213,8 @@ export class PipelineV2 {
             return { type: "FOLLOW_UP", message: question, missingFacts: ["targetAmount"] };
         }
         const verdict = state.lastVerdict ?? computeAffordabilityVerdict(profile, state.goal);
-        const answer = await generatePlanSimulation(this.llm, profile, state.goal, verdict, [...history, { role: "user", content: req.message }]);
+        const requestedMonths = extractRequestedPlanMonths(req.message);
+        const answer = await generatePlanSimulation(this.llm, profile, state.goal, verdict, [...history, { role: "user", content: req.message }], requestedMonths);
         return { type: "FINAL", message: answer };
     }
     async loadHistory(userId, sessionId, sessionKey) {

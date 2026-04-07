@@ -213,7 +213,7 @@ RULES:
 7. No disclaimers, no generic advice, no filler.`);
 }
 // ─── 7. Plan / instalment simulation ─────────────────────────────────────────
-export async function generatePlanSimulation(llm, profile, goal, verdict, history) {
+export async function generatePlanSimulation(llm, profile, goal, verdict, history, requestedMonths) {
     const { availableSavings, netMonthlySurplus, homeCurrency } = profile;
     const cost = goal.cost ?? 0;
     const goalCurrency = goal.currency ?? homeCurrency;
@@ -230,6 +230,22 @@ export async function generatePlanSimulation(llm, profile, goal, verdict, histor
         ? `Paying upfront would reduce savings to ${homeCurrency} ${fmt(upfrontRemaining)}, reducing your emergency cushion.`
         : `A lump-sum payment is not viable — you would be ${homeCurrency} ${fmt(Math.abs(upfrontRemaining))} short.`;
     // All numbers are pre-computed — no LLM needed, build the string directly
+    const whyBlock = `✅ Why instalments help:\n` +
+        `• Keeps your emergency buffer intact\n` +
+        `• ${lumpSumNote}\n` +
+        `• Protects you from unexpected expenses`;
+    // If user asked for a specific duration, show only that plan
+    if (requestedMonths) {
+        const plan = plans.find((p) => p.months === requestedMonths);
+        if (plan) {
+            return Promise.resolve(`Here's your ${plan.months}-month plan for ${label}:\n\n` +
+                `• Monthly payment: ${goalCurrency} ${fmt(plan.monthly)}\n` +
+                `• Savings impact: No savings used (${homeCurrency} ${fmt(availableSavings)} stays intact)\n` +
+                `• Duration: ${plan.months} months\n\n` +
+                whyBlock);
+        }
+    }
+    // Otherwise show all 3 options
     return Promise.resolve(`You can fund ${label} using the following options:\n\n` +
         `🔹 OPTION 1: 3-Month Plan\n` +
         `• Monthly payment: ${goalCurrency} ${fmt(plans[0].monthly)}\n` +
@@ -243,10 +259,7 @@ export async function generatePlanSimulation(llm, profile, goal, verdict, histor
         `• Monthly payment: ${goalCurrency} ${fmt(plans[2].monthly)}\n` +
         `• Savings impact: No savings used (${homeCurrency} ${fmt(availableSavings)} stays intact)\n` +
         `• Lowest monthly pressure\n\n` +
-        `✅ Why instalments help:\n` +
-        `• Keeps your emergency buffer intact\n` +
-        `• ${lumpSumNote}\n` +
-        `• Protects you from unexpected expenses`);
+        whyBlock);
 }
 // ─── 8. Planning answer (PLANNING intent) ────────────────────────────────────
 export async function generatePlanningAnswer(llm, vectorQuery, userId, question, profile, goal, history) {

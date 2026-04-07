@@ -165,6 +165,23 @@ export function extractDestination(message: string): string | undefined {
   return m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase();
 }
 
+// ─── Requested plan months extraction ────────────────────────────────────────
+
+/**
+ * Detects if the user explicitly requested a specific instalment duration.
+ * e.g. "6 month plan", "a 3-month instalment", "12 month option"
+ * Returns 3, 6, or 12 — or undefined if no specific duration was mentioned.
+ */
+export function extractRequestedPlanMonths(message: string): number | undefined {
+  const m = /\b(3|6|12|three|six|twelve)\s*[-–]?\s*month/i.exec(message);
+  if (!m) return undefined;
+  const val = m[1].toLowerCase();
+  if (val === "three" || val === "3") return 3;
+  if (val === "six"   || val === "6") return 6;
+  if (val === "twelve"|| val === "12") return 12;
+  return undefined;
+}
+
 // ─── Goal type hint from domain keywords ─────────────────────────────────────
 
 /**

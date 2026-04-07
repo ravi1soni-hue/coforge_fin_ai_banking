@@ -312,6 +312,7 @@ export async function generatePlanSimulation(
   goal: FinancialGoalContext,
   verdict: AffordabilityVerdict,
   history: ConversationTurn[],
+  requestedMonths?: number,
 ): Promise<string> {
   const { availableSavings, netMonthlySurplus, homeCurrency } = profile;
   const cost = goal.cost ?? 0;
@@ -334,6 +335,28 @@ export async function generatePlanSimulation(
     : `A lump-sum payment is not viable — you would be ${homeCurrency} ${fmt(Math.abs(upfrontRemaining))} short.`;
 
   // All numbers are pre-computed — no LLM needed, build the string directly
+
+  const whyBlock =
+    `✅ Why instalments help:\n` +
+    `• Keeps your emergency buffer intact\n` +
+    `• ${lumpSumNote}\n` +
+    `• Protects you from unexpected expenses`;
+
+  // If user asked for a specific duration, show only that plan
+  if (requestedMonths) {
+    const plan = plans.find((p) => p.months === requestedMonths);
+    if (plan) {
+      return Promise.resolve(
+        `Here's your ${plan.months}-month plan for ${label}:\n\n` +
+        `• Monthly payment: ${goalCurrency} ${fmt(plan.monthly)}\n` +
+        `• Savings impact: No savings used (${homeCurrency} ${fmt(availableSavings)} stays intact)\n` +
+        `• Duration: ${plan.months} months\n\n` +
+        whyBlock
+      );
+    }
+  }
+
+  // Otherwise show all 3 options
   return Promise.resolve(
     `You can fund ${label} using the following options:\n\n` +
     `🔹 OPTION 1: 3-Month Plan\n` +
@@ -348,10 +371,7 @@ export async function generatePlanSimulation(
     `• Monthly payment: ${goalCurrency} ${fmt(plans[2].monthly)}\n` +
     `• Savings impact: No savings used (${homeCurrency} ${fmt(availableSavings)} stays intact)\n` +
     `• Lowest monthly pressure\n\n` +
-    `✅ Why instalments help:\n` +
-    `• Keeps your emergency buffer intact\n` +
-    `• ${lumpSumNote}\n` +
-    `• Protects you from unexpected expenses`
+    whyBlock
   );
 }
 

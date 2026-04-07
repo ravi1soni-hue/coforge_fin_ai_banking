@@ -33,6 +33,7 @@ import {
   extractDestination,
   inferGoalTypeFromMessage,
   extractTimeHorizon,
+  extractRequestedPlanMonths,
 } from "./messageParser.js";
 import {
   classifyIntent,
@@ -294,9 +295,12 @@ export class PipelineV2 {
     const verdict: AffordabilityVerdict =
       state.lastVerdict ?? computeAffordabilityVerdict(profile, state.goal);
 
+    const requestedMonths = extractRequestedPlanMonths(req.message);
+
     const answer = await generatePlanSimulation(
       this.llm, profile, state.goal, verdict,
       [...history, { role: "user", content: req.message }],
+      requestedMonths,
     );
     return { type: "FINAL", message: answer };
   }
