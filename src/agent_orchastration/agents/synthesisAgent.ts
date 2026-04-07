@@ -91,19 +91,11 @@ ABSOLUTE RULES — if any rule is broken the response is invalid:
   }
   // ─────────────────────────────────────────────────────────────────────────
 
-  const topProduct = Array.isArray(state.productRecommendations)
-    ? [...state.productRecommendations]
-        .sort((a, b) => (b.suitabilityScore ?? 0) - (a.suitabilityScore ?? 0))
-        .find((p) => (p.suitabilityScore ?? 0) >= 0.5)
-    : undefined;
-
-  const productContext = topProduct
-    ? `Recommended product: ${topProduct.productName} — ${topProduct.rationale}. Next step: ${topProduct.nextStep}.`
-    : "No product recommendation applicable.";
-
-  // When the user confirmed a follow-up, exclude the affordability-shaped reasoning
-  // context so it cannot bias the LLM into repeating the same affordability answer.
-  const reasoningContext = JSON.stringify(state.reasoning, null, 2);
+  const reasoningData  = state.reasoning as Record<string, unknown> | undefined;
+  const precomputed    = typeof reasoningData?.precomputed === "string" ? reasoningData.precomputed : "";
+  const keyMetrics     = Array.isArray(reasoningData?.keyMetrics) ? reasoningData.keyMetrics : [];
+  const risks          = Array.isArray(reasoningData?.risks)      ? reasoningData.risks      : [];
+  const suggestions    = Array.isArray(reasoningData?.suggestions) ? reasoningData.suggestions : [];
 
   const mainHomeCurrency = (() => {
     const kf = state.knownFacts ?? {};
@@ -125,45 +117,48 @@ ABSOLUTE RULES — if any rule is broken the response is invalid:
   const answer = await llm.generateText(`
 You are a personal banking AI analyst. Give a clear, intelligent, data-backed answer to the user's question.
 ${conversationContext}
+
 USER QUESTION
 "${state.question}"
 
-USER INTENT
-${JSON.stringify(state.intent, null, 2)}
+PRE-COMPUTED ANALYSIS (trust these numbers — do NOT recalculate):
+${precomputed || JSON.stringify(state.financeData, null, 2).slice(0, 1200)}
 
-KNOWN FACTS (extracted from conversation)
+KEY METRICS:
+${keyMetrics.map((m: { label: string; value: string | number }) => `- ${m.label}: ${m.value}`).join("\n") || "See pre-computed analysis above."}
+
+RISKS:
+${risks.length > 0 ? risks.map((r: string) => `- ${r}`).join("\n") : "None identified."}
+
+SUGGESTIONS:
+${suggestions.length > 0 ? suggestions.map((s: string) => `- ${s}`).join("\n") : "None."}
+
+KNOWN FACTS:
 ${JSON.stringify(state.knownFacts, null, 2)}
 
-FINANCIAL PROFILE
-${JSON.stringify(state.financeData, null, 2)}
-
-RESEARCH & COST ESTIMATE
-${JSON.stringify(state.researchData, null, 2)}
-
-REASONING ENGINE OUTPUT
-${reasoningContext}
-
-PRODUCT RECOMMENDATION
-${productContext}
-
-CONTEXTUAL SUGGESTION
-${state.isSuggestionIncluded && state.suggestion ? state.suggestion : "None"}
-
 RULES:
-0. CRITICAL — CURRENCY: The user's HOME currency is ${mainHomeCurrency}. ALL figures for the user's own money (savings, income, expenses, surplus, account balances) MUST be shown in ${mainHomeCurrency} with the correct symbol. ONLY the trip/purchase cost the user stated uses ${mainTripCurrency}. NEVER show the user's savings or income in ${mainTripCurrency !== mainHomeCurrency ? mainTripCurrency : "any other currency"}.
-1. Read ALL data above — never ignore any context field.
-2. CRITICAL — Use ONLY spendable_savings (savings account balance) as the user's available pool. NEVER add the current account balance to it. The current account is reserved for monthly living expenses.
-3. CRITICAL — When the user says something like "yes", "sure", or "please do that" referring to a plan offered in the conversation history, DELIVER that plan — do NOT repeat the affordability verdict from a prior turn.
-4. For affordability queries: open with a direct verdict using the user's key numbers (spendable_savings, goal cost, leftover after purchase). Weave any suggestion or product recommendation into the last sentence naturally.
-5. For investment / portfolio / ISA queries: state current value, monthly contribution, and performance where available. Note that exact profit/loss cannot be calculated without a cost basis.
-6. For subscriptions: list items with amounts and give the monthly total; suggest 1-2 to cancel.
-7. For statement / balance / cashflow: give the key numbers clearly — inflow, outflow, net, or account balance as appropriate.
-8. For loan / repayment queries: give the outstanding balance, EMI, and timeline to payoff.
-9. NEVER invent numbers that are not present in the data above.
-10. NEVER repeat the question back to the user. NEVER use filler phrases.
-11. Plain prose only — no markdown, no bullet points, no headers.
-12. Keep it to 3–4 short, punchy sentences. Speak like a friendly, confident financial advisor — casual tone. End with ONE brief follow-up offer.
+0. CRITICAL — HOME CURRENCY: The user's home currency is ${mainHomeCurrency}. ALL figures for the user's own money (savings, income, expenses, surplus) MUST use ${mainHomeCurrency}. ONLY the trip/purchase cost uses ${mainTripCurrency !== mainHomeCurrency ? mainTripCurrency : mainHomeCurrency}.
+1. Use ONLY pre-computed figures above. Do NOT invent or recalculate numbers.
+2. CRITICAL — Use ONLY spendable_savings as available pool. NEVER add current account balance to it.
+3. CRITICAL — If the user said "yes/sure/please do that" to a plan offered previously, DELIVER that plan — do NOT repeat the affordability verdict.
+4. For affordability: open with a direct verdict + key numbers. End with one follow-up offer.
+5. For investments/ISA: state current value, contribution, and performance. Note exact P&L needs cost basis.
+6. For subscriptions: list items + monthly total; suggest 1-2 to cancel.
+7. For balance/cashflow: give key numbers clearly (inflow, outflow, net).
+8. For loan/repayment: give outstanding balance, EMI, payoff timeline.
+9. Plain prose only — no markdown, no bullet points, no headers.
+10. 3–4 short, punchy sentences max. Friendly, confident financial advisor tone.
+11. End with ONE brief follow-up offer on a related but different aspect.
 `);
+
+  // Persist any offer in this response so next turn can detect it without LLM
+  const newOffer = answer.match(
+    /(?:want me to|shall i|would you like me to|let me|i can show you?)\s+([^.?!\n]{5,180})/i
+  );
+  const updatedKnownFacts = {
+    ...(state.knownFacts as Record<string, unknown>),
+    _pendingOffer: newOffer ? newOffer[1].trim() : null,
+  };
 
   const validation = validateAssistantAnswer(state.question, answer, snapshot);
   if (!validation.valid) {
@@ -171,16 +166,13 @@ RULES:
       finalAnswer:
         validation.safeAnswer ??
         "I want to avoid giving you an inaccurate number. Please share specific period and source values to confirm this precisely.",
-      knownFacts: state.knownFacts,
+      knownFacts: updatedKnownFacts,
     };
   }
 
   return {
     finalAnswer: answer,
-    // Clear confirmedFollowUpAction so it doesn't persist into the next turn.
     confirmedFollowUpAction: undefined,
-    knownFacts: state.knownFacts,
+    knownFacts: updatedKnownFacts,
   };
 };
-
-

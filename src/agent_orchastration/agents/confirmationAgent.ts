@@ -42,7 +42,9 @@ export const confirmationAgent = async (
     .filter(Boolean)
     .join("\n");
 
-  console.log(`[ConfirmationAgent] task="${(state.confirmedFollowUpAction ?? "").slice(0, 80)}" question="${state.question}"`);
+  const task = state.confirmedFollowUpAction ?? "continue from the previous offer";
+
+  console.log(`[ConfirmationAgent] task="${task.slice(0, 80)}" question="${state.question}"`);
 
   const answer = await llm.generateText(
     `You are a personal banking assistant. Below is an ongoing conversation.
@@ -51,22 +53,35 @@ CONVERSATION:
 ${historyText}
 User: ${state.question}
 
-The user just said YES to your last offer. Continue naturally from where the conversation left off.
-Deliver the specific thing you offered — concrete numbers, a plan, or a breakdown.
+CONFIRMED TASK — the user just said YES to this specific offer:
+"${task}"
 
-${figuresBlock ? `RELEVANT FIGURES:\n${figuresBlock}\n` : ""}
+Execute this task RIGHT NOW. Do not offer to do it — deliver the actual output: concrete numbers, step-by-step plan, or breakdown.
+
+${figuresBlock ? `AVAILABLE FIGURES:\n${figuresBlock}\n` : ""}
 STRICT RULES:
-- Affordability has already been answered. Do NOT say "You can afford", "You have X in savings", or repeat the prior affordability verdict.
-- Open with a concrete number, option, or step — not with "You", "Your", "Based", "Since", "Given", or "Covering".
-- Show real numbers (monthly amounts, totals, percentages).
-- Maximum 5 sentences.
-- Close with one brief follow-up offer on a different aspect of the same goal.`
+- The affordability verdict is already settled. Do NOT restate it. Do NOT say "You can afford", "You have X in savings", or repeat any affordability conclusion.
+- Do NOT offer to do the confirmed task again — you must execute it in this response.
+- Open directly with the first concrete step, number, or timeline — not with "You", "Your", "Based", "Since", "Given", or "Covering".
+- Show real numbers (monthly amounts, totals, timelines, percentages).
+- Maximum 6 sentences.
+- Close with one brief offer on a DIFFERENT aspect of the goal (not the same task you just delivered).`
   );
 
   console.log(`[ConfirmationAgent] answer="${answer.slice(0, 120)}..."`);
 
+  // Persist any new offer embedded in this response so the next turn can detect it
+  const newOffer = answer.match(
+    /(?:want me to|shall i|would you like me to|let me|i can show you?)\s+([^.?!\n]{5,180})/i
+  );
+  const updatedKnownFacts = {
+    ...(state.knownFacts as Record<string, unknown>),
+    _pendingOffer: newOffer ? newOffer[1].trim() : null,
+  };
+
   return {
     finalAnswer: answer,
     confirmedFollowUpAction: undefined,
+    knownFacts: updatedKnownFacts,
   };
 };

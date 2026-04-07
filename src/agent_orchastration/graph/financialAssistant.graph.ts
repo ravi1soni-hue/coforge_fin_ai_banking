@@ -1,3 +1,15 @@
+/**
+ * Financial Assistant Graph — LangGraph StateGraph
+ *
+ * Simplified aligned architecture:
+ *   START → intentAgent → plannerAgent → [plannerRouter]
+ *     ├─ askUser    → followUpQuestionAgent → END
+ *     ├─ lightPath  → confirmationAgent     → END
+ *     └─ financeAgent → webSearchAgent → reasoningAgent → synthesisAgent → END
+ *
+ * Removed from prior graph: researchAgent, productRecommendationAgent,
+ * suggestionAgent, productCatalog — their logic is folded where needed.
+ */
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { GraphState } from "./state.js";
 
@@ -7,10 +19,7 @@ import { plannerRouter } from "../agents/plannerRouter.js";
 import { followUpQuestionAgent } from "../agents/followUpQuestionAgent.js";
 import { financeAgent } from "../agents/financeAgent.js";
 import { webSearchAgent } from "../agents/webSearchAgent.js";
-import { researchAgent } from "../agents/researchAgent.js";
 import { reasoningAgent } from "../agents/reasoningAgent.js";
-import { productRecommendationAgent } from "../agents/productRecommendationAgent.js";
-import { suggestionAgent } from "../agents/suggestionAgent.js";
 import { synthesisAgent } from "../agents/synthesisAgent.js";
 import { confirmationAgent } from "../agents/confirmationAgent.js";
 
@@ -20,40 +29,32 @@ export const financialAssistantGraph = new StateGraph(GraphState)
   .addNode("followUpQuestionAgent", followUpQuestionAgent)
   .addNode("financeAgent", financeAgent)
   .addNode("webSearchAgent", webSearchAgent)
-  .addNode("researchAgent", researchAgent)
   .addNode("reasoningAgent", reasoningAgent)
-  .addNode("productRecommendationAgent", productRecommendationAgent)
-  .addNode("suggestionAgent", suggestionAgent)
   .addNode("synthesisAgent", synthesisAgent)
   .addNode("confirmationAgent", confirmationAgent)
 
-  // ✅ Start flow
+  // Entry point
   .addEdge(START, "intentAgent")
   .addEdge("intentAgent", "plannerAgent")
 
-  // ✅ Conditional routing after planning
-  .addConditionalEdges(
-    "plannerAgent",
-    plannerRouter,
-    {
-      askUser: "followUpQuestionAgent",
-      financeAgent: "financeAgent",
-      // Confirmation fast-path: user confirmed a prior offer → dedicated single-step agent
-      lightPath: "confirmationAgent",
-    }
-  )
+  // Router: missing facts → ask user | confirmed action → fast-path | else → full analysis
+  .addConditionalEdges("plannerAgent", plannerRouter, {
+    askUser:     "followUpQuestionAgent",
+    lightPath:   "confirmationAgent",
+    financeAgent: "financeAgent",
+  })
 
-  // ✅ Ask user → END (wait for reply)
+  // Ask user → END (wait for reply in next turn)
   .addEdge("followUpQuestionAgent", END)
 
-  // ✅ Confirmation fast-path: single agent → END (no redundant agents, no state pollution)
+  // Confirmation fast-path → END (no full analysis, avoids re-running affordability)
   .addEdge("confirmationAgent", END)
 
-  // ✅ Main analysis flow
+  // Main analysis pipeline
   .addEdge("financeAgent", "webSearchAgent")
-  .addEdge("webSearchAgent", "researchAgent")
-  .addEdge("researchAgent", "reasoningAgent")
-  .addEdge("reasoningAgent", "productRecommendationAgent")
-  .addEdge("productRecommendationAgent", "suggestionAgent")
-  .addEdge("suggestionAgent", "synthesisAgent")
+  .addEdge("webSearchAgent", "reasoningAgent")
+  .addEdge("reasoningAgent", "synthesisAgent")
   .addEdge("synthesisAgent", END);
+
+/** Compiled graph — invoke this, not the builder */
+export const compiledGraph = financialAssistantGraph.compile();

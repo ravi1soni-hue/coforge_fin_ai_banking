@@ -12,22 +12,36 @@ export const intentAgent = async (
     throw new Error("LlmClient not provided to graph");
   }
 
-  // ── LLM-based confirmation detection ────────────────────────────────────
-  // Replaces ALL brittle regex patterns. The LLM reads the actual conversation
-  // history and decides whether the user is confirming a previous offer,
-  // extracting the exact task description from the assistant's last message.
-  // No stored keyword tags, no static pattern tables — just conversation context.
+  // ── Step 0: Deterministic fast-path — _pendingOffer in knownFacts ────────
+  // The sessionRepo persists knownFacts._pendingOffer across Railway restarts.
+  // This is the most reliable confirmation signal: if a stored offer exists AND
+  // the user is affirmative, skip ALL LLM calls and route to confirmationAgent.
   const prevMessages = state.conversationHistory ?? [];
-  const lastAsstMsg = [...prevMessages].reverse().find(m => m.role === "assistant")?.content ?? "";
-  const wordCount = state.question.trim().split(/\s+/).length;
+  const lastAsstMsg  = [...prevMessages].reverse().find(m => m.role === "assistant")?.content ?? "";
+  const wordCount    = state.question.trim().split(/\s+/).length;
+  const isAffirmative = /^(yes|yeah|sure|ok|okay|please|yep|go ahead|do it|do that|yes please|sounds good|absolutely|of course|great|perfect|please do|definitely|run it|show me|go for it|lets? do it)\b/i.test(state.question.trim());
+  const storedOffer  = typeof (state.knownFacts as Record<string, unknown>)?._pendingOffer === "string"
+    ? (state.knownFacts as Record<string, unknown>)._pendingOffer as string
+    : null;
 
+  if (isAffirmative && wordCount <= 12 && storedOffer) {
+    console.log(`[IntentAgent] STORED_OFFER fast-path → task="${storedOffer.slice(0, 80)}"`);
+    return {
+      intent: { domain: "general", action: "conversation", confidence: 0.97 },
+      confirmedFollowUpAction: storedOffer,
+      knownFacts: { ...(state.knownFacts as Record<string, unknown>), _pendingOffer: null },
+    };
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // ── LLM-based confirmation detection ────────────────────────────────────
   // Pre-filter: only attempt LLM confirmation detection when the message is
-  // short (≤10 words) AND there is a prior assistant message that asked a question.
-  // This avoids the LLM overhead for clearly new or long questions.
+  // short (≤10 words) AND there is a prior assistant message that contains an offer.
+  const historyOffer = /want me to|shall i|would you like|let me|i can show|i can work|i can calculate|run the numbers/i.test(lastAsstMsg);
   const mightBeConfirmation =
     wordCount <= 10 &&
     lastAsstMsg.length > 0 &&
-    lastAsstMsg.includes("?");
+    (lastAsstMsg.includes("?") || historyOffer);
 
   console.log(`[IntentAgent] question="${state.question}" wordCount=${wordCount} mightBeConfirmation=${mightBeConfirmation}`);
 
