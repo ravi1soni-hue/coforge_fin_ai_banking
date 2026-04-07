@@ -84,27 +84,44 @@ export const synthesisAgent = async (
 
     console.log(`[SynthesisAgent] CONFIRMATION PATH — task="${confirmedAction.slice(0, 100)}"`);
 
+    // When the user confirmed an affordability offer and intent is installment_simulation,
+    // override the generic task text with an explicit instalment directive so the LLM
+    // delivers the right output regardless of what _pendingOffer literally said.
+    const isInstalmentSim =
+      state.intent?.action === "installment_simulation" ||
+      /instalment|installment|split|spreading|replenish|numbers|payment.plan|months/i.test(
+        confirmedAction
+      );
+
+    const effectiveTask = isInstalmentSim && targetAmt > 0
+      ? `Show the 0% instalment plan for a ${tripCurrency}${targetAmt} trip. ` +
+        `List the 3-month, 6-month, and 12-month options from the pre-computed lines. ` +
+        `Then in 2–3 sentences compare upfront payment vs instalment on goal/savings impact. ` +
+        `Do NOT restate the affordability verdict, savings balance, or anything from prior turns.`
+      : confirmedAction;
+
     const continuationAnswer = await llm.generateText(
       `You are a personal banking AI assistant. The user confirmed an action — execute it now.
 
 RECENT CONVERSATION:
 ${recentHistory}
 
-CONFIRMED TASK (execute this — do not re-assess affordability):
-"${confirmedAction}"
+CONFIRMED TASK (execute this exactly):
+"${effectiveTask}"
 
 PRE-COMPUTED FIGURES (use these exact numbers — do NOT recalculate):
 ${preComputedNumbers || "See financial data below."}
 ${financeDataContext}
 
-STRICT OUTPUT RULES (response is rejected if any rule is broken):
-1. FIRST word MUST be a number, currency symbol, or option label (e.g. "3-month", "£367", "Option").
-   NEVER start with: Yes, You, Your, With, Based, Covering, Since, Given, As, The, A.
-2. Present ONLY the options/plan for the confirmed task. Do NOT mention affordability or restate savings vs cost verdict.
-3. Use ONLY the pre-computed figures above — do not invent new numbers.
-4. Show each option on its own line with the monthly cost clearly stated.
-5. Maximum 4 sentences total.
-6. Do NOT end with another offer or question.`
+OUTPUT RULES:
+1. DO NOT start with: Yes, Sure, So, You, Your, With, Based, Covering, Paying, Since, Given, As, The, A.
+   Open directly with the plan: "3-month", "Here's how", "Option 1", or similar.
+2. Present ONLY the instalment options or confirmed plan. Do NOT restate affordability, savings balance, or prior verdict.
+3. Use ONLY the pre-computed figures above — do not invent or recalculate numbers.
+4. Show each instalment option on its own line with the monthly amount clearly stated.
+5. After listing options, briefly note the impact on savings and goals (2–3 sentences max).
+6. Maximum 10 sentences total.
+7. Do NOT end with another offer or question.`
     );
 
     console.log(`[SynthesisAgent] continuation answer: ${continuationAnswer.slice(0, 120)}...`);

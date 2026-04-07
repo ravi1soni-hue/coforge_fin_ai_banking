@@ -34,6 +34,55 @@ export const intentAgent = async (
     if (kf[key] !== undefined && kf[key] !== null) planningFacts[key] = kf[key];
   }
 
+  // ── Deterministic consent detection (bypasses LLM for reliability) ───────
+  // The LLM consistently misroutes short affirmative messages (e.g. "yes please
+  // do that") back to "answer", triggering another affordability response.
+  // When the user sends a short affirmative AND we have a _pendingOffer, we
+  // skip the LLM entirely — this is always a confirmation, never a new query.
+  const CONSENT_WORDS = [
+    "yes", "sure", "ok", "okay", "go ahead", "do it",
+    "please", "do that", "run the numbers", "show me", "sounds good",
+  ];
+  const userMsgLower = (state.question ?? "").toLowerCase().trim();
+  const pendingOffer =
+    typeof kf._pendingOffer === "string" && kf._pendingOffer
+      ? kf._pendingOffer
+      : null;
+  const isShortAffirmative =
+    userMsgLower.length < 80 &&
+    CONSENT_WORDS.some((w) => userMsgLower.includes(w));
+
+  if (isShortAffirmative && pendingOffer) {
+    let taskDirective = (pendingOffer as string)
+      .replace(/^want me to\s+/i, "")
+      .replace(/^shall i\s+/i, "")
+      .replace(/^should i\s+/i, "")
+      .replace(/^would you like me to\s+/i, "")
+      .replace(/^let me\s+/i, "")
+      .replace(/^can i\s+/i, "")
+      .replace(/\?+$/, "")
+      .trim();
+    taskDirective =
+      taskDirective.charAt(0).toUpperCase() + taskDirective.slice(1);
+
+    console.log(
+      `[IntentAgent] DETERMINISTIC CONSENT — offer="${pendingOffer.slice(0, 80)}" directive="${taskDirective}"`
+    );
+
+    return {
+      intent: {
+        domain: kf.destination ? "travel" : "general",
+        action: "installment_simulation",
+        subject: (kf.destination ?? undefined) as string | undefined,
+        confidence: 1.0,
+      },
+      question: taskDirective,
+      confirmedFollowUpAction: pendingOffer,
+      missingFacts: [],
+      knownFacts: { ...kf, _affordabilityDone: true },
+    };
+  }
+
   // ── Single LLM orchestration call ────────────────────────────────────────
   // One call does intent classification + fact extraction + routing decision.
   // No hardcoded regex, no sequential multi-call chains.
