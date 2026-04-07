@@ -27,17 +27,19 @@ export class PipelineV2 {
     vectorQuery;
     chatRepo;
     sessionRepo;
+    db;
     store;
     loader;
     /** In-process conversation history cache: sessionKey → turns */
     historyCache = new Map();
-    constructor(llm, vectorQuery, chatRepo, sessionRepo) {
+    constructor(llm, vectorQuery, chatRepo, sessionRepo, db) {
         this.llm = llm;
         this.vectorQuery = vectorQuery;
         this.chatRepo = chatRepo;
         this.sessionRepo = sessionRepo;
+        this.db = db;
         this.store = new ConversationStore(sessionRepo);
-        this.loader = new FinancialLoader(vectorQuery, llm);
+        this.loader = new FinancialLoader(vectorQuery, llm, db);
     }
     // ─── Public entry point ────────────────────────────────────────────────────
     async handle(req) {
@@ -70,7 +72,7 @@ export class PipelineV2 {
                     currency: extracted.currency,
                 };
                 const verdict = computeAffordabilityVerdict(profile, goal);
-                const { should, reason } = computeShouldSuggestProduct(verdict, req.message);
+                const { should, reason } = computeShouldSuggestProduct(verdict, req.message, profile, goal.cost);
                 const answer = await generateAffordabilityAnswer(this.llm, profile, goal, verdict, should, reason, [...history, { role: "user", content: req.message }]);
                 response = { type: "FINAL", message: answer };
                 await this.store.save(req.userId, sid, {
@@ -122,7 +124,7 @@ export class PipelineV2 {
                         currency: extracted.currency,
                     };
                     const verdict = computeAffordabilityVerdict(profile, completeGoal);
-                    const { should, reason } = computeShouldSuggestProduct(verdict, req.message);
+                    const { should, reason } = computeShouldSuggestProduct(verdict, req.message, profile, completeGoal.cost);
                     const answer = await generateAffordabilityAnswer(this.llm, profile, completeGoal, verdict, should, reason, [...history, { role: "user", content: req.message }]);
                     response = { type: "FINAL", message: answer };
                     await this.store.save(req.userId, sid, {

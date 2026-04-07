@@ -72,19 +72,34 @@ export function computeAffordabilityVerdict(profile, goal) {
 /**
  * Decides whether to suggest a banking product.
  *
- * Offer ONLY if at least one condition is true:
- *   - Verdict = CANNOT_AFFORD
- *   - Verdict = RISKY
- *   - User explicitly asked for options/plan/EMI/instalment
+ * Suggest whenever there is a genuine financial opportunity — not by default.
  *
- * COMFORTABLE verdict + no explicit request → should = false → plain response only.
+ * Triggers (any one sufficient):
+ *   - Verdict = CANNOT_AFFORD              → INSUFFICIENT_FUNDS (loan/EMI)
+ *   - Verdict = RISKY                      → CASHFLOW_RISK (instalment/savings pot)
+ *   - COMFORTABLE but remaining savings    → CASHFLOW_IMPACT (savings plan to protect buffer)
+ *     drops to < 2× emergency buffer after payment
+ *   - User explicitly asked for a plan     → USER_REQUESTED
+ *
+ * No suggestion on pure info queries — those never reach this function.
  */
-export function computeShouldSuggestProduct(verdict, userMessage) {
+export function computeShouldSuggestProduct(verdict, userMessage, profile, goalCost) {
     if (verdict === "CANNOT_AFFORD")
         return { should: true, reason: "INSUFFICIENT_FUNDS" };
     if (verdict === "RISKY")
         return { should: true, reason: "CASHFLOW_RISK" };
-    // User explicitly requested a plan/options (even when comfortable)
+    // COMFORTABLE — check if paying upfront meaningfully dents the safety cushion
+    if (verdict === "COMFORTABLE" && profile && goalCost && goalCost > 0) {
+        const remaining = profile.availableSavings - goalCost;
+        const emergencyBuffer = profile.netMonthlySurplus && profile.netMonthlySurplus > 0
+            ? profile.netMonthlySurplus * 3
+            : profile.availableSavings * 0.2;
+        // Remaining is between 1× and 2× the emergency buffer — meaningful cushion reduction
+        if (remaining < emergencyBuffer * 2) {
+            return { should: true, reason: "CASHFLOW_IMPACT" };
+        }
+    }
+    // User explicitly requested a plan/options (always honour regardless of verdict)
     if (/\b(option|plan|emi|instalment|installment|how.{0,20}manage|alternative|split|spread|payment.plan)\b/i.test(userMessage)) {
         return { should: true, reason: "USER_REQUESTED" };
     }
@@ -171,9 +186,13 @@ export async function generateAffordabilityAnswer(llm, profile, goal, verdict, s
         : verdict === "RISKY" ? "⚠️ RISKY — can afford but buffer falls below safe level"
             : "❌ CANNOT AFFORD — cost exceeds available savings";
     const suggestionInstruction = shouldSuggestProduct
-        ? `End with ONE justified offer for a plan/instalment option, directly tied to the risk: "${suggestionReason === "INSUFFICIENT_FUNDS"
-            ? "Since this exceeds your available savings, would you like me to explore a savings or EMI plan?"
-            : "Since this would reduce your buffer below a safe level, want me to map out a 0% instalment plan to spread the cost?"}"`
+        ? `End with ONE short, specific offer tied directly to the user's situation: "${suggestionReason === "INSUFFICIENT_FUNDS"
+            ? "This exceeds your available savings. I can map out an EMI or savings plan to make this reachable — want me to run the numbers?"
+            : suggestionReason === "CASHFLOW_RISK"
+                ? "Paying upfront would reduce your buffer below a safe level. Want me to lay out a 3 or 6-month instalment plan to protect your cash flow?"
+                : suggestionReason === "CASHFLOW_IMPACT"
+                    ? "You can cover this comfortably, but paying in full will noticeably reduce your savings cushion. Would you like me to suggest a 3 or 6-month savings plan so you keep your full buffer intact?"
+                    : "Want me to run through a 3, 6, or 12-month savings or instalment plan for this?"}"`
         : `DO NOT suggest any product, loan, EMI, or savings plan. The verdict is clear — give a plain, reassuring response and stop. No offers, no upsell.`;
     const recentHistory = historyBlock(history);
     return llm.generateText(`${SYSTEM_PREAMBLE}
@@ -205,45 +224,28 @@ export async function generatePlanSimulation(llm, profile, goal, verdict, histor
         monthly: Math.ceil(cost / months),
     }));
     const upfrontRemaining = availableSavings - cost;
-    const monthsToReplenish = netMonthlySurplus && netMonthlySurplus > 0
-        ? Math.ceil(cost / netMonthlySurplus)
-        : null;
-    const preComputed = [
-        `Goal cost: ${goalCurrency}${cost}`,
-        `Current savings: ${homeCurrency}${availableSavings}`,
-        `3-month plan: ${goalCurrency}${plans[0].monthly}/month (savings stay intact: ${homeCurrency}${availableSavings})`,
-        `6-month plan: ${goalCurrency}${plans[1].monthly}/month (savings stay intact: ${homeCurrency}${availableSavings})`,
-        `12-month plan: ${goalCurrency}${plans[2].monthly}/month (savings stay intact: ${homeCurrency}${availableSavings})`,
-        `Lump-sum payment leaves: ${homeCurrency}${upfrontRemaining.toFixed(0)} in savings`,
-        netMonthlySurplus && netMonthlySurplus > 0
-            ? `Monthly surplus: ${homeCurrency}${netMonthlySurplus}`
-            : "",
-        monthsToReplenish
-            ? `Months to replenish savings after lump sum: ${monthsToReplenish} months`
-            : "",
-    ].filter(Boolean).join("\n");
-    const recentHistory = historyBlock(history);
-    return llm.generateText(`${SYSTEM_PREAMBLE}
-${recentHistory ? `RECENT CONVERSATION (for context only):\n${recentHistory}\n\n` : ""}The user confirmed they want the instalment/plan breakdown for ${label}.
-
-PRE-COMPUTED FIGURES — use ONLY these exact numbers, never recalculate:
-${preComputed}
-
-VERDICT CONTEXT: ${verdict === "COMFORTABLE"
-        ? "User can afford lump sum — instalment plan is optional cash-flow optimisation."
-        : verdict === "RISKY"
-            ? "Lump sum risks depleting the emergency buffer — instalment plan protects cash flow."
-            : "User cannot afford lump sum — instalment plan is the only viable path."}
-
-CRITICAL OUTPUT RULES:
-1. Start DIRECTLY with the plan — e.g. "3-month plan: ..." or "Here are your options:".
-2. DO NOT say: "Yes", "Sure", "Based on your savings", "You've got", or any affordability restatement.
-3. DO NOT repeat that the user can/cannot afford it. Deliver only the plan.
-4. List ALL THREE options (3, 6, 12 months) on separate lines with exact monthly amounts.
-5. After listing options, add 2 sentences comparing instalment vs lump-sum on buffers/goals.
-6. Use ONLY the pre-computed figures. Maximum 8 sentences total.
-7. Plain prose. No markdown headers.
-8. No follow-up offer at the end — the user already asked for this.`);
+    const canAffordLumpSum = upfrontRemaining >= 0;
+    const lumpSumNote = canAffordLumpSum
+        ? `Paying upfront would reduce savings to ${homeCurrency}${upfrontRemaining.toFixed(0)}, reducing your emergency cushion.`
+        : `A lump-sum payment is not viable — you would be ${homeCurrency}${Math.abs(upfrontRemaining).toFixed(0)} short.`;
+    // All numbers are pre-computed — no LLM needed, build the string directly
+    return Promise.resolve(`You can fund this ${label} using the following options:\n\n` +
+        `🔹 OPTION 1: 3-Month Plan\n` +
+        `• Monthly payment: ${goalCurrency}${plans[0].monthly}\n` +
+        `• Savings impact: No savings used (${homeCurrency}${availableSavings} stays intact)\n` +
+        `• Best if you want to finish quickly\n\n` +
+        `🔹 OPTION 2: 6-Month Plan\n` +
+        `• Monthly payment: ${goalCurrency}${plans[1].monthly}\n` +
+        `• Savings impact: No savings used (${homeCurrency}${availableSavings} stays intact)\n` +
+        `• Balanced monthly commitment\n\n` +
+        `🔹 OPTION 3: 12-Month Plan\n` +
+        `• Monthly payment: ${goalCurrency}${plans[2].monthly}\n` +
+        `• Savings impact: No savings used (${homeCurrency}${availableSavings} stays intact)\n` +
+        `• Lowest monthly pressure\n\n` +
+        `✅ Why instalments help:\n` +
+        `• Keeps your emergency buffer intact\n` +
+        `• ${lumpSumNote}\n` +
+        `• Protects you from unexpected expenses`);
 }
 // ─── 8. Planning answer (PLANNING intent) ────────────────────────────────────
 export async function generatePlanningAnswer(llm, vectorQuery, userId, question, profile, goal, history) {

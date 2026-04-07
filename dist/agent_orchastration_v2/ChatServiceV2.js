@@ -8,8 +8,8 @@
 import { PipelineV2 } from "./pipeline.js";
 export class ChatServiceV2 {
     pipeline;
-    constructor({ llmClient, vectorQueryService, chatRepo, sessionRepo, }) {
-        this.pipeline = new PipelineV2(llmClient, vectorQueryService, chatRepo, sessionRepo);
+    constructor({ llmClient, vectorQueryService, chatRepo, sessionRepo, db, }) {
+        this.pipeline = new PipelineV2(llmClient, vectorQueryService, chatRepo, sessionRepo, db);
         console.log("✅ ChatServiceV2 (state-machine pipeline) initialised");
     }
     /**

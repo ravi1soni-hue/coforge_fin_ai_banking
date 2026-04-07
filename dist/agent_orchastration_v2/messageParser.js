@@ -30,10 +30,21 @@ const CONSENT_PATTERNS = [
  * Returns true if the message is a short affirmative/consent (< 100 chars)
  * and matches at least one consent pattern.
  * Used by the pipeline to detect "yes please do that" without any LLM call.
+ *
+ * Returns false if the message contains a monetary amount or an interrogative
+ * phrase — those indicate a new question, not consent to the previous offer.
  */
 export function isAffirmative(message) {
     const trimmed = message.trim();
     if (trimmed.length > 100)
+        return false;
+    // If message contains a monetary amount, it's a new query — not consent
+    if (/[\d,]+(?:\.\d{1,2})?\s*(gbp|pound|pounds|eur|euro|euros|usd|dollar|dollars)/i.test(trimmed))
+        return false;
+    if (/[£$€]\s*[\d,]+/.test(trimmed))
+        return false;
+    // If message contains a new question / "what about" / "how about", it's a new query
+    if (/\bwhat (about|if)\b|\bhow (about|much)\b|\band (what|how)\b|\bwhat.{0,15}(trip|cost|afford)\b/i.test(trimmed))
         return false;
     return CONSENT_PATTERNS.some((p) => p.test(trimmed));
 }
