@@ -6,8 +6,9 @@ import { parseClientSocketMessage, } from "./socket.dto.js";
  * userId -> active WebSocket connections
  */
 const userConnections = new Map();
-// ✅ Resolve singleton from Awilix (typed)
+// ✅ Resolve singletons from Awilix (typed)
 const chatService = container.resolve("chatService");
+const userRepo = container.resolve("userRepo");
 const buildErrorMessage = ({ requestId, sessionId, code, message, retriable = false, }) => ({
     v: 1,
     type: "CHAT_RESPONSE",
@@ -158,16 +159,24 @@ export const initWebSocket = (server) => {
             socket.destroy();
         }
     });
-    wss.on("connection", (ws, req) => {
+    wss.on("connection", async (ws, req) => {
         const url = new URL(req.url ?? "", `http://${req.headers.host}`);
         const queryUserId = url.searchParams.get("userId");
         const headerUserId = typeof req.headers["x-user-id"] === "string"
             ? req.headers["x-user-id"]
             : undefined;
-        const userId = queryUserId?.trim() ||
-            headerUserId?.trim() ||
-            `anonymous-${crypto.randomUUID()}`;
-        if (!queryUserId && !headerUserId) {
+        const rawExternalId = queryUserId?.trim() || headerUserId?.trim();
+        let userId;
+        if (rawExternalId) {
+            // Resolve external_user_id → internal UUID (vector_documents.user_id is UUID FK to users.id)
+            const user = await userRepo.findByExternalId(rawExternalId).catch(() => undefined);
+            userId = user?.id ?? rawExternalId;
+            if (!user) {
+                console.warn("⚠️ No DB user found for external_user_id; using raw id for session", { rawExternalId });
+            }
+        }
+        else {
+            userId = `anonymous-${crypto.randomUUID()}`;
             console.warn("⚠️ WebSocket connection opened without explicit userId; assigned fallback id", { url: req.url, assignedUserId: userId });
         }
         ws.userId = userId;
@@ -181,6 +190,16 @@ export const initWebSocket = (server) => {
         }
         userConnections.get(userId).add(ws);
         console.log(`✅ User connected: ${userId} (total: ${wss.clients.size})`);
+        // ✅ Proactively send diagnostic so Flutter preflight health check passes
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                v: 1,
+                type: "diagnostic",
+                status: "online",
+                message: "FinAi is online and ready",
+                timestamp: new Date().toISOString(),
+            }));
+        }
         /**
          * Message handler
          */
@@ -190,6 +209,16 @@ export const initWebSocket = (server) => {
             try {
                 const messageString = message.toString();
                 console.log(`Received from ${userId}: ${messageString}`);
+                // Handle preflight health check probe (Flutter sends {} to verify connectivity)
+                if (messageString.trim() === "{}") {
+                    ws.send(JSON.stringify({
+                        v: 1,
+                        type: "diagnostic",
+                        status: "online",
+                        timestamp: new Date().toISOString(),
+                    }));
+                    return;
+                }
                 const parsedMessage = parseIncomingMessage(messageString);
                 requestId = parsedMessage.requestId;
                 sessionId = parsedMessage.sessionId;

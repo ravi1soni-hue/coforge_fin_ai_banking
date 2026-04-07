@@ -5,13 +5,18 @@
  * The LLM is called ONLY to generate user-facing text.
  *
  * Stage transitions:
- *   GENERAL          + affordability question (no amount) → AWAITING_AMOUNT
- *   GENERAL          + affordability question (has amount) → AFFORDABILITY_DONE
- *   GENERAL          + instalment request                  → deliver plan (need trip context) or GENERAL
- *   AWAITING_AMOUNT  + message has numeric amount          → AFFORDABILITY_DONE
- *   AWAITING_AMOUNT  + non-numeric message                 → re-ask
- *   AFFORDABILITY_DONE + affirmative ("yes please do that") → GENERAL (deliver instalment plan)
- *   AFFORDABILITY_DONE + new unrelated question            → GENERAL (answer new question)
+ *   GENERAL              + AFFORDABILITY_CHECK (no amount) → AWAITING_COST → ask for cost
+ *   GENERAL              + AFFORDABILITY_CHECK (has amount) → VERDICT_GIVEN → deliver verdict
+ *   AWAITING_COST        + message has amount              → VERDICT_GIVEN → deliver verdict
+ *   AWAITING_COST        + no amount                       → re-ask
+ *   VERDICT_GIVEN        + affirmative ("yes please do that") → PLAN_SUGGESTED → deliver plan
+ *   VERDICT_GIVEN        + new unrelated question          → GENERAL → answer fresh
+ *   GENERAL              + PLANNING (has time horizon)     → PLAN_SUGGESTED → deliver plan
+ *   GENERAL              + PLANNING (no time horizon)      → AWAITING_TIME_HORIZON → ask
+ *   AWAITING_TIME_HORIZON + any message                    → PLAN_SUGGESTED → deliver plan
+ *   GENERAL              + INFO_ONLY                       → GENERAL → info answer
+ *   GENERAL              + COMPARISON                      → GENERAL → comparison answer
+ *   GENERAL              + ACTION_SUGGESTION               → GENERAL → general answer
  */
 
 import type { LlmClient } from "../agent_orchastration/llm/llmClient.js";
@@ -21,16 +26,36 @@ import type { SessionRepository } from "../repo/session.repo.js";
 
 import { ConversationStore } from "./conversationStore.js";
 import { FinancialLoader } from "./financialLoader.js";
-import { isAffirmative, extractAmount, extractDestination } from "./messageParser.js";
+import {
+  isAffirmative,
+  extractAmount,
+  extractDestination,
+  inferGoalTypeFromMessage,
+  extractTimeHorizon,
+} from "./messageParser.js";
 import {
   classifyIntent,
+  computeAffordabilityVerdict,
+  computeShouldSuggestProduct,
   generateCostQuestion,
+  generateTimeHorizonQuestion,
   generateAffordabilityAnswer,
-  generateInstalmentSimulation,
+  generatePlanSimulation,
+  generatePlanningAnswer,
+  generateInfoAnswer,
+  generateComparisonAnswer,
   generateGeneralAnswer,
 } from "./responseGenerators.js";
 
-import type { ChatRequestV2, ChatResponseV2, TripContext, UserProfile, ConversationTurn } from "./types.js";
+import type {
+  ChatRequestV2,
+  ChatResponseV2,
+  FinancialGoalContext,
+  UserProfile,
+  ConversationTurn,
+  V2State,
+  AffordabilityVerdict,
+} from "./types.js";
 
 export class PipelineV2 {
   private readonly store: ConversationStore;
@@ -66,147 +91,170 @@ export class PipelineV2 {
     );
 
     // Load user financial profile from incoming knownFacts
-    const profile = await this.loader.loadProfile(
-      req.userId,
-      req.knownFacts ?? {},
-    );
+    const profile = await this.loader.loadProfile(req.userId, req.knownFacts ?? {});
 
     // ── ROUTE ──────────────────────────────────────────────────────────────────
 
     let response: ChatResponseV2;
 
-    if (v2State.stage === "AFFORDABILITY_DONE" && isAffirmative(req.message)) {
-      // ── PATH A: User consented to instalment plan ──────────────────────────
-      console.log("[PipelineV2] PATH A — instalment simulation (consent detected)");
-      response = await this.handleInstalmentSimulation(
-        req,
-        profile,
-        v2State.trip,
-        history,
-      );
-      // After delivering instalments, reset stage to GENERAL
-      await this.store.save(req.userId, sid, { stage: "GENERAL", profile });
+    if (v2State.stage === "VERDICT_GIVEN" && isAffirmative(req.message)) {
+      // ── PATH A: User consented to plan simulation ──────────────────────────
+      console.log("[PipelineV2] PATH A — plan simulation (consent detected)");
+      response = await this.handlePlanSimulation(req, profile, v2State, history);
+      await this.store.save(req.userId, sid, { stage: "PLAN_SUGGESTED" });
 
-    } else if (v2State.stage === "AWAITING_AMOUNT") {
-      // ── PATH B: We asked for amount last turn — user is replying ───────────
+    } else if (v2State.stage === "AWAITING_COST") {
+      // ── PATH B: We asked for amount last turn — user is replying ──────────
       const extracted = extractAmount(req.message);
 
       if (extracted) {
-        console.log(
-          `[PipelineV2] PATH B — amount received: ${extracted.amount} ${extracted.currency}`,
-        );
-        const trip: TripContext = {
+        console.log(`[PipelineV2] PATH B — amount received: ${extracted.amount} ${extracted.currency}`);
+        const goal: FinancialGoalContext = {
+          ...(v2State.goal ?? { goalType: inferGoalTypeFromMessage(req.message) }),
           cost: extracted.amount,
           currency: extracted.currency,
-          destination: v2State.trip?.destination,
         };
+        const verdict = computeAffordabilityVerdict(profile, goal);
+        const { should, reason } = computeShouldSuggestProduct(verdict, req.message);
         const answer = await generateAffordabilityAnswer(
-          this.llm,
-          profile,
-          trip,
+          this.llm, profile, goal, verdict, should, reason,
           [...history, { role: "user", content: req.message }],
         );
         response = { type: "FINAL", message: answer };
         await this.store.save(req.userId, sid, {
-          stage: "AFFORDABILITY_DONE",
-          trip,
+          stage: "VERDICT_GIVEN",
+          goal,
+          lastVerdict: verdict,
+          intent: v2State.intent,
+          domain: v2State.domain,
           profile,
         });
       } else {
         // Still no amount — re-ask politely
         console.log("[PipelineV2] PATH B — no amount found, re-asking");
-        const question = await generateCostQuestion(
-          this.llm,
-          req.message,
-          v2State.trip?.destination,
-        );
+        const question = await generateCostQuestion(this.llm, req.message, v2State.goal);
         response = { type: "FOLLOW_UP", message: question, missingFacts: ["targetAmount"] };
-        await this.store.save(req.userId, sid, {
-          ...v2State,
-          stage: "AWAITING_AMOUNT",
-        });
+        await this.store.save(req.userId, sid, { ...v2State });
       }
 
-    } else {
-      // ── PATH C: GENERAL stage (or AFFORDABILITY_DONE + non-affirmative) ───
-      // Classify the new message with a minimal LLM call
-      const intent = await classifyIntent(
-        this.llm,
-        req.message,
-        history,
+    } else if (v2State.stage === "AWAITING_TIME_HORIZON") {
+      // ── PATH C: We asked for time horizon — user is replying ──────────────
+      const timeHorizon = extractTimeHorizon(req.message) ?? req.message.trim();
+      const goal: FinancialGoalContext = {
+        ...(v2State.goal ?? { goalType: "SAVINGS" }),
+        timeHorizon,
+      };
+      const answer = await generatePlanningAnswer(
+        this.llm, this.vectorQuery, req.userId, req.message, profile, goal,
+        [...history, { role: "user", content: req.message }],
       );
-      console.log(`[PipelineV2] PATH C — classified intent: ${intent}`);
+      response = { type: "FINAL", message: answer };
+      await this.store.save(req.userId, sid, { stage: "PLAN_SUGGESTED", goal, profile });
 
-      if (intent === "AFFORDABILITY") {
+    } else {
+      // ── PATH D: GENERAL stage (or VERDICT_GIVEN + non-affirmative) ────────
+      // Classify the message with a minimal LLM call
+      const classification = await classifyIntent(this.llm, req.message, history);
+      console.log(
+        `[PipelineV2] PATH D — intent=${classification.intent} domain=${classification.domain} reasoning=${classification.reasoning}`,
+      );
+
+      if (classification.intent === "AFFORDABILITY_CHECK") {
         const extracted = extractAmount(req.message);
         const destination = extractDestination(req.message);
+        const goalType = inferGoalTypeFromMessage(req.message);
+        const partialGoal: FinancialGoalContext = {
+          goalType,
+          metadata: destination ? { destination } : undefined,
+        };
 
         if (extracted) {
-          // We have everything — run affordability now
-          const trip: TripContext = {
+          // Have everything — run affordability now
+          const completeGoal: FinancialGoalContext = {
+            ...partialGoal,
             cost: extracted.amount,
             currency: extracted.currency,
-            destination,
           };
+          const verdict = computeAffordabilityVerdict(profile, completeGoal);
+          const { should, reason } = computeShouldSuggestProduct(verdict, req.message);
           const answer = await generateAffordabilityAnswer(
-            this.llm,
-            profile,
-            trip,
+            this.llm, profile, completeGoal, verdict, should, reason,
             [...history, { role: "user", content: req.message }],
           );
           response = { type: "FINAL", message: answer };
           await this.store.save(req.userId, sid, {
-            stage: "AFFORDABILITY_DONE",
-            trip,
+            stage: "VERDICT_GIVEN",
+            goal: completeGoal,
+            lastVerdict: verdict,
+            intent: classification.intent,
+            domain: classification.domain,
+            reasoning: classification.reasoning,
             profile,
           });
         } else {
           // Need the amount — ask for it
-          const question = await generateCostQuestion(this.llm, req.message, destination);
-          response = {
-            type: "FOLLOW_UP",
-            message: question,
-            missingFacts: ["targetAmount"],
-          };
+          const question = await generateCostQuestion(this.llm, req.message, partialGoal);
+          response = { type: "FOLLOW_UP", message: question, missingFacts: ["targetAmount"] };
           await this.store.save(req.userId, sid, {
-            stage: "AWAITING_AMOUNT",
-            trip: destination ? { cost: 0, currency: "GBP", destination } : undefined,
+            stage: "AWAITING_COST",
+            goal: partialGoal,
+            intent: classification.intent,
+            domain: classification.domain,
+            reasoning: classification.reasoning,
             profile,
           });
         }
 
-      } else if (intent === "INSTALMENT_REQUEST") {
-        // Instalment request in GENERAL stage — do we have trip context?
-        if (v2State.trip?.cost && v2State.trip.cost > 0) {
-          response = await this.handleInstalmentSimulation(
-            req,
+      } else if (classification.intent === "PLANNING") {
+        const timeHorizon = extractTimeHorizon(req.message);
+        const extracted = extractAmount(req.message);
+        const goalType = inferGoalTypeFromMessage(req.message);
+        const goal: FinancialGoalContext = {
+          goalType,
+          timeHorizon,
+          cost: extracted?.amount,
+        };
+
+        if (extracted?.amount && !timeHorizon) {
+          // Has cost but no time horizon — ask for it
+          const question = await generateTimeHorizonQuestion(this.llm, req.message);
+          response = { type: "FOLLOW_UP", message: question, missingFacts: ["timeHorizon"] };
+          await this.store.save(req.userId, sid, {
+            stage: "AWAITING_TIME_HORIZON",
+            goal,
+            intent: classification.intent,
+            domain: classification.domain,
             profile,
-            v2State.trip,
-            history,
-          );
-          await this.store.save(req.userId, sid, { stage: "GENERAL", profile });
+          });
         } else {
-          // No trip context — treat as general message
-          const answer = await generateGeneralAnswer(
-            this.llm,
-            this.vectorQuery,
-            req.userId,
-            req.message,
-            profile,
+          const answer = await generatePlanningAnswer(
+            this.llm, this.vectorQuery, req.userId, req.message, profile, goal,
             [...history, { role: "user", content: req.message }],
           );
           response = { type: "FINAL", message: answer };
           await this.store.save(req.userId, sid, { stage: "GENERAL", profile });
         }
 
+      } else if (classification.intent === "COMPARISON") {
+        const answer = await generateComparisonAnswer(
+          this.llm, this.vectorQuery, req.userId, req.message, profile,
+          [...history, { role: "user", content: req.message }],
+        );
+        response = { type: "FINAL", message: answer };
+        await this.store.save(req.userId, sid, { stage: "GENERAL", profile });
+
+      } else if (classification.intent === "INFO_ONLY") {
+        const answer = await generateInfoAnswer(
+          this.llm, this.vectorQuery, req.userId, req.message, profile,
+          [...history, { role: "user", content: req.message }],
+        );
+        response = { type: "FINAL", message: answer };
+        await this.store.save(req.userId, sid, { stage: "GENERAL", profile });
+
       } else {
-        // GENERAL question
+        // ACTION_SUGGESTION or fallback
         const answer = await generateGeneralAnswer(
-          this.llm,
-          this.vectorQuery,
-          req.userId,
-          req.message,
-          profile,
+          this.llm, this.vectorQuery, req.userId, req.message, profile,
           [...history, { role: "user", content: req.message }],
         );
         response = { type: "FINAL", message: answer };
@@ -230,29 +278,24 @@ export class PipelineV2 {
 
   // ─── Private helpers ───────────────────────────────────────────────────────
 
-  private async handleInstalmentSimulation(
+  private async handlePlanSimulation(
     req: ChatRequestV2,
     profile: UserProfile,
-    tripCtx: TripContext | undefined,
+    state: V2State,
     history: ConversationTurn[],
   ): Promise<ChatResponseV2> {
-    if (!tripCtx || tripCtx.cost <= 0) {
-      // No trip context — ask
+    if (!state.goal?.cost || state.goal.cost <= 0) {
       const question = await generateCostQuestion(this.llm, req.message);
-      return {
-        type: "FOLLOW_UP",
-        message: question,
-        missingFacts: ["targetAmount"],
-      };
+      return { type: "FOLLOW_UP", message: question, missingFacts: ["targetAmount"] };
     }
 
-    const answer = await generateInstalmentSimulation(
-      this.llm,
-      profile,
-      tripCtx,
+    const verdict: AffordabilityVerdict =
+      state.lastVerdict ?? computeAffordabilityVerdict(profile, state.goal);
+
+    const answer = await generatePlanSimulation(
+      this.llm, profile, state.goal, verdict,
       [...history, { role: "user", content: req.message }],
     );
-
     return { type: "FINAL", message: answer };
   }
 

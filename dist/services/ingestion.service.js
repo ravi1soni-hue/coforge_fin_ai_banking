@@ -1,8 +1,6 @@
 import { Transform } from "stream";
-import crypto from "crypto";
 import { splitTextByLines } from "../utils/text.resizer.js";
 import { getEmbeddingForText } from "./embedding/embedding.helper.js";
-import { VectorDocument } from "../models/vector.document.js";
 import { container } from "../config/di.container.js";
 /* ---------------- Resolve Awilix Singleton ---------------- */
 const vectorRepo = container.resolve("vectorRepo");
@@ -81,19 +79,22 @@ export const processString = async (text, metaData = {}) => {
                 console.warn("⚠️ Empty embedding, skipping chunk");
                 continue;
             }
-            // 2️⃣ Create vector document
-            const vectorDoc = new VectorDocument({
-                id: crypto.randomUUID(),
-                text: chunk,
+            // 2️⃣ Create and store vector document in DB
+            const userId = typeof metaData.userId === "string" ? metaData.userId : "unknown_user";
+            await vectorRepo.insertDb({
+                user_id: userId,
+                content: chunk,
                 embedding,
+                domain: typeof metaData.sourceType === "string" ? metaData.sourceType : null,
+                facet: typeof metaData.section === "string" ? metaData.section : null,
+                source: typeof metaData.source === "string" ? metaData.source : null,
                 metadata: {
                     ...metaData,
                     chunkIndex: i,
                     chunkCount: textChunks.length,
                 },
+                embedding_model: "text-embedding-3-small",
             });
-            // 3️⃣ Store in vector repository
-            vectorRepo.addDocument(vectorDoc);
         }
         catch (err) {
             const message = err instanceof Error ? err.message : String(err);

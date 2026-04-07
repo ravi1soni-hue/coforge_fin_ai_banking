@@ -1,5 +1,6 @@
 {
-  "userProfile": {
+ 
+    "userProfile": {
     "userId": "uk_user_001",
     "name": "James Walker",
     "currency": "GBP",
@@ -11,6 +12,7 @@
     }
   },
 
+  
   "accounts": [
     {
       "accountId": "acc_savings_01",
@@ -27,6 +29,7 @@
     }
   ],
 
+  
   "loans": [
     {
       "loanId": "loan_personal_01",
@@ -43,6 +46,7 @@
       "remainingTenureMonths": 26
     }
   ],
+
 
   "subscriptions": [
     { "name": "Netflix", "amount": 10.99, "cycle": "Monthly" },

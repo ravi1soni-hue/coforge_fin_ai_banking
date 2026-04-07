@@ -22,11 +22,15 @@ export class OpenAIClient extends LlmClient {
                     model: model,
                     messages: [
                         {
+                            role: "system",
+                            content: "You are an expert AI banking assistant. Follow task instructions precisely and completely.",
+                        },
+                        {
                             role: "user",
-                            content: `You are a helpful AI. Reply to: ${prompt}`,
+                            content: prompt,
                         },
                     ],
-                    temperature: 0.8,
+                    temperature: 0.7,
                     top_p: 0.9,
                     max_tokens: 1000,
                 }),

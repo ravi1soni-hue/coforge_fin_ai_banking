@@ -1,42 +1,48 @@
+/**
+ * Financial Assistant Graph — LangGraph StateGraph
+ *
+ * Simplified 5-agent architecture:
+ *   START → intentAgent → [router]
+ *     ├─ askUser      → followUpQuestionAgent → END
+ *     ├─ confirmPath  → synthesisAgent        → END
+ *     └─ analyzePath  → financeAgent → webSearchAgent → synthesisAgent → END
+ *
+ * intentAgent now handles intent + fact extraction + missing facts.
+ */
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { GraphState } from "./state.js";
 import { intentAgent } from "../agents/intentAgent.js";
-import { plannerAgent } from "../agents/plannerAgent.js";
-import { plannerRouter } from "../agents/plannerRouter.js";
 import { followUpQuestionAgent } from "../agents/followUpQuestionAgent.js";
 import { financeAgent } from "../agents/financeAgent.js";
 import { webSearchAgent } from "../agents/webSearchAgent.js";
-import { researchAgent } from "../agents/researchAgent.js";
-import { reasoningAgent } from "../agents/reasoningAgent.js";
-import { productRecommendationAgent } from "../agents/productRecommendationAgent.js";
-import { suggestionAgent } from "../agents/suggestionAgent.js";
 import { synthesisAgent } from "../agents/synthesisAgent.js";
+const routeFromIntent = (state) => {
+    if (state.confirmedFollowUpAction)
+        return "confirmPath";
+    if (Array.isArray(state.missingFacts) && state.missingFacts.length > 0)
+        return "askUser";
+    return "analyzePath";
+};
 export const financialAssistantGraph = new StateGraph(GraphState)
     .addNode("intentAgent", intentAgent)
-    .addNode("plannerAgent", plannerAgent)
     .addNode("followUpQuestionAgent", followUpQuestionAgent)
     .addNode("financeAgent", financeAgent)
     .addNode("webSearchAgent", webSearchAgent)
-    .addNode("researchAgent", researchAgent)
-    .addNode("reasoningAgent", reasoningAgent)
-    .addNode("productRecommendationAgent", productRecommendationAgent)
-    .addNode("suggestionAgent", suggestionAgent)
     .addNode("synthesisAgent", synthesisAgent)
-    // ✅ Start flow
+    // Entry point
     .addEdge(START, "intentAgent")
-    .addEdge("intentAgent", "plannerAgent")
-    // ✅ Conditional routing after planning
-    .addConditionalEdges("plannerAgent", plannerRouter, {
+    // Router: missing facts → ask user | all other paths → full analysis pipeline
+    // confirmPath now also goes through financeAgent so synthesisAgent has real financial data
+    .addConditionalEdges("intentAgent", routeFromIntent, {
     askUser: "followUpQuestionAgent",
-    financeAgent: "financeAgent",
+    confirmPath: "financeAgent",
+    analyzePath: "financeAgent",
 })
-    // ✅ Ask user → END (wait for reply)
+    // Ask user → END (wait for reply in next turn)
     .addEdge("followUpQuestionAgent", END)
-    // ✅ Main analysis flow
+    // Main analysis pipeline
     .addEdge("financeAgent", "webSearchAgent")
-    .addEdge("webSearchAgent", "researchAgent")
-    .addEdge("researchAgent", "reasoningAgent")
-    .addEdge("reasoningAgent", "productRecommendationAgent")
-    .addEdge("productRecommendationAgent", "suggestionAgent")
-    .addEdge("suggestionAgent", "synthesisAgent")
+    .addEdge("webSearchAgent", "synthesisAgent")
     .addEdge("synthesisAgent", END);
+/** Compiled graph — invoke this, not the builder */
+export const compiledGraph = financialAssistantGraph.compile();

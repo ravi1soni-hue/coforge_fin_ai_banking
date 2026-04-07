@@ -12,6 +12,13 @@ export const GraphState = z.object({
         confidence: z.number(), // 0 → 1
     })
         .optional(),
+    // ✅ Conversation history for multi-turn context (newest last)
+    conversationHistory: z
+        .array(z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string(),
+    }))
+        .default([]),
     // ✅ User‑provided / extracted facts (multi‑turn)
     knownFacts: z.record(z.string(), z.unknown()).default({}),
     missingFacts: z.array(z.string()).default([]),
@@ -49,6 +56,9 @@ export const GraphState = z.object({
     // ✅ Context-aware suggestion (intent-based)
     suggestion: z.string().optional(),
     isSuggestionIncluded: z.boolean().optional(),
+    // ✅ Confirmed follow-up action (set when user confirms a pending offer, cleared after synthesis)
+    // Used to route confirmations through a lightweight path and tell synthesisAgent what to deliver.
+    confirmedFollowUpAction: z.string().optional(),
     // ✅ Final user‑facing answer
     finalAnswer: z.string().optional(),
 });

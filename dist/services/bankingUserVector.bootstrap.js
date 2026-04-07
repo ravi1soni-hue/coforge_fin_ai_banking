@@ -16,18 +16,18 @@ export const bootstrapBankingUserVectors = async () => {
         return;
     }
     const parsed = parseJsonWithComments(rawData);
-    const userId = parsed.userProfile?.userId ?? "unknown_user";
+    const externalUserId = parsed.userProfile?.userId ?? "unknown_user";
+    // Resolve external_user_id → internal UUID (vector_documents.user_id is a UUID FK)
+    const userRepo = container.resolve("userRepo");
+    const userRow = await userRepo.findByExternalId(externalUserId).catch(() => undefined);
+    if (!userRow) {
+        throw new Error(`Cannot bootstrap vectors: no user found in DB for external_user_id="${externalUserId}". Run the seed script first.`);
+    }
+    const userId = userRow.id; // internal UUID
     const docs = buildVectorDocuments(parsed);
     const vectorRepo = container.resolve("vectorRepo");
-    const removed = vectorRepo.removeDocuments((doc) => {
-        const source = typeof doc.metadata?.source === "string"
-            ? doc.metadata.source
-            : "";
-        const sourceUserId = typeof doc.metadata?.userId === "string"
-            ? doc.metadata.userId
-            : "";
-        return source === "banking_user_data.json" && sourceUserId === userId;
-    });
+    // Deactivate stale docs for this user in DB (replaces old in-memory removeDocuments)
+    await vectorRepo.deactivateAllForUser(userId);
     for (const doc of docs) {
         await processString(doc.text, {
             source: "banking_user_data.json",
@@ -39,7 +39,7 @@ export const bootstrapBankingUserVectors = async () => {
     }
     alreadyBootstrapped = true;
     lastBootstrapSignature = signature;
-    console.log(`✅ Bootstrapped ${docs.length} banking profile documents into vector store (removed stale docs: ${removed})`);
+    console.log(`✅ Bootstrapped ${docs.length} banking profile documents into pgvector DB for user ${userId}`);
 };
 const buildVectorDocuments = (data) => {
     const docs = [];

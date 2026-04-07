@@ -49,12 +49,10 @@ Return format:
   "requiredFacets": string[]
 }
 `);
-    const facetsToExtract = facetDecision.requiredFacets.filter((f) => ALLOWED_FINANCIAL_FACETS.includes(f)) ?? ["cashflow_summary"];
-    // Step 2: Fetch RAG financial context
-    const context = await vectorQueryService.getContext(`financial data for user ${state.userId}. Question: ${state.question}`, {
-        topK: 8,
-        filter: (doc) => doc.metadata?.userId === state.userId,
-    });
+    const rawFacets = facetDecision.requiredFacets?.filter((f) => ALLOWED_FINANCIAL_FACETS.includes(f)) ?? [];
+    const facetsToExtract = rawFacets.length > 0 ? rawFacets : ["cashflow_summary"];
+    // Step 2: Fetch RAG financial context from pgvector
+    const context = await vectorQueryService.getContext(state.userId, `financial data for user ${state.userId}. Question: ${state.question}`, { topK: 8 });
     // Step 3: Extract only the required facets from vector context
     const vectorFinanceData = await llm.generateJSON(`
 Extract ONLY the specified financial facets from the context below.

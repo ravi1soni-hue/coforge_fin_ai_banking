@@ -1,18 +1,18 @@
-import { buildDeterministicSnapshot, validateAssistantAnswer, } from "../../agent_orchastration/services/deterministicFinance.service.js";
 import { sql } from "kysely";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 /* ---------------- Service ---------------- */
 export class ChatService {
     assistantService;
     db;
+    chatRepo;
+    sessionRepo;
     financialProfileTableReady;
-    fallbackBankingFacts;
-    fallbackBankingFactsLoading;
     sessionKnownFacts = new Map();
-    constructor({ assistantService, db, }) {
+    sessionConversationHistory = new Map();
+    constructor({ assistantService, db, chatRepo, sessionRepo, }) {
         this.assistantService = assistantService;
         this.db = db;
+        this.chatRepo = chatRepo;
+        this.sessionRepo = sessionRepo;
         console.log("✅ assistantService REAL instance:", assistantService.constructor.name);
     }
     /**
@@ -21,22 +21,39 @@ export class ChatService {
     async handleMessage(request) {
         const sessionKey = this.getSessionKey(request.userId, request.sessionId);
         const persistedProfileFacts = await this.loadFinancialFactsFromDb(request.userId);
-        const fallbackFacts = await this.loadFallbackBankingFactsForSession(persistedProfileFacts, request.knownFacts);
-        const persistedFacts = this.sessionKnownFacts.get(sessionKey) ?? {};
+        const cachedFacts = this.sessionKnownFacts.get(sessionKey);
+        const persistedFacts = cachedFacts ??
+            (await this.sessionRepo.getKnownFacts(request.userId, request.sessionId ?? "default"));
         const normalizedIncomingFacts = this.normalizeKnownFactsPayload(request.knownFacts ?? {});
         const mergedKnownFacts = {
-            ...fallbackFacts,
             ...persistedProfileFacts,
             ...persistedFacts,
             ...normalizedIncomingFacts,
         };
+        // Protect home currency: if a profileCurrency was set by the normalizer,
+        // never let a trip-specific currency override it in the merged facts.
+        if (mergedKnownFacts.profileCurrency && mergedKnownFacts.currency !== mergedKnownFacts.profileCurrency) {
+            mergedKnownFacts.currency = mergedKnownFacts.profileCurrency;
+        }
         this.sessionKnownFacts.set(sessionKey, mergedKnownFacts);
         await this.persistFinancialFactsToDb(request.userId, mergedKnownFacts);
+        // Persist full session known facts (non-blocking)
+        void this.sessionRepo.setKnownFacts(request.userId, request.sessionId ?? "default", mergedKnownFacts);
+        // Build conversation history (last 10 turns to cap token usage)
+        const historyKey = sessionKey;
+        const cachedHistory = this.sessionConversationHistory.get(historyKey);
+        const existingHistory = cachedHistory ??
+            (await this.chatRepo.getHistory(request.userId, request.sessionId ?? "default", 10));
+        const conversationHistory = [
+            ...existingHistory,
+            { role: "user", content: request.message },
+        ].slice(-10);
         const initialState = {
             userId: request.userId,
             question: request.message,
             knownFacts: mergedKnownFacts,
             missingFacts: [],
+            conversationHistory,
         };
         let resultState;
         try {
@@ -51,37 +68,45 @@ export class ChatService {
                 message: "Sorry, I ran into an internal problem while answering. Please try again.",
             };
         }
-        // ✅ Persist LLM-extracted facts back to session so follow-up turns retain full context
+        // ✅ Persist LLM-extracted facts back to session so follow-up turns retain full context.
+        // Use await (not void) so pendingFollowUpAction is guaranteed written to DB before the
+        // response is returned — critical for Railway restarts between conversational turns.
         if (resultState.knownFacts && Object.keys(resultState.knownFacts).length > 0) {
-            this.sessionKnownFacts.set(sessionKey, { ...mergedKnownFacts, ...resultState.knownFacts });
+            const updatedFacts = { ...mergedKnownFacts, ...resultState.knownFacts };
+            this.sessionKnownFacts.set(sessionKey, updatedFacts);
+            await this.sessionRepo.setKnownFacts(request.userId, request.sessionId ?? "default", updatedFacts);
         }
         /* ---------------- FOLLOW‑UP CASE ---------------- */
         if (Array.isArray(resultState.missingFacts) &&
             resultState.missingFacts.length > 0) {
+            // Record assistant follow-up in history
+            const followUpMsg = resultState.finalAnswer ?? "I need a bit more information to help you better.";
+            this.sessionConversationHistory.set(historyKey, [
+                ...conversationHistory,
+                { role: "assistant", content: followUpMsg },
+            ].slice(-10));
+            void this.chatRepo.saveMessage(request.userId, request.sessionId ?? "default", "user", request.message);
+            void this.chatRepo.saveMessage(request.userId, request.sessionId ?? "default", "assistant", followUpMsg);
             return {
                 type: "FOLLOW_UP",
-                message: resultState.finalAnswer ??
-                    "I need a bit more information to help you better.",
+                message: followUpMsg,
                 missingFacts: resultState.missingFacts,
             };
         }
         /* ---------------- FINAL ANSWER CASE ---------------- */
         const finalMessage = resultState.finalAnswer ??
             "I couldn’t generate an answer. Please try again.";
-        const validation = this.validateFinalAnswer(request.message, finalMessage, resultState);
+        // Record assistant final response in conversation history
+        this.sessionConversationHistory.set(historyKey, [
+            ...conversationHistory,
+            { role: "assistant", content: finalMessage },
+        ].slice(-10));
+        void this.chatRepo.saveMessage(request.userId, request.sessionId ?? "default", "user", request.message);
+        void this.chatRepo.saveMessage(request.userId, request.sessionId ?? "default", "assistant", finalMessage);
         return {
             type: "FINAL",
-            message: validation,
+            message: finalMessage,
         };
-    }
-    validateFinalAnswer(question, answer, resultState) {
-        const snapshot = buildDeterministicSnapshot(resultState);
-        const validation = validateAssistantAnswer(question, answer, snapshot);
-        if (!validation.valid) {
-            return (validation.safeAnswer ??
-                "I want to avoid giving you an inaccurate number. Please share the specific period and source values to confirm this precisely.");
-        }
-        return answer;
     }
     getSessionKey(userId, sessionId) {
         return `${userId}::${sessionId ?? "default"}`;
@@ -150,8 +175,16 @@ export class ChatService {
         const baseMonthlyExpenses = this.parseNumericFact(source.monthlyExpenses) ??
             this.parseNumericFact(source.monthlyCommittedExpenses) ??
             txStats.averageMonthlyDebit;
+        // Only add loan EMIs on top if the base was NOT derived from transaction history.
+        // Transaction history already contains EMI debit entries, so adding them again
+        // would double-count and produce an artificially low net monthly surplus.
+        const isTransactionDerived = this.parseNumericFact(source.monthlyExpenses) === undefined &&
+            this.parseNumericFact(source.monthlyCommittedExpenses) === undefined &&
+            txStats.averageMonthlyDebit !== undefined;
         const monthlyExpenses = baseMonthlyExpenses !== undefined
-            ? baseMonthlyExpenses + monthlyLoanEmi
+            ? isTransactionDerived
+                ? baseMonthlyExpenses // transactions already include EMIs
+                : baseMonthlyExpenses + monthlyLoanEmi
             : undefined;
         const netMonthlySavings = this.parseNumericFact(source.netMonthlySavings) ??
             (monthlyIncome !== undefined &&
@@ -200,6 +233,10 @@ export class ChatService {
         }
         if (currency) {
             normalized.currency = currency;
+            // profileCurrency is the user's home currency (from their profile).
+            // It must NOT be overridden by trip/purchase-specific currencies (EUR, USD, etc.)
+            // extracted in later turns. Agents use this to correctly label savings and income.
+            normalized.profileCurrency = currency;
         }
         const savingsGoals = this.asObjectArray(source.savingsGoals);
         if (savingsGoals.length > 0) {
@@ -329,6 +366,11 @@ export class ChatService {
         if (Object.keys(normalized).length === 0) {
             return;
         }
+        // Persist the user's HOME currency (profileCurrency), not a trip/purchase
+        // currency that may have been extracted from a specific user message (e.g. "euros").
+        const currencyToPersist = (typeof mergedFacts.profileCurrency === "string" && mergedFacts.profileCurrency)
+            ? mergedFacts.profileCurrency
+            : normalized.currency;
         try {
             await this.ensureFinancialProfileTable();
             await sql `
@@ -347,7 +389,7 @@ export class ChatService {
           ${normalized.monthlyIncome ?? null},
           ${normalized.monthlyExpenses ?? null},
           ${normalized.netMonthlySavings ?? null},
-          ${normalized.currency ?? null},
+          ${currencyToPersist ?? null},
           NOW()
         )
         ON CONFLICT (user_id)
@@ -386,49 +428,5 @@ export class ChatService {
             });
         }
         await this.financialProfileTableReady;
-    }
-    async loadFallbackBankingFactsForSession(persistedProfileFacts, incomingKnownFacts) {
-        const hasPersistedRichProfile = "userProfile" in persistedProfileFacts ||
-            "accounts" in persistedProfileFacts ||
-            "transactions" in persistedProfileFacts ||
-            "investments" in persistedProfileFacts ||
-            "subscriptions" in persistedProfileFacts ||
-            "loans" in persistedProfileFacts ||
-            "savingsGoals" in persistedProfileFacts;
-        const hasIncomingProfile = this.isObject(incomingKnownFacts) &&
-            ("userProfile" in incomingKnownFacts ||
-                "accounts" in incomingKnownFacts ||
-                "transactions" in incomingKnownFacts);
-        if (hasPersistedRichProfile || hasIncomingProfile) {
-            return {};
-        }
-        return this.getFallbackBankingFacts();
-    }
-    async getFallbackBankingFacts() {
-        if (this.fallbackBankingFacts) {
-            return this.fallbackBankingFacts;
-        }
-        if (!this.fallbackBankingFactsLoading) {
-            this.fallbackBankingFactsLoading = this.readFallbackBankingFacts();
-        }
-        try {
-            this.fallbackBankingFacts = await this.fallbackBankingFactsLoading;
-            return this.fallbackBankingFacts;
-        }
-        finally {
-            this.fallbackBankingFactsLoading = undefined;
-        }
-    }
-    async readFallbackBankingFacts() {
-        try {
-            const filePath = path.resolve(process.cwd(), "banking_user_data.json");
-            const raw = await readFile(filePath, "utf8");
-            const parsed = JSON.parse(raw);
-            return this.normalizeKnownFactsPayload(parsed);
-        }
-        catch (error) {
-            console.warn("Failed loading fallback banking profile", error);
-            return {};
-        }
     }
 }

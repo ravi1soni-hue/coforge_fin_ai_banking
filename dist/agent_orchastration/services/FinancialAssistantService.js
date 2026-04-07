@@ -1,23 +1,23 @@
+import { compiledGraph } from "../graph/financialAssistant.graph.js";
 export class FinancialAssistantService {
-    assistantGraph;
-    llmClient;
+    llm;
     vectorQueryService;
     marketDataService;
-    constructor({ assistantGraph, llmClient, vectorQueryService, marketDataService, }) {
-        this.assistantGraph = assistantGraph;
-        this.llmClient = llmClient;
+    constructor({ llmClient, vectorQueryService, marketDataService, }) {
+        this.llm = llmClient;
         this.vectorQueryService = vectorQueryService;
         this.marketDataService = marketDataService;
-        console.log("✅ FinancialAssistantService received real dependencies");
+        console.log("✅ FinancialAssistantService using LangGraph (compiled StateGraph)");
     }
     async run(initialState) {
-        console.log("🚀 FinancialAssistantService.run CALLED");
-        return this.assistantGraph.invoke(initialState, {
+        console.log("🚀 FinancialAssistantService.run CALLED via LangGraph");
+        const result = await compiledGraph.invoke(initialState, {
             configurable: {
-                llm: this.llmClient,
+                llm: this.llm,
                 vectorQueryService: this.vectorQueryService,
                 marketDataService: this.marketDataService,
             },
         });
+        return result;
     }
 }
