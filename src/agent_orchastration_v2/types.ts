@@ -53,6 +53,7 @@ export type AffordabilityVerdict =
 export type SuggestionReason =
   | "INSUFFICIENT_FUNDS"  // verdict = CANNOT_AFFORD
   | "CASHFLOW_RISK"        // verdict = RISKY
+  | "CASHFLOW_IMPACT"      // COMFORTABLE but remaining savings drops close to safe buffer threshold
   | "USER_REQUESTED";      // user explicitly asked for options/plans
 
 // ─── Conversation stage ───────────────────────────────────────────────────────

@@ -99,21 +99,40 @@ export function computeAffordabilityVerdict(
 /**
  * Decides whether to suggest a banking product.
  *
- * Offer ONLY if at least one condition is true:
- *   - Verdict = CANNOT_AFFORD
- *   - Verdict = RISKY
- *   - User explicitly asked for options/plan/EMI/instalment
+ * Suggest whenever there is a genuine financial opportunity — not by default.
  *
- * COMFORTABLE verdict + no explicit request → should = false → plain response only.
+ * Triggers (any one sufficient):
+ *   - Verdict = CANNOT_AFFORD              → INSUFFICIENT_FUNDS (loan/EMI)
+ *   - Verdict = RISKY                      → CASHFLOW_RISK (instalment/savings pot)
+ *   - COMFORTABLE but remaining savings    → CASHFLOW_IMPACT (savings plan to protect buffer)
+ *     drops to < 2× emergency buffer after payment
+ *   - User explicitly asked for a plan     → USER_REQUESTED
+ *
+ * No suggestion on pure info queries — those never reach this function.
  */
 export function computeShouldSuggestProduct(
   verdict: AffordabilityVerdict,
   userMessage: string,
+  profile?: UserProfile,
+  goalCost?: number,
 ): { should: boolean; reason?: SuggestionReason } {
   if (verdict === "CANNOT_AFFORD") return { should: true, reason: "INSUFFICIENT_FUNDS" };
   if (verdict === "RISKY")         return { should: true, reason: "CASHFLOW_RISK" };
 
-  // User explicitly requested a plan/options (even when comfortable)
+  // COMFORTABLE — check if paying upfront meaningfully dents the safety cushion
+  if (verdict === "COMFORTABLE" && profile && goalCost && goalCost > 0) {
+    const remaining = profile.availableSavings - goalCost;
+    const emergencyBuffer =
+      profile.netMonthlySurplus && profile.netMonthlySurplus > 0
+        ? profile.netMonthlySurplus * 3
+        : profile.availableSavings * 0.2;
+    // Remaining is between 1× and 2× the emergency buffer — meaningful cushion reduction
+    if (remaining < emergencyBuffer * 2) {
+      return { should: true, reason: "CASHFLOW_IMPACT" };
+    }
+  }
+
+  // User explicitly requested a plan/options (always honour regardless of verdict)
   if (/\b(option|plan|emi|instalment|installment|how.{0,20}manage|alternative|split|spread|payment.plan)\b/i.test(userMessage)) {
     return { should: true, reason: "USER_REQUESTED" };
   }
@@ -252,10 +271,14 @@ export async function generateAffordabilityAnswer(
     :                              "❌ CANNOT AFFORD — cost exceeds available savings";
 
   const suggestionInstruction = shouldSuggestProduct
-    ? `End with ONE justified offer for a plan/instalment option, directly tied to the risk: "${
+    ? `End with ONE short, specific offer tied directly to the user's situation: "${
         suggestionReason === "INSUFFICIENT_FUNDS"
-          ? "Since this exceeds your available savings, would you like me to explore a savings or EMI plan?"
-          : "Since this would reduce your buffer below a safe level, want me to map out a 0% instalment plan to spread the cost?"
+          ? "This exceeds your available savings. I can map out an EMI or savings plan to make this reachable — want me to run the numbers?"
+          : suggestionReason === "CASHFLOW_RISK"
+            ? "Paying upfront would reduce your buffer below a safe level. Want me to lay out a 3 or 6-month instalment plan to protect your cash flow?"
+            : suggestionReason === "CASHFLOW_IMPACT"
+              ? "You can cover this comfortably, but paying in full will noticeably reduce your savings cushion. Would you like me to suggest a 3 or 6-month savings plan so you keep your full buffer intact?"
+              : "Want me to run through a 3, 6, or 12-month savings or instalment plan for this?"
       }"`
     : `DO NOT suggest any product, loan, EMI, or savings plan. The verdict is clear — give a plain, reassuring response and stop. No offers, no upsell.`;
 

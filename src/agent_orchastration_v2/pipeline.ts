@@ -115,7 +115,7 @@ export class PipelineV2 {
           currency: extracted.currency,
         };
         const verdict = computeAffordabilityVerdict(profile, goal);
-        const { should, reason } = computeShouldSuggestProduct(verdict, req.message);
+        const { should, reason } = computeShouldSuggestProduct(verdict, req.message, profile, goal.cost);
         const answer = await generateAffordabilityAnswer(
           this.llm, profile, goal, verdict, should, reason,
           [...history, { role: "user", content: req.message }],
@@ -176,7 +176,7 @@ export class PipelineV2 {
             currency: extracted.currency,
           };
           const verdict = computeAffordabilityVerdict(profile, completeGoal);
-          const { should, reason } = computeShouldSuggestProduct(verdict, req.message);
+          const { should, reason } = computeShouldSuggestProduct(verdict, req.message, profile, completeGoal.cost);
           const answer = await generateAffordabilityAnswer(
             this.llm, profile, completeGoal, verdict, should, reason,
             [...history, { role: "user", content: req.message }],
