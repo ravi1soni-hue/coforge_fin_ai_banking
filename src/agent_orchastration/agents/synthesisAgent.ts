@@ -78,7 +78,7 @@ ABSOLUTE RULES — if any rule is broken the response is invalid:
    "You have €X in savings", or anything about whether the trip is doable.
 3. Give SPECIFIC numbers for each option or step (monthly amounts, savings, totals).
 4. Maximum 4 sentences.
-5. End with ONE brief follow-up offer on a related but different aspect.`
+5. Do NOT end with a follow-up offer or question. Deliver the task completely and stop.`
     );
 
     console.log(`[SynthesisAgent] continuation answer: ${continuationAnswer.slice(0, 120)}...`);

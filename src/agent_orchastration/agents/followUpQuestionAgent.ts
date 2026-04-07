@@ -10,6 +10,13 @@ export const followUpQuestionAgent = async (
     return {};
   }
 
+  // When intentAgent already wrote a natural-language question, use it directly
+  // (it will be a full sentence, not a bare field name like "targetAmount")
+  const firstItem = state.missingFacts[0];
+  if (firstItem && firstItem.includes(" ")) {
+    return { finalAnswer: firstItem.trim() };
+  }
+
   const llm = config.configurable?.llm as LlmClient;
   if (!llm) {
     throw new Error("LlmClient not provided to graph");
