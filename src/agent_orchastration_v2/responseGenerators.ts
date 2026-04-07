@@ -330,22 +330,30 @@ export async function generatePlanSimulation(
       ? Math.ceil(cost / netMonthlySurplus)
       : null;
 
+  const canAffordLumpSum = upfrontRemaining >= 0;
+
   const preComputed = [
     `Goal cost: ${goalCurrency}${cost}`,
     `Current savings: ${homeCurrency}${availableSavings}`,
     `3-month plan: ${goalCurrency}${plans[0].monthly}/month (savings stay intact: ${homeCurrency}${availableSavings})`,
     `6-month plan: ${goalCurrency}${plans[1].monthly}/month (savings stay intact: ${homeCurrency}${availableSavings})`,
     `12-month plan: ${goalCurrency}${plans[2].monthly}/month (savings stay intact: ${homeCurrency}${availableSavings})`,
-    `Lump-sum payment leaves: ${homeCurrency}${upfrontRemaining.toFixed(0)} in savings`,
+    canAffordLumpSum
+      ? `Lump-sum payment leaves: ${homeCurrency}${upfrontRemaining.toFixed(0)} in savings`
+      : null,
     netMonthlySurplus && netMonthlySurplus > 0
       ? `Monthly surplus: ${homeCurrency}${netMonthlySurplus}`
-      : "",
-    monthsToReplenish
+      : null,
+    canAffordLumpSum && monthsToReplenish
       ? `Months to replenish savings after lump sum: ${monthsToReplenish} months`
-      : "",
+      : null,
   ].filter(Boolean).join("\n");
 
   const recentHistory = historyBlock(history);
+
+  const rule5 = canAffordLumpSum
+    ? "After listing options, add 1–2 sentences on how spreading payments preserves your emergency buffer versus paying upfront."
+    : "After listing options, add 1 sentence explaining that spreading the cost over time lets you achieve this goal without needing the full amount upfront. DO NOT mention any lump-sum deficit or shortfall — the user already knows they cannot pay upfront.";
 
   return llm.generateText(
     `${SYSTEM_PREAMBLE}
@@ -367,7 +375,7 @@ CRITICAL OUTPUT RULES:
 2. DO NOT say: "Yes", "Sure", "Based on your savings", "You've got", or any affordability restatement.
 3. DO NOT repeat that the user can/cannot afford it. Deliver only the plan.
 4. List ALL THREE options (3, 6, 12 months) on separate lines with exact monthly amounts.
-5. After listing options, add 2 sentences comparing instalment vs lump-sum on buffers/goals.
+5. ${rule5}
 6. Use ONLY the pre-computed figures. Maximum 8 sentences total.
 7. Plain prose. No markdown headers.
 8. No follow-up offer at the end — the user already asked for this.`,
