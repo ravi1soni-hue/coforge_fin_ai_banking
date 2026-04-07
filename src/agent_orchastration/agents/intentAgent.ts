@@ -185,6 +185,18 @@ Return JSON:
   }
 
   // Extract and merge structured facts so follow-up routing can happen without a separate planner node.
+  // Only send planning-relevant scalar facts to the LLM — never the full banking profile
+  // (accounts, transactions, loans etc. are 25KB+ and will blow the context window).
+  const kf = state.knownFacts ?? {} as Record<string, unknown>;
+  const planningFacts: Record<string, unknown> = {};
+  const PLANNING_KEYS = [
+    "goalType", "destination", "targetAmount", "currency", "targetCurrency",
+    "profileCurrency", "duration", "timeframe", "travelersCount", "queryType",
+  ];
+  for (const key of PLANNING_KEYS) {
+    if (kf[key] !== undefined && kf[key] !== null) planningFacts[key] = kf[key];
+  }
+
   const extraction = await llm.generateJSON<{
     extractedFacts: Record<string, unknown>;
     missingFacts: string[];
@@ -194,7 +206,7 @@ User question:
 "${state.question}"
 
 Already known facts (do not ask for these again):
-${JSON.stringify(state.knownFacts ?? {})}
+${JSON.stringify(planningFacts)}
 
 Instructions:
 1. Extract EVERY fact explicitly stated in the question:
