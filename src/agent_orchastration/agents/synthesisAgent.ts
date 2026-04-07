@@ -40,12 +40,42 @@ export const synthesisAgent = async (
   // — no template lookup, no keyword tags, no brittle action maps.
   if (isConfirmedAction) {
     const kf = state.knownFacts ?? {};
-    const availSavings   = kf.availableSavings ?? kf.spendable_savings ?? kf.currentBalance;
-    const targetAmt      = kf.targetAmount;
-    const destination    = kf.destination ?? kf.goalType ?? "the purchase";
-    const monthlySurplus = kf.netMonthlySavings ?? kf.netMonthlySurplus;
+    const availSavings   = parseFloat(String(kf.availableSavings ?? kf.spendable_savings ?? kf.currentBalance ?? 0)) || 0;
+    const targetAmt      = parseFloat(String(kf.targetAmount ?? 0)) || 0;
+    const destination    = (kf.destination ?? kf.goalType ?? "the purchase") as string;
+    const monthlySurplus = parseFloat(String(kf.netMonthlySavings ?? kf.netMonthlySurplus ?? 0)) || 0;
     const homeCurrency   = (kf.profileCurrency ?? kf.currency ?? "GBP") as string;
     const tripCurrency   = (kf.targetCurrency ?? homeCurrency) as string;
+
+    // Pre-compute instalment scenarios so the LLM formats numbers, not calculates them
+    const instalmentLines: string[] = [];
+    if (targetAmt > 0) {
+      for (const months of [3, 6, 12]) {
+        const monthly = Math.ceil(targetAmt / months);
+        const totalInterest = 0; // assume 0% plan
+        instalmentLines.push(`${months}-month plan: ${tripCurrency}${monthly}/month (total ${tripCurrency}${months * monthly}, interest-free)`);
+      }
+    }
+    const remainingIfLumpSum = availSavings > 0 && targetAmt > 0
+      ? `Paying in full leaves ${homeCurrency}${(availSavings - targetAmt).toFixed(0)} in savings`
+      : null;
+    const monthsToSaveFromSurplus = monthlySurplus > 0 && targetAmt > 0
+      ? Math.ceil(targetAmt / monthlySurplus)
+      : null;
+
+    const preComputedNumbers = [
+      targetAmt > 0        && `Trip cost: ${tripCurrency}${targetAmt}`,
+      availSavings > 0     && `Available savings: ${homeCurrency}${availSavings}`,
+      remainingIfLumpSum,
+      monthlySurplus > 0   && `Monthly surplus: ${homeCurrency}${monthlySurplus}`,
+      monthsToSaveFromSurplus && `Months to save full cost from surplus alone: ${monthsToSaveFromSurplus}`,
+      ...instalmentLines,
+    ].filter(Boolean).join("\n");
+
+    // Include financeData fetched by financeAgent in this turn (if available)
+    const financeDataContext = state.financeData
+      ? `\nFINANCIAL DATA FROM ANALYSIS:\n${JSON.stringify(state.financeData, null, 2).slice(0, 900)}`
+      : "";
 
     // Include the recent conversation so the LLM can see exactly what was offered.
     const recentHistory = (state.conversationHistory ?? []).slice(-8)
@@ -55,30 +85,26 @@ export const synthesisAgent = async (
     console.log(`[SynthesisAgent] CONFIRMATION PATH — task="${confirmedAction.slice(0, 100)}"`);
 
     const continuationAnswer = await llm.generateText(
-      `You are a personal banking AI assistant helping ${kf.userName ?? "a customer"}.
+      `You are a personal banking AI assistant. The user confirmed an action — execute it now.
 
 RECENT CONVERSATION:
 ${recentHistory}
-User: ${state.question}
 
-TASK TO EXECUTE NOW:
-The user just confirmed your previous offer. Execute this specific task and nothing else:
+CONFIRMED TASK (execute this — do not re-assess affordability):
 "${confirmedAction}"
 
-KEY FINANCIAL FIGURES (use only what is relevant to the task above — do not recite all of them):
-- Savings available: ${homeCurrency}${availSavings ?? "N/A"}
-- Cost of trip / purchase: ${tripCurrency}${targetAmt ?? "N/A"}
-- Monthly surplus: ${homeCurrency}${monthlySurplus ?? "N/A"}
-- Goal / destination: ${destination}
+PRE-COMPUTED FIGURES (use these exact numbers — do NOT recalculate):
+${preComputedNumbers || "See financial data below."}
+${financeDataContext}
 
-ABSOLUTE RULES — if any rule is broken the response is invalid:
-1. Your response MUST start with the first concrete number, option, or action.
-   FORBIDDEN first words: "You", "Your", "Based", "Covering", "Since", "Given", "As".
-2. Do NOT state the affordability verdict. Do NOT say "You can afford this",
-   "You have €X in savings", or anything about whether the trip is doable.
-3. Give SPECIFIC numbers for each option or step (monthly amounts, savings, totals).
-4. Maximum 4 sentences.
-5. Do NOT end with a follow-up offer or question. Deliver the task completely and stop.`
+STRICT OUTPUT RULES (response is rejected if any rule is broken):
+1. FIRST word MUST be a number, currency symbol, or option label (e.g. "3-month", "£367", "Option").
+   NEVER start with: Yes, You, Your, With, Based, Covering, Since, Given, As, The, A.
+2. Present ONLY the options/plan for the confirmed task. Do NOT mention affordability or restate savings vs cost verdict.
+3. Use ONLY the pre-computed figures above — do not invent new numbers.
+4. Show each option on its own line with the monthly cost clearly stated.
+5. Maximum 4 sentences total.
+6. Do NOT end with another offer or question.`
     );
 
     console.log(`[SynthesisAgent] continuation answer: ${continuationAnswer.slice(0, 120)}...`);
@@ -86,7 +112,7 @@ ABSOLUTE RULES — if any rule is broken the response is invalid:
     return {
       finalAnswer: continuationAnswer,
       confirmedFollowUpAction: undefined,
-      knownFacts: kf,
+      knownFacts: { ...(kf as Record<string, unknown>), _pendingOffer: null }, // clear offer after fulfillment
     };
   }
   // ─────────────────────────────────────────────────────────────────────────
@@ -140,7 +166,7 @@ RULES:
 0. CRITICAL — HOME CURRENCY: The user's home currency is ${mainHomeCurrency}. ALL figures for the user's own money (savings, income, expenses, surplus) MUST use ${mainHomeCurrency}. ONLY the trip/purchase cost uses ${mainTripCurrency !== mainHomeCurrency ? mainTripCurrency : mainHomeCurrency}.
 1. Use ONLY pre-computed figures above. Do NOT invent or recalculate numbers.
 2. CRITICAL — Use ONLY spendable_savings as available pool. NEVER add current account balance to it.
-3. CRITICAL — If the user said "yes/sure/please do that" to a plan offered previously, DELIVER that plan — do NOT repeat the affordability verdict.
+3. CRITICAL — If KNOWN FACTS has a non-null "_pendingOffer" AND the user's message is affirmative ("yes", "sure", "please do", "go ahead"), execute ONLY that offer. Do NOT mention affordability, savings-left verdict, or any prior conclusion. Deliver the instalment plan or whatever the offer was.
 4. For affordability: open with a direct verdict + key numbers. End with one follow-up offer.
 5. For investments/ISA: state current value, contribution, and performance. Note exact P&L needs cost basis.
 6. For subscriptions: list items + monthly total; suggest 1-2 to cancel.

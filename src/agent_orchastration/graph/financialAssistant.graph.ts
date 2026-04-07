@@ -34,10 +34,11 @@ export const financialAssistantGraph = new StateGraph(GraphState)
   // Entry point
   .addEdge(START, "intentAgent")
 
-  // Router: missing facts → ask user | confirmed action → direct synthesis | else → full analysis
+  // Router: missing facts → ask user | all other paths → full analysis pipeline
+  // confirmPath now also goes through financeAgent so synthesisAgent has real financial data
   .addConditionalEdges("intentAgent", routeFromIntent, {
     askUser: "followUpQuestionAgent",
-    confirmPath: "synthesisAgent",
+    confirmPath: "financeAgent",
     analyzePath: "financeAgent",
   })
 

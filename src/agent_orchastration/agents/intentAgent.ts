@@ -26,6 +26,8 @@ export const intentAgent = async (
     "goalType", "destination", "targetAmount", "currency", "targetCurrency",
     "profileCurrency", "duration", "timeframe", "travelersCount",
     "monthlyIncome", "monthlyExpenses", "availableSavings", "currentBalance",
+    // State-awareness keys — never exclude these
+    "_pendingOffer", "_affordabilityDone",
   ];
   const planningFacts: Record<string, unknown> = {};
   for (const key of PLANNING_KEYS) {
@@ -84,7 +86,12 @@ ${JSON.stringify(planningFacts)}
 === INTENT CLASSIFICATION ===
 Pick the best matching domain and action:
 Domains: travel, purchase, saving, investing, loans, spending, banking, cashflow, general
-Actions: affordability, planning, cost_optimization, review, decision, repayment_planning, optimization, statement, forecast, conversation
+Actions: affordability, installment_simulation, planning, cost_optimization, review, decision, repayment_planning, optimization, statement, forecast, conversation
+Note: use "installment_simulation" when the user confirms they want instalment/payment plans.
+
+=== PENDING OFFER ===
+If KNOWN FACTS contains "_pendingOffer", that is the exact task the assistant last offered to do.
+When the user replies with an affirmative, that offer IS the confirmedTask.
 
 === FACT EXTRACTION ===
 Extract any facts the user mentioned in their new message.
@@ -137,10 +144,33 @@ Return ONLY valid JSON, no markdown:
   };
 
   // ── Route: user is confirming/accepting a previous offer ─────────────
-  if (orchestration.route === "confirm" && orchestration.confirmedTask) {
+  // Fall back to _pendingOffer when LLM returns route:confirm but confirmedTask is null/empty.
+  // This prevents the silent fall-through to the answer path that causes affordability repeats.
+  const resolvedConfirmedTask =
+    orchestration.confirmedTask ||
+    (typeof kf._pendingOffer === "string" && kf._pendingOffer ? kf._pendingOffer : null);
+
+  if (orchestration.route === "confirm" && resolvedConfirmedTask) {
+    // Convert the offered question into an actionable directive so that
+    // financeAgent (now in the confirm path too) knows what to compute.
+    // e.g. "Want me to run the numbers on splitting the cost?" → "Run the numbers on splitting the cost"
+    let taskDirective = (resolvedConfirmedTask as string)
+      .replace(/^want me to\s+/i, "")
+      .replace(/^shall i\s+/i, "")
+      .replace(/^should i\s+/i, "")
+      .replace(/^would you like me to\s+/i, "")
+      .replace(/^let me\s+/i, "")
+      .replace(/^can i\s+/i, "")
+      .replace(/\?+$/, "")
+      .trim();
+    taskDirective = taskDirective.charAt(0).toUpperCase() + taskDirective.slice(1);
+
+    console.log(`[IntentAgent] CONFIRM — task directive="${taskDirective}"`);
+
     return {
       intent,
-      confirmedFollowUpAction: orchestration.confirmedTask,
+      question: taskDirective,           // override so financeAgent fetches the right data
+      confirmedFollowUpAction: resolvedConfirmedTask,
       missingFacts: [],
       knownFacts: mergedKnownFacts,
     };

@@ -263,6 +263,17 @@ export const initWebSocket = (server: any): void => {
 
       console.log(`✅ User connected: ${userId} (total: ${wss.clients.size})`);
 
+      // ✅ Proactively send diagnostic so Flutter preflight health check passes
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          v: 1,
+          type: "diagnostic",
+          status: "online",
+          message: "FinAi is online and ready",
+          timestamp: new Date().toISOString(),
+        }));
+      }
+
       /**
        * Message handler
        */
@@ -273,6 +284,17 @@ export const initWebSocket = (server: any): void => {
         try {
           const messageString = message.toString();
           console.log(`Received from ${userId}: ${messageString}`);
+
+          // Handle preflight health check probe (Flutter sends {} to verify connectivity)
+          if (messageString.trim() === "{}") {
+            ws.send(JSON.stringify({
+              v: 1,
+              type: "diagnostic",
+              status: "online",
+              timestamp: new Date().toISOString(),
+            }));
+            return;
+          }
 
           const parsedMessage = parseIncomingMessage(messageString);
           requestId = parsedMessage.requestId;
