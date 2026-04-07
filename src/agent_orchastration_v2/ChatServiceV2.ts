@@ -6,6 +6,7 @@
  * Delegates all logic to PipelineV2 (deterministic state machine).
  */
 
+import type { Kysely } from "kysely";
 import type { LlmClient } from "../agent_orchastration/llm/llmClient.js";
 import type { VectorQueryService } from "../agent_orchastration/services/vector.query.service.js";
 import type { ChatRepository } from "../repo/chat.repo.js";
@@ -22,13 +23,15 @@ export class ChatServiceV2 {
     vectorQueryService,
     chatRepo,
     sessionRepo,
+    db,
   }: {
     llmClient: LlmClient;
     vectorQueryService: VectorQueryService;
     chatRepo: ChatRepository;
     sessionRepo: SessionRepository;
+    db?: Kysely<unknown>;
   }) {
-    this.pipeline = new PipelineV2(llmClient, vectorQueryService, chatRepo, sessionRepo);
+    this.pipeline = new PipelineV2(llmClient, vectorQueryService, chatRepo, sessionRepo, db);
     console.log("✅ ChatServiceV2 (state-machine pipeline) initialised");
   }
 

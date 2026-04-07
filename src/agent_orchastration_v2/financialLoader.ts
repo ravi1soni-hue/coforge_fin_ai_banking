@@ -1,8 +1,11 @@
 /**
  * Loads the user's financial profile from already-normalised knownFacts
- * (populated by client profile seed) or falls back to vector DB.
+ * (populated by client profile seed) or falls back to the structured DB,
+ * and finally to vector DB as last resort.
  */
 
+import { sql } from "kysely";
+import type { Kysely } from "kysely";
 import type { VectorQueryService } from "../agent_orchastration/services/vector.query.service.js";
 import type { LlmClient } from "../agent_orchastration/llm/llmClient.js";
 import type { UserProfile } from "./types.js";
@@ -21,6 +24,7 @@ export class FinancialLoader {
   constructor(
     private readonly vectorQuery: VectorQueryService,
     private readonly llm: LlmClient,
+    private readonly db?: Kysely<unknown>,
   ) {}
 
   async loadProfile(
@@ -57,8 +61,50 @@ export class FinancialLoader {
       };
     }
 
-    // Secondary: query vector DB and let LLM extract profile
-    console.log("[FinancialLoader] knownFacts empty — falling back to vector DB");
+    // Secondary: query structured user_financial_profiles table (reliable, deterministic)
+    if (this.db) {
+      try {
+        const row = await sql<{
+          current_balance: string | null;
+          monthly_income: string | null;
+          monthly_expenses: string | null;
+          net_monthly_savings: string | null;
+          currency: string | null;
+        }>`
+          SELECT current_balance, monthly_income, monthly_expenses, net_monthly_savings, currency
+          FROM user_financial_profiles
+          WHERE user_id = ${userId}
+          LIMIT 1
+        `.execute(this.db);
+
+        const p = row.rows[0];
+        if (p && p.current_balance !== null) {
+          const dbSavings = Number(p.current_balance);
+          const dbIncome = p.monthly_income !== null ? Number(p.monthly_income) : undefined;
+          const dbExpenses = p.monthly_expenses !== null ? Number(p.monthly_expenses) : undefined;
+          const dbSurplus =
+            p.net_monthly_savings !== null
+              ? Number(p.net_monthly_savings)
+              : dbIncome !== undefined && dbExpenses !== undefined
+                ? dbIncome - dbExpenses
+                : undefined;
+          console.log(`[FinancialLoader] Loaded from user_financial_profiles: savings=${dbSavings}, currency=${p.currency ?? currency}`);
+          return {
+            availableSavings: dbSavings,
+            monthlyIncome: dbIncome,
+            monthlyExpenses: dbExpenses,
+            netMonthlySurplus: dbSurplus,
+            homeCurrency: p.currency ?? currency,
+            userName,
+          };
+        }
+      } catch (err) {
+        console.warn("[FinancialLoader] DB profile lookup failed, falling back to vector DB", err);
+      }
+    }
+
+    // Tertiary: query vector DB and let LLM extract profile
+    console.log("[FinancialLoader] knownFacts and DB empty — falling back to vector DB");
     const context = await this.vectorQuery.getContext(
       userId,
       "savings balance monthly income expenses currency",

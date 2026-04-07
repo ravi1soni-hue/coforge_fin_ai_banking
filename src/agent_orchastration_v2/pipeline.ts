@@ -19,6 +19,7 @@
  *   GENERAL              + ACTION_SUGGESTION               → GENERAL → general answer
  */
 
+import type { Kysely } from "kysely";
 import type { LlmClient } from "../agent_orchastration/llm/llmClient.js";
 import type { VectorQueryService } from "../agent_orchastration/services/vector.query.service.js";
 import type { ChatRepository } from "../repo/chat.repo.js";
@@ -69,9 +70,10 @@ export class PipelineV2 {
     private readonly vectorQuery: VectorQueryService,
     private readonly chatRepo: ChatRepository,
     private readonly sessionRepo: SessionRepository,
+    private readonly db?: Kysely<unknown>,
   ) {
     this.store = new ConversationStore(sessionRepo);
-    this.loader = new FinancialLoader(vectorQuery, llm);
+    this.loader = new FinancialLoader(vectorQuery, llm, db);
   }
 
   // ─── Public entry point ────────────────────────────────────────────────────
