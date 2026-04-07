@@ -133,3 +133,41 @@ Server currently accepts both:
 - Show `data.message` directly for conversational UX.
 - If `data.type == FOLLOW_UP`, render as assistant question and collect missing details.
 - On `status == error`, show `error.message` and retry only if `error.retriable == true`.
+
+## Diagnostic Messages (Do NOT Render as Chat Bubbles)
+
+The server sends diagnostic frames on connection and for internal probes. These must be silently ignored by the UI — never rendered as chat messages.
+
+**Diagnostic frame shape:**
+```json
+{
+  "v": 1,
+  "type": "diagnostic",
+  "status": "online",
+  "message": "FinAi is online and ready",
+  "timestamp": "2026-04-07T15:42:03.875Z"
+}
+```
+
+**Triggered by:**
+- On WebSocket connect (server sends one diagnostic immediately)
+- When client sends `{}` as a preflight health probe
+
+**Flutter filter (add to your message handler):**
+```dart
+void _onSocketMessage(dynamic raw) {
+  final msg = jsonDecode(raw as String) as Map<String, dynamic>;
+
+  // Ignore diagnostic frames — never render as chat bubbles
+  if (msg['type'] == 'diagnostic') return;
+
+  // Handle CHAT_RESPONSE frames
+  if (msg['type'] == 'CHAT_RESPONSE' && msg['status'] == 'success') {
+    final data = msg['data'] as Map<String, dynamic>;
+    final text = data['message'] as String?;
+    if (text != null) _appendChatMessage(sender: 'assistant', text: text);
+  }
+}
+```
+
+> **Root cause of "No message" bug:** Without this filter, the diagnostic frame reaches the chat renderer. It has no `data.message` field (its text is top-level `message`), so the renderer falls back to a blank or "No message" placeholder. The fix is entirely client-side — ignore frames where `type != "CHAT_RESPONSE"`.
