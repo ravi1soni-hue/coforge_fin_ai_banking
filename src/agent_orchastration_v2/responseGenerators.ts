@@ -351,9 +351,13 @@ export async function generatePlanSimulation(
 
   const recentHistory = historyBlock(history);
 
-  const rule5 = canAffordLumpSum
-    ? "After listing options, add 1–2 sentences on how spreading payments preserves your emergency buffer versus paying upfront."
-    : "After listing options, add 1 sentence explaining that spreading the cost over time lets you achieve this goal without needing the full amount upfront. DO NOT mention any lump-sum deficit or shortfall — the user already knows they cannot pay upfront.";
+  const whyInstalmentsHelps = canAffordLumpSum
+    ? `Spreading payments preserves your full ${homeCurrency}${availableSavings} emergency buffer while still funding ${label}.`
+    : `Spreading the cost over time lets you achieve ${label} without needing the full amount upfront. Your ${homeCurrency}${availableSavings} savings remain completely untouched as an emergency buffer.`;
+
+  const lumpSumNote = canAffordLumpSum
+    ? `Paying upfront would reduce savings to ${homeCurrency}${upfrontRemaining.toFixed(0)}, reducing your emergency cushion.`
+    : `A lump-sum payment is not viable — you would be ${homeCurrency}${Math.abs(upfrontRemaining).toFixed(0)} short.`;
 
   return llm.generateText(
     `${SYSTEM_PREAMBLE}
@@ -370,15 +374,37 @@ VERDICT CONTEXT: ${
       : "User cannot afford lump sum — instalment plan is the only viable path."
 }
 
-CRITICAL OUTPUT RULES:
-1. Start DIRECTLY with the plan — e.g. "3-month plan: ..." or "Here are your options:".
-2. DO NOT say: "Yes", "Sure", "Based on your savings", "You've got", or any affordability restatement.
-3. DO NOT repeat that the user can/cannot afford it. Deliver only the plan.
-4. List ALL THREE options (3, 6, 12 months) on separate lines with exact monthly amounts.
-5. ${rule5}
-6. Use ONLY the pre-computed figures. Maximum 8 sentences total.
-7. Plain prose. No markdown headers.
-8. No follow-up offer at the end — the user already asked for this.`,
+MANDATORY OUTPUT FORMAT — follow this EXACTLY, including emojis and bullets:
+
+💡 <One-line context sentence about the goal and why instalments are being presented>
+
+🔹 OPTION 1: 3-Month Plan
+• Monthly payment: ${goalCurrency}${plans[0].monthly}
+• Savings impact: ${homeCurrency}${availableSavings} fully preserved
+• Suitable for: <1-line descriptor for who this suits>
+
+🔹 OPTION 2: 6-Month Plan
+• Monthly payment: ${goalCurrency}${plans[1].monthly}
+• Savings impact: ${homeCurrency}${availableSavings} fully preserved
+• Suitable for: <1-line descriptor for who this suits>
+
+🔹 OPTION 3: 12-Month Plan
+• Monthly payment: ${goalCurrency}${plans[2].monthly}
+• Savings impact: ${homeCurrency}${availableSavings} fully preserved
+• Suitable for: <1-line descriptor for who this suits>
+
+✅ Why this helps:
+• ${whyInstalmentsHelps}
+• <Benefit 2 — e.g. cash flow stays predictable>
+• ${lumpSumNote}
+
+STRICT RULES:
+1. Use the EXACT format above — no deviations, no prose paragraphs, no plain sentences.
+2. Use ONLY the pre-computed figures — never recalculate.
+3. Do NOT restate the affordability verdict.
+4. Do NOT add any follow-up offer at the end.
+5. Monthly payment values are already given above — copy them exactly.
+6. "Savings impact" must always say "${homeCurrency}${availableSavings} fully preserved" for all three options.`,
   );
 }
 
