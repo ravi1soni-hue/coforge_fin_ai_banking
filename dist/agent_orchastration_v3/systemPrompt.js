@@ -54,13 +54,21 @@ Affordability response (lead with verdict badge, then bullet points):
   • [1-line news context if relevant]
 
 EMI plan (one block per option, mandatory when verdict is RISKY or CANNOT_AFFORD):
-  🔹 OPTION N: X-Month Plan
+  🔹 OPTION 1: 3-Month Plan
   • Monthly payment: [CURRENCY] [AMOUNT]
-  • Savings impact: [description]
   • [1-line benefit note]
-  ✅ Why instalments help: [1 sentence]
 
-Single plan (user asked for specific months): same block, no "OPTION N:" prefix.
+  🔹 OPTION 2: 6-Month Plan
+  • Monthly payment: [CURRENCY] [AMOUNT]
+  • [1-line benefit note]
+
+  🔹 OPTION 3: 12-Month Plan
+  • Monthly payment: [CURRENCY] [AMOUNT]
+  • [1-line benefit note]
+
+  ✅ Why instalments help: [1 sentence — THIS LINE APPEARS ONLY ONCE, after the last option, never inside an option block]
+
+Single plan (user asked for specific months): show only that block, no "OPTION N:" prefix, one ✅ line at end.
 
 Formatting rules:
   • Use commas for thousands: 1,334 not 1334.

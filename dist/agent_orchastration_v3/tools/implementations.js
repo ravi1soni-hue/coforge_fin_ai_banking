@@ -305,17 +305,6 @@ const extractPricesFromText = (text) => {
     }
     return results;
 };
-const extractPricesFromInfobox = (content) => {
-    const PRICE_LABELS = /price|cost|msrp|rrp|starting|from|fee/i;
-    const results = [];
-    for (const item of content) {
-        if (!item.label || !item.value || !PRICE_LABELS.test(item.label))
-            continue;
-        for (const p of extractPricesFromText(item.value))
-            results.push({ ...p, label: item.label });
-    }
-    return results;
-};
 const buildPriceRange = (prices) => {
     if (prices.length === 0)
         return null;
@@ -329,105 +318,101 @@ const buildPriceRange = (prices) => {
     return { min: Math.min(...amounts), max: Math.max(...amounts), currency: dominant };
 };
 /**
- * Calls DuckDuckGo Instant Answer API to find the price / cost of something.
- * The LLM provides the search query as a tool argument — no second LLM call needed here.
- * Returns null priceRange + confidence="none" on any failure instead of throwing.
+ * Searches DuckDuckGo HTML search results for price mentions.
+ * Produces real web-sourced prices unlike the Instant Answer API.
+ */
+async function searchWebForPrices(query) {
+    const response = await axios.post("https://html.duckduckgo.com/html/", new URLSearchParams({ q: query, kl: "uk-en" }), {
+        headers: {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-GB,en;q=0.9",
+        },
+        timeout: 10000,
+        maxRedirects: 5,
+    });
+    const raw = response.data;
+    // Decode common HTML entities for currency symbols before stripping tags
+    const decoded = raw
+        .replace(/&euro;/g, "€")
+        .replace(/&pound;/g, "£")
+        .replace(/&#8364;/g, "€")
+        .replace(/&#163;/g, "£")
+        .replace(/&amp;/g, "&")
+        .replace(/&nbsp;/g, " ");
+    // Extract only result snippet and title text to avoid noise from nav/ads
+    const snippetChunks = [];
+    for (const m of decoded.matchAll(/class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g)) {
+        snippetChunks.push(m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+    }
+    for (const m of decoded.matchAll(/class="result__title"[^>]*>([\s\S]*?)<\/[ah][^>]*>/g)) {
+        snippetChunks.push(m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+    }
+    // If no structured snippets found (different DDG layout), scan full stripped text
+    const textToParse = snippetChunks.length > 0
+        ? snippetChunks.join(" ")
+        : decoded.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+    const prices = extractPricesFromText(textToParse);
+    const snippet = snippetChunks[0] ?? null;
+    return { prices, snippet };
+}
+/**
+ * Fetches a live price estimate by doing a real web search (DuckDuckGo HTML).
+ * Falls back to the KNOWN_PRODUCT_PRICES retail database only when the web
+ * search returns no price data (network failure or no results).
  */
 export async function fetchLivePrice(args) {
     const { query } = args;
     const searchedAt = new Date().toISOString();
+    // ── 1. Try real web search ──────────────────────────────────────────────────
     try {
-        const response = await axios.get("https://api.duckduckgo.com/", {
-            params: {
-                q: query,
-                format: "json",
-                no_redirect: "1",
-                no_html: "1",
-                skip_disambig: "1",
-            },
-            timeout: 8000,
-            headers: { "Accept-Encoding": "gzip", "User-Agent": "BankingAssistant/1.0 (research)" },
-        });
-        const data = response.data;
-        const allPrices = [];
-        const infoboxPrices = extractPricesFromInfobox(data.Infobox?.content ?? []);
-        allPrices.push(...infoboxPrices);
-        const textSources = [data.Answer ?? "", data.AbstractText ?? "", data.Abstract ?? ""]
-            .filter(Boolean)
-            .join(" ");
-        allPrices.push(...extractPricesFromText(textSources));
-        const topicTexts = (data.RelatedTopics ?? [])
-            .slice(0, 10)
-            .map((t) => t.Text ?? "")
-            .join(" ");
-        allPrices.push(...extractPricesFromText(topicTexts));
-        const priceRange = buildPriceRange(allPrices);
-        const confidence = infoboxPrices.length > 0 || (data.Answer && allPrices.length > 0)
-            ? "confirmed"
-            : allPrices.length > 0
-                ? "partial"
-                : "none";
-        // If DDG returned no price data, fall back to the known-product price database
-        if (confidence === "none") {
-            const queryLower = query.toLowerCase();
-            for (const product of KNOWN_PRODUCT_PRICES) {
-                if (product.patterns.some((p) => p.test(queryLower))) {
-                    return {
-                        query,
-                        priceRange: product.priceRange,
-                        extractedPrices: [
-                            { amount: product.priceRange.min, currency: product.priceRange.currency, label: "known_price_min" },
-                            { amount: product.priceRange.max, currency: product.priceRange.currency, label: "known_price_max" },
-                        ],
-                        rawAbstract: null,
-                        confidence: "partial",
-                        searchedAt,
-                        note: product.note + " (Source: retail price database; verify with retailer for latest pricing.)",
-                    };
-                }
-            }
+        const { prices: webPrices, snippet } = await searchWebForPrices(query);
+        const priceRange = buildPriceRange(webPrices);
+        if (priceRange !== null) {
+            const confidence = webPrices.length >= 3 ? "confirmed" : "partial";
+            return {
+                query,
+                priceRange,
+                extractedPrices: webPrices,
+                rawAbstract: snippet,
+                confidence,
+                searchedAt,
+                note: `Web search found price range ${priceRange.currency} ${Math.round(priceRange.min).toLocaleString("en-GB")}–${Math.round(priceRange.max).toLocaleString("en-GB")} (confidence: ${confidence}, source: web).`,
+            };
         }
-        return {
-            query,
-            priceRange,
-            extractedPrices: allPrices,
-            rawAbstract: data.AbstractText ?? data.Abstract ?? null,
-            confidence,
-            searchedAt,
-            note: priceRange != null
-                ? `Found price range ${priceRange.currency} ${Math.round(priceRange.min).toLocaleString("en-GB")}–${Math.round(priceRange.max).toLocaleString("en-GB")} (confidence: ${confidence}).`
-                : "No price data found. Ask the user to provide the amount.",
-        };
     }
     catch {
-        // Try known-product fallback before returning failure
-        const queryLower = query.toLowerCase();
-        for (const product of KNOWN_PRODUCT_PRICES) {
-            if (product.patterns.some((p) => p.test(queryLower))) {
-                return {
-                    query,
-                    priceRange: product.priceRange,
-                    extractedPrices: [
-                        { amount: product.priceRange.min, currency: product.priceRange.currency, label: "known_price_min" },
-                        { amount: product.priceRange.max, currency: product.priceRange.currency, label: "known_price_max" },
-                    ],
-                    rawAbstract: null,
-                    confidence: "partial",
-                    searchedAt,
-                    note: product.note + " (Source: retail price database; verify with retailer for latest pricing.)",
-                };
-            }
-        }
-        return {
-            query,
-            priceRange: null,
-            extractedPrices: [],
-            rawAbstract: null,
-            confidence: "none",
-            searchedAt,
-            note: "Price lookup failed. Ask the user to provide the amount.",
-        };
+        // Web search failed — fall through to retail database
     }
+    // ── 2. Retail price database fallback ──────────────────────────────────────
+    const queryLower = query.toLowerCase();
+    for (const product of KNOWN_PRODUCT_PRICES) {
+        if (product.patterns.some((p) => p.test(queryLower))) {
+            return {
+                query,
+                priceRange: product.priceRange,
+                extractedPrices: [
+                    { amount: product.priceRange.min, currency: product.priceRange.currency, label: "retail_db_min" },
+                    { amount: product.priceRange.max, currency: product.priceRange.currency, label: "retail_db_max" },
+                ],
+                rawAbstract: null,
+                confidence: "partial",
+                searchedAt,
+                note: product.note + " (Source: retail price database — web search returned no data.)",
+            };
+        }
+    }
+    // ── 3. Complete failure ─────────────────────────────────────────────────────
+    return {
+        query,
+        priceRange: null,
+        extractedPrices: [],
+        rawAbstract: null,
+        confidence: "none",
+        searchedAt,
+        note: "No price data found via web search or retail database.",
+    };
 }
 const _fxAdapter = new FxAdapter();
 /**
