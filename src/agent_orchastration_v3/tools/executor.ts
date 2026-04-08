@@ -20,12 +20,14 @@ import {
   calculateSavingsProjection,
   fetchLivePrice,
   fetchMarketData,
+  fetchFinancialNews,
   type GetFinancialProfileArgs,
   type CheckAffordabilityArgs,
   type GenerateEmiPlanArgs,
   type CalculateSavingsProjectionArgs,
   type FetchLivePriceArgs,
   type FetchMarketDataArgs,
+  type FetchFinancialNewsArgs,
 } from "./implementations.js";
 
 export class ToolExecutor {
@@ -99,11 +101,16 @@ export class ToolExecutor {
         return { toolName: name, data: result as unknown as Record<string, unknown> };
       }
 
+      case "fetch_financial_news": {
+        const result = await fetchFinancialNews(args as FetchFinancialNewsArgs);
+        return { toolName: name, data: result as unknown as Record<string, unknown> };
+      }
+
       default:
         console.warn(`[ToolExecutor] Unknown tool: ${name}`);
         return {
           toolName: name,
-          data: { error: `Unknown tool: ${name}. Available tools: get_financial_profile, check_affordability, generate_emi_plan, calculate_savings_projection, fetch_live_price, fetch_market_data` },
+          data: { error: `Unknown tool: ${name}. Available tools: get_financial_profile, check_affordability, generate_emi_plan, calculate_savings_projection, fetch_live_price, fetch_market_data, fetch_financial_news` },
         };
     }
   }

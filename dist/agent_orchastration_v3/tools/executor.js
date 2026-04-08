@@ -10,7 +10,7 @@
  *   → Calls the matching implementation
  *   → Returns a ToolResult to be injected back as a tool message
  */
-import { getFinancialProfile, checkAffordability, generateEmiPlan, calculateSavingsProjection, fetchLivePrice, fetchMarketData, } from "./implementations.js";
+import { getFinancialProfile, checkAffordability, generateEmiPlan, calculateSavingsProjection, fetchLivePrice, fetchMarketData, fetchFinancialNews, } from "./implementations.js";
 export class ToolExecutor {
     /**
      * Execute a single tool call and return the result.
@@ -58,11 +58,15 @@ export class ToolExecutor {
                 const result = await fetchMarketData(args);
                 return { toolName: name, data: result };
             }
+            case "fetch_financial_news": {
+                const result = await fetchFinancialNews(args);
+                return { toolName: name, data: result };
+            }
             default:
                 console.warn(`[ToolExecutor] Unknown tool: ${name}`);
                 return {
                     toolName: name,
-                    data: { error: `Unknown tool: ${name}. Available tools: get_financial_profile, check_affordability, generate_emi_plan, calculate_savings_projection, fetch_live_price, fetch_market_data` },
+                    data: { error: `Unknown tool: ${name}. Available tools: get_financial_profile, check_affordability, generate_emi_plan, calculate_savings_projection, fetch_live_price, fetch_market_data, fetch_financial_news` },
                 };
         }
     }

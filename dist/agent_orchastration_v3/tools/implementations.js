@@ -316,3 +316,66 @@ export async function fetchMarketData(args) {
             : `FX rate for ${result.pair} unavailable. Use the user's home currency for calculations.`,
     };
 }
+const decodeXmlEntities = (s) => s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim();
+const stripHtmlTags = (s) => s.replace(/<[^>]*>/g, "").trim();
+/**
+ * Pulls latest headlines from Google News RSS for a topic.
+ * No API key required; returns best-effort results and degrades gracefully.
+ */
+export async function fetchFinancialNews(args) {
+    const topic = (args.topic ?? "financial markets").trim() || "financial markets";
+    const region = (args.region ?? "UK").trim() || "UK";
+    const maxItems = Math.min(Math.max(args.maxItems ?? 5, 1), 10);
+    const fetchedAt = new Date().toISOString();
+    try {
+        const query = encodeURIComponent(`${topic} ${region} finance`);
+        const url = `https://news.google.com/rss/search?q=${query}&hl=en-GB&gl=GB&ceid=GB:en`;
+        const response = await axios.get(url, {
+            timeout: 8000,
+            responseType: "text",
+            headers: {
+                "User-Agent": "BankingAssistant/1.0 (news)",
+            },
+        });
+        const xml = response.data;
+        const itemBlocks = Array.from(xml.matchAll(/<item>([\s\S]*?)<\/item>/g)).map((m) => m[1]);
+        const items = itemBlocks.slice(0, maxItems).map((block) => {
+            const rawTitle = block.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? "Untitled";
+            const rawLink = block.match(/<link>([\s\S]*?)<\/link>/)?.[1] ?? "";
+            const rawPubDate = block.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1] ?? "";
+            const rawSource = block.match(/<source[^>]*>([\s\S]*?)<\/source>/)?.[1] ?? "Google News";
+            return {
+                title: decodeXmlEntities(stripHtmlTags(rawTitle)),
+                url: rawLink ? decodeXmlEntities(rawLink) : null,
+                publishedAt: rawPubDate ? new Date(rawPubDate).toISOString() : null,
+                source: decodeXmlEntities(stripHtmlTags(rawSource)),
+            };
+        });
+        return {
+            topic,
+            region,
+            count: items.length,
+            items,
+            fetchedAt,
+            note: items.length > 0
+                ? `Fetched ${items.length} recent headline(s) for ${topic} (${region}).`
+                : `No recent headlines found for ${topic} (${region}).`,
+        };
+    }
+    catch {
+        return {
+            topic,
+            region,
+            count: 0,
+            items: [],
+            fetchedAt,
+            note: `News lookup unavailable right now for ${topic}. Continue without news context.`,
+        };
+    }
+}

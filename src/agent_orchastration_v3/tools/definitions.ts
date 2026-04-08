@@ -4,11 +4,14 @@
  * These are the JSON schemas sent to the LLM so it knows which tools exist
  * and what arguments each one expects.
  *
- * Four tools cover the full V2 intent space:
+ * Core tools cover the V2 intent space plus live market context:
  *   get_financial_profile      — fetch user's savings/income/surplus/currency
  *   check_affordability        — compute COMFORTABLE / RISKY / CANNOT_AFFORD
  *   generate_emi_plan          — compute monthly instalment options
  *   calculate_savings_projection — feasibility check for a savings goal
+ *   fetch_live_price           — web lookup for missing target amount
+ *   fetch_market_data          — FX rate lookup across currencies
+ *   fetch_financial_news       — recent market headlines by topic
  */
 
 import type { ToolDefinition } from "../types.js"; // agent_orchastration_v3/types.ts
@@ -182,6 +185,37 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
           },
         },
         required: ["fromCurrency", "toCurrency"],
+      },
+    },
+  },
+
+  {
+    type: "function",
+    function: {
+      name: "fetch_financial_news",
+      description:
+        "Fetch recent financial headlines for a topic and region. " +
+        "Call this when external market sentiment or current events could influence recommendations " +
+        "(e.g. property, auto, inflation, rates, equities, travel costs). " +
+        "Use concise topic phrases and set maxItems to 3-5 for concise synthesis.",
+      parameters: {
+        type: "object",
+        properties: {
+          topic: {
+            type: "string",
+            description:
+              "Short topic phrase for news search (e.g. 'UK mortgage rates', 'electric car prices', 'Eurozone inflation').",
+          },
+          region: {
+            type: "string",
+            description: "Optional region hint (e.g. UK, EU, US). Defaults to UK.",
+          },
+          maxItems: {
+            type: "number",
+            description: "Optional max headline count to return (1-10). Recommended: 3 to 5.",
+          },
+        },
+        required: ["topic"],
       },
     },
   },
