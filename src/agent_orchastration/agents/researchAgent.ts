@@ -2,8 +2,16 @@ import { GraphStateType } from "../graph/state.js";
 import { LlmClient } from "../llm/llmClient.js";
 import { RunnableConfig } from "@langchain/core/runnables";
 
-const DEFAULT_CURRENCY = "USD";
 
+/**
+ * Research Agent
+ *
+ * Responsibility:
+ * - Produce a realistic research / planning output
+ * - MUST always return valid Partial<GraphStateType>
+ * - MUST never throw on LLM output errors
+ * - Currency consistency is enforced deterministically
+ */
 export const researchAgent = async (
   state: GraphStateType,
   config: RunnableConfig
@@ -14,11 +22,16 @@ export const researchAgent = async (
     throw new Error("LlmClient not provided to graph");
   }
 
-  // ✅ Currency resolution (explicit policy)
+  /* ---------------------------------------------------------
+   * 1️⃣ Currency resolution (explicit system policy)
+   * --------------------------------------------------------- */
   const baseCurrency =
-    state.financeData?.currency ?? DEFAULT_CURRENCY;
+    state.baseCurrency ;
 
-  const result = await llm.generateJSON<{
+  /* ---------------------------------------------------------
+   * 2️⃣ LLM call (STRICT JSON‑only contract)
+   * --------------------------------------------------------- */
+  let result: {
     planType: string;
     assumptions: string[];
     plan: Record<string, unknown>;
@@ -32,22 +45,39 @@ export const researchAgent = async (
       costs: { total: number };
       notes?: string;
     }>;
-  }>(`
+  };
+
+  try {
+    result = await llm.generateJSON<{
+      planType: string;
+      assumptions: string[];
+      plan: Record<string, unknown>;
+      costs: {
+        breakdown: Record<string, number>;
+        total: number;
+        currency: string;
+      };
+      alternatives?: Array<{
+        label: string;
+        costs: { total: number };
+        notes?: string;
+      }>;
+    }>(`
 You are a research and planning agent for a bank-grade financial AI system.
 
-IMPORTANT CURRENCY RULES:
-- The base currency is ${baseCurrency}.
-- ALL monetary values MUST be expressed in ${baseCurrency}.
-- Do NOT convert currencies.
-- Do NOT mix currencies.
+STRICT OUTPUT RULES (MANDATORY):
+- Output MUST be a single valid JSON object
+- Output MUST start with "{" and end with "}"
+- NO text, NO markdown, NO explanations outside JSON
+- NO formulas, NO calculations, NO math symbols inside numbers
+- ALL numeric values must be FINAL computed values
+- If explanation is required, put it ONLY inside text fields
 
-STRICT JSON RULES (NON-NEGOTIABLE):
-- Output MUST be valid JSON.
-- DO NOT include formulas, calculations, or math expressions.
-- DO NOT include symbols like =, ≈, /, *, or parentheses inside numbers.
-- ALL numeric values must be FINAL computed values.
-- If explanation is needed, put it ONLY in text fields.
-- Never show calculation steps.
+CURRENCY RULES (NON-NEGOTIABLE):
+- Base currency is ${baseCurrency}
+- ALL monetary values MUST be in ${baseCurrency}
+- Do NOT convert currencies
+- Do NOT mix currencies
 
 User intent:
 ${JSON.stringify(state.intent)}
@@ -56,20 +86,14 @@ Known facts:
 ${JSON.stringify(state.knownFacts)}
 
 Task:
-- Build a REALISTIC plan relevant to the user intent.
-- Include assumptions explicitly.
-- Provide a detailed cost breakdown.
-- Offer 1–2 reasonable alternatives if applicable.
-- Do NOT consider user affordability.
-- Do NOT give advice.
+- Build a REALISTIC plan relevant to the user intent
+- Explicitly list assumptions
+- Provide a detailed cost breakdown
+- Optionally provide 1–2 reasonable alternatives
+- Do NOT assess affordability
+- Do NOT give advice
 
-RULES:
-- Be practical and conservative.
-- Keep structure clean.
-- Use realistic market prices.
-- Return ONLY valid JSON.
-
-Return JSON in this exact structure:
+Return exactly this JSON shape:
 {
   "planType": string,
   "assumptions": string[],
@@ -88,15 +112,60 @@ Return JSON in this exact structure:
   ]
 }
 `);
+  } catch (err) {
+    // ✅ CRITICAL: never crash the graph
+    console.error("❌ ResearchAgent JSON failure:", err);
 
-  // ✅ Defensive currency validation (bank-grade)
-  if (result.costs.currency !== baseCurrency) {
-    throw new Error(
-      `ResearchAgent returned currency ${result.costs.currency}, expected ${baseCurrency}`
-    );
+    // ✅ Deterministic safe fallback
+    result = {
+      planType: "unknown",
+      assumptions: [],
+      plan: {},
+      costs: {
+        breakdown: {},
+        total: 0,
+        currency: baseCurrency,
+      },
+      alternatives: [],
+    };
   }
 
+  /* ---------------------------------------------------------
+   * 3️⃣ Defensive currency enforcement (NO throws)
+   * --------------------------------------------------------- */
+  if (result.costs.currency !== baseCurrency) {
+    console.warn(
+      `⚠️ ResearchAgent currency mismatch: got ${result.costs.currency}, expected ${baseCurrency}`
+    );
+
+    // Force system‑policy currency instead of crashing
+    result.costs.currency = baseCurrency;
+  }
+
+  /* ---------------------------------------------------------
+   * 4️⃣ Defensive structure sanitization
+   * --------------------------------------------------------- */
+  const sanitizedResult = {
+    planType: typeof result.planType === "string" ? result.planType : "unknown",
+    assumptions: Array.isArray(result.assumptions) ? result.assumptions : [],
+    plan: result.plan && typeof result.plan === "object" ? result.plan : {},
+    costs: {
+      breakdown:
+        result.costs.breakdown && typeof result.costs.breakdown === "object"
+          ? result.costs.breakdown
+          : {},
+      total: typeof result.costs.total === "number" ? result.costs.total : 0,
+      currency: baseCurrency,
+    },
+    alternatives: Array.isArray(result.alternatives)
+      ? result.alternatives
+      : [],
+  };
+
+  /* ---------------------------------------------------------
+   * 5️⃣ Return PATCH ONLY (LangGraph best practice)
+   * --------------------------------------------------------- */
   return {
-    researchData: result,
+    researchData: sanitizedResult,
   };
 };

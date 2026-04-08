@@ -1,5 +1,6 @@
-import type { GraphStateType } from "../../agent_orchastration/graph/state.js";
+import {  DEFAULT_BASE_CURRENCY, toEnumValue, type GraphStateType } from "../../agent_orchastration/graph/state.js";
 import { FinancialAssistantService } from "../../agent_orchastration/services/FinancialAssistantService.js";
+import { UserService } from "../user.service.js";
 
 /* ---------------- Types ---------------- */
 
@@ -20,13 +21,17 @@ export interface ChatResponse {
 export class ChatService {
 
   private readonly assistantService: FinancialAssistantService;
+  private readonly userService: UserService;
 
   constructor({
     assistantService,
+    userService,
   }: {
     assistantService: FinancialAssistantService;
+    userService: UserService;
   }) {
     this.assistantService = assistantService;
+    this.userService = userService;
 
     console.log(
       "✅ assistantService REAL instance:",
@@ -34,16 +39,27 @@ export class ChatService {
     );
   }
 
+  
+
 
   /**
    * Handles a single chat turn
    */
   async handleMessage(request: ChatRequest): Promise<ChatResponse> {
+
+    
+
+    const user = await this.userService.getUserById(request.userId);
+
+    
+
     const initialState: GraphStateType = {
       userId: request.userId,
       question: request.message,
       knownFacts: request.knownFacts ?? {},
       missingFacts: [],
+      queryFacets:[],
+      baseCurrency: user?.base_currency  ?? DEFAULT_BASE_CURRENCY,
     };
 
     let resultState: GraphStateType;

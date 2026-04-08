@@ -2,7 +2,8 @@ const chat = document.getElementById("chat");
 const input = document.getElementById("messageInput");
 
 // Random userId
-const userId = "ui-" + Math.floor(Math.random() * 10000);
+const userId = "9c441277-ad2f-4774-adb8-425b095fc566"
+;
 
 // WebSocket connection
 const socket = new WebSocket(

@@ -11,40 +11,41 @@ export const intentAgent = async (
   if (!llm) {
     throw new Error("LlmClient not provided to graph");
   }
-
   const result = await llm.generateJSON<{
     domain: string;
     action: string;
-    subject?: string;
+    subject?: string | null;
     confidence: number;
   }>(`
-You are an intent classification agent for a financial AI assistant.
-
-Your task is to classify the user's request into a GENERIC FINANCIAL INTENT.
-
-Guidelines:
-- Domain must be a broad financial area (e.g. travel, saving, investing, loans, spending, income, general).
-- Action describes what the user wants to do (e.g. affordability, planning, optimization, decision, explanation).
-- Subject is optional and should be short (e.g. "Japan trip", "car", "home loan").
-- If the message is casual or unclear (e.g. "hello"), use:
-  domain = "general"
-  action = "conversation"
-- Do NOT invent details.
-- Keep output concise.
-- Return ONLY valid JSON. No markdown, no explanation.
-
-User message:
-"${state.question}"
-
-Return JSON:
-{
-  "domain": string,
-  "action": string,
-  "subject": string | null,
-  "confidence": number
-}
-`);
-
+  You are an intent classification agent for a financial AI assistant.
+  
+  STRICT OUTPUT RULES (MANDATORY):
+  - Output MUST be a single valid JSON object
+  - Output MUST start with "{" and end with "}"
+  - No text, no markdown, no explanation
+  - No apologies or natural language
+  - If uncertain, STILL return JSON using domain="general" and action="conversation"
+  
+  Task:
+  Classify the user's request into a GENERIC FINANCIAL INTENT.
+  
+  Guidelines:
+  - Domain: broad financial area (travel, saving, investing, loans, spending, income, general)
+  - Action: what the user wants (affordability, planning, optimization, decision, explanation, conversation)
+  - Subject: optional, short string or null
+  - Confidence: number between 0 and 1
+  
+  User message:
+  "${state.question}"
+  
+  Return exactly this JSON shape:
+  {
+    "domain": "string",
+    "action": "string",
+    "subject": string | null,
+    "confidence": number
+  }
+  `);
   // ✅ Return only the patch
   return {
     intent: {

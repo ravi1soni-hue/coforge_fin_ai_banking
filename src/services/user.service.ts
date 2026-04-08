@@ -56,4 +56,8 @@ export class UserService {
             },
         };
     }
+
+    async getUserById(id: string):Promise<User | undefined>{
+        return this.userRepo.findById(id);
+    }
 }

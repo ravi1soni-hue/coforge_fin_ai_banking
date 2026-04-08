@@ -9,10 +9,12 @@ import { financeAgent } from "../agents/financeAgent.js";
 import { researchAgent } from "../agents/researchAgent.js";
 import { reasoningAgent } from "../agents/reasoningAgent.js";
 import { synthesisAgent } from "../agents/synthesisAgent.js";
+import { facetPlannerAgent } from "../agents/facetPlannerAgent.js";
 
 export const financialAssistantGraph = new StateGraph(GraphState)
   .addNode("intentAgent", intentAgent)
   .addNode("plannerAgent", plannerAgent)
+  .addNode("facetPlannerAgent",facetPlannerAgent)
   //.addNode("followUpQuestionAgent", followUpQuestionAgent)
   .addNode("financeAgent", financeAgent)
   .addNode("researchAgent", researchAgent)
@@ -22,16 +24,17 @@ export const financialAssistantGraph = new StateGraph(GraphState)
   // ✅ Start flow
   .addEdge(START, "intentAgent")
   .addEdge("intentAgent", "plannerAgent")
-
   // ✅ Conditional routing after planning
-  .addConditionalEdges(
-    "plannerAgent",
-    plannerRouter,
-    {
-      askUser: "financeAgent",
-      financeAgent: "financeAgent",
-    }
-  )
+  // .addConditionalEdges(
+  //   "plannerAgent",
+  //   plannerRouter,
+  //   {
+  //     askUser: "facetPlannerAgent",
+  //     financeAgent: "facetPlannerAgent",
+  //   }
+  // )
+  .addEdge("plannerAgent","facetPlannerAgent")
+  .addEdge("facetPlannerAgent","financeAgent")
 
   // ✅ Ask user → END (wait for reply)
   //.addEdge("followUpQuestionAgent", END)

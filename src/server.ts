@@ -8,9 +8,10 @@ import { initWebSocket } from "./sockets/socket.js";
 
 import ingestionRoutes from "./routes/ingestion.route.js";
 import { db } from "./db/index.js";
+import { configureLangSmith } from "./config/langsmith.config.js";
 //import { configureLangSmith } from "./config/langsmith.config.js";
 
-//configureLangSmith();
+configureLangSmith();
 
 const server = http.createServer(app);
 

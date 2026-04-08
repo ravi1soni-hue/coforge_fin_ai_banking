@@ -2,25 +2,53 @@ import { GraphStateType } from "../graph/state.js";
 import { LlmClient } from "../llm/llmClient.js";
 import { RunnableConfig } from "@langchain/core/runnables";
 
+/**
+ * Reasoning Agent
+ *
+ * Responsibility:
+ * - Assess affordability and risk based on known financial data
+ * - MUST always return a valid Partial<GraphStateType>
+ * - MUST never throw due to LLM output issues
+ * - Conservative defaults when data is incomplete
+ */
 export const reasoningAgent = async (
   state: GraphStateType,
   config: RunnableConfig
 ): Promise<Partial<GraphStateType>> => {
 
   const llm = config.configurable?.llm as LlmClient;
-
   if (!llm) {
     throw new Error("LlmClient not provided to graph");
   }
 
-  const reasoning = await llm.generateJSON<{
+  /* ---------------------------------------------------------
+   * 1️⃣ LLM call with STRICT JSON‑only contract
+   * --------------------------------------------------------- */
+  let result: {
     affordable: boolean;
     confidenceLevel: "high" | "medium" | "low";
     risks: string[];
     rationale: string;
     suggestions: string[];
-  }>(`
+  };
+
+  try {
+    result = await llm.generateJSON<{
+      affordable: boolean;
+      confidenceLevel: "high" | "medium" | "low";
+      risks: string[];
+      rationale: string;
+      suggestions: string[];
+    }>(`
 You are a bank-grade financial reasoning agent.
+
+STRICT OUTPUT RULES (MANDATORY):
+- Output MUST be a single valid JSON object
+- Output MUST start with "{" and end with "}"
+- NO text, NO markdown, NO explanations outside JSON
+- NO formulas, NO calculations, NO math symbols in numbers
+- NEVER show calculation steps
+- ALL numeric values must be FINAL
 
 INPUT DATA:
 User financial data:
@@ -29,27 +57,19 @@ ${JSON.stringify(state.financeData)}
 Planned purchase / goal cost:
 ${JSON.stringify(state.researchData)}
 
-TASK:
-- Determine whether the goal is affordable for the user.
-- Assess risk conservatively.
-- Provide high-level reasoning suitable for a bank advisor.
+REASONING TASK:
+- Decide whether the goal is affordable
+- Assess risks conservatively
+- Reason as a cautious bank advisor would
 
-STRICT JSON RULES (NON-NEGOTIABLE):
-- Output MUST be valid JSON.
-- DO NOT include formulas, calculations, or math expressions.
-- DO NOT include symbols like =, ≈, /, *, or parentheses in numeric fields.
-- ALL numeric values must be FINAL computed values.
-- If explanation is needed, put it ONLY in plain text strings.
-- NEVER show calculation steps.
+DECISION RULES:
+- affordable = true ONLY if essential expenses are not impacted
+- If data is missing or incomplete → affordable = false
+- confidenceLevel reflects data completeness
+- risks must be realistic and concise
+- suggestions must be practical and bank‑safe
 
-REASONING GUIDELINES:
-- "affordable": true ONLY if the cost can be covered without harming essential expenses.
-- Use conservative judgment when data is incomplete.
-- If financial data is missing or insufficient, set affordable = false.
-- risks should be realistic and short.
-- suggestions should be practical and bank-safe.
-
-Return ONLY valid JSON in this structure:
+Return exactly this JSON shape:
 {
   "affordable": boolean,
   "confidenceLevel": "high" | "medium" | "low",
@@ -58,9 +78,56 @@ Return ONLY valid JSON in this structure:
   "suggestions": string[]
 }
 `);
+  } catch (err) {
+    // ✅ CRITICAL: reasoning failures must never crash the graph
+    console.error("❌ ReasoningAgent JSON failure:", err);
 
-  // ✅ Return PATCH ONLY (LangGraph best practice)
+    // ✅ Conservative, deterministic fallback
+    result = {
+      affordable: false,
+      confidenceLevel: "low",
+      risks: ["Insufficient financial data to assess affordability"],
+      rationale:
+        "The available financial information is incomplete or unclear, preventing a confident affordability assessment.",
+      suggestions: [
+        "Provide updated income and expense details",
+      ],
+    };
+  }
+
+  /* ---------------------------------------------------------
+   * 2️⃣ Defensive validation & sanitation
+   * --------------------------------------------------------- */
+  const sanitizedReasoning = {
+    affordable: typeof result.affordable === "boolean"
+      ? result.affordable
+      : false,
+
+    confidenceLevel:
+      result.confidenceLevel === "high" ||
+      result.confidenceLevel === "medium" ||
+      result.confidenceLevel === "low"
+        ? result.confidenceLevel
+        : "low",
+
+    risks: Array.isArray(result.risks)
+      ? result.risks
+      : [],
+
+    rationale:
+      typeof result.rationale === "string"
+        ? result.rationale
+        : "No rationale provided.",
+
+    suggestions: Array.isArray(result.suggestions)
+      ? result.suggestions
+      : [],
+  };
+
+  /* ---------------------------------------------------------
+   * 3️⃣ Return PATCH ONLY (LangGraph best practice)
+   * --------------------------------------------------------- */
   return {
-    reasoning,
+    reasoning: sanitizedReasoning,
   };
 };

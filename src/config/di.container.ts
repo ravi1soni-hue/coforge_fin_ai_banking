@@ -8,6 +8,10 @@ import { OpenAIClient } from "../agent_orchastration/llm/openAIClient.js";
 import { ChatService } from "../services/chat/chat.service.js";
 import { ENV } from "./env.js";
 import { db } from "../db/index.js";
+import { StructuredFinancialRepository } from "../repo/structured.finance.repo.js";
+import { StructuredFinancialDataService } from "../services/structured.financial.data.service.js";
+import { UserService } from "../services/user.service.js";
+import { UserRepository } from "../repo/user.repo.js";
 
 
 const compiledGraph = financialAssistantGraph.compile();
@@ -22,6 +26,9 @@ container.register({
   // Singletons (lazy by default ✅)
   vectorRepo: asClass(VectorRepository).singleton(),
   vectorQueryService : asClass(VectorQueryService).singleton(),
+  financialDataRepo: asClass(StructuredFinancialRepository).singleton(),
+  financialDataService: asClass(StructuredFinancialDataService).singleton(),
+  
 
 // ✅ REGISTER THE API KEY
 apiKey: asValue(ENV.OPENAI_API_KEY),
@@ -31,6 +38,8 @@ assistantGraph: asValue(compiledGraph),
 
 assistantService: asClass(FinancialAssistantService).singleton(),
 llmClient : asClass(OpenAIClient).singleton(),
+userRepo: asClass(UserRepository).singleton(),
+userService: asClass(UserService).singleton(),
 
 chatService: asClass(ChatService).singleton()
 });

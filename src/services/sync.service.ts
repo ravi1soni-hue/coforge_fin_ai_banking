@@ -31,11 +31,12 @@ export class SyncService {
     });
 
     try {
+        var getLatestSyncData = this.syncRepo.getLatestSync
       // 2. Update status to "Processing"
       await this.syncRepo.updateSyncStatus({ id: syncJob.id, status: 2 });
 
       // 3. Fetch data using the configured bank provider
-      const transactions = await this.bankProvider.fetchTransactions(externalConnectionId);
+      const transactions = await this.bankProvider.fetchTransactions(externalConnectionId,null);
 
       // 4. Segregate and Save Data
       for (const tx of transactions) {
@@ -43,16 +44,16 @@ export class SyncService {
         // await this.accountRepo.upsertTransaction({...});
 
         // B. Save unstructured data to Vector Database
-        await this.vectorRepo.insertDb({
-          user_id: userId,
-          content: `Transaction: ${tx.description} for ${tx.amount} ${tx.currency} on ${tx.date}`,
-          embedding: await this.generateEmbedding(tx.description), // Helper to call OpenAI/local model
-          domain: "finance",
-          facet: "transaction",
-          source: this.bankProvider.name,
-          metadata: tx.rawMetadata,
-          embedding_model: "text-embedding-3-small"
-        });
+        // await this.vectorRepo.insertDb({
+        //   user_id: userId,
+        //   content: `Transaction: ${tx.description} for ${tx.amount} ${tx.currency} on ${tx.date}`,
+        //   embedding: await this.generateEmbedding(tx.description), // Helper to call OpenAI/local model
+        //   domain: "finance",
+        //   facet: "transaction",
+        //   source: this.bankProvider.name,
+        //   metadata: tx.rawMetadata,
+        //   embedding_model: "text-embedding-3-small"
+        // });
       }
 
       // 5. Mark as Completed
