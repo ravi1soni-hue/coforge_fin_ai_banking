@@ -1,0 +1,417 @@
+/**
+ * LangGraph node functions for the Financial Assistant graph.
+ *
+ * Each node takes the current GraphState and returns a Partial<GraphState>
+ * with only the keys it updates.  LangGraph merges the partial update into
+ * the shared state before proceeding to the next node.
+ *
+ * Graph shape (see workflow.ts):
+ *
+ *   START
+ *     → loadContext          (profile + history in parallel via Promise.all)
+ *     → extractIntent        (heuristic intent parse — no LLM needed)
+ *     → (conditional)
+ *         → [fetchPrice ∥ fetchFx]   (parallel fan-out)
+ *             → checkAffordability
+ *             → generateResponse → END
+ *         → generateEmi → END        (when user confirms instalments)
+ *
+ * Key design principle: all financial computation (price lookup, FX, affordability,
+ * EMI maths) is done deterministically here.  The LLM is invoked ONLY to format
+ * the final natural-language narrative from the structured data.
+ */
+
+import type { GraphState } from "./graphState.js";
+import type { FinancialLoader } from "../../agent_orchastration_v2/financialLoader.js";
+import type { ChatRepository } from "../../repo/chat.repo.js";
+import type { V3LlmClient } from "../llm/v3LlmClient.js";
+import type { ConversationTurn } from "../../agent_orchastration_v2/types.js";
+
+import {
+  fetchLivePrice,
+  fetchMarketData,
+  checkAffordability,
+  generateEmiPlan,
+} from "../tools/implementations.js";
+import { buildSystemPrompt } from "../systemPrompt.js";
+
+// ─── Regex helpers for intent extraction ─────────────────────────────────────
+
+/** Matches an explicit amount + currency: "4000 GBP", "£4000", "€1,329", "$1500" */
+const PRICE_RE =
+  /(?:£|€|\$)\s*([\d,]+(?:\.\d{1,2})?)|(?:([\d,]+(?:\.\d{1,2})?)\s*(GBP|EUR|USD|INR))/i;
+
+/** Maps symbol → ISO code */
+const SYMBOL_TO_CODE: Record<string, string> = { "£": "GBP", "€": "EUR", "$": "USD" };
+
+/** Matches common EMI / instalment confirmation phrases */
+const EMI_CONFIRM_RE =
+  /\b(yes|sure|please|go ahead|show me|yes please|show plan|instalment|installment|emi plan|run emi|run plan)\b/i;
+
+/** Extracts a product name from common consumer electronics patterns */
+const PRODUCT_RE =
+  /(iphone\s+[\w\s]+?(?=\s+in|\s+from|\s+for|\s+at|\s+is|\s+that|\s+which|$)|samsung\s+galaxy\s+[\w\s]+?(?=\s+in|\s+from|$)|macbook\s+[\w\s]+?(?=\s+in|\s+from|$)|ipad\s+[\w\s]+?(?=\s+in|\s+from|$)|pixel\s+[\d\w\s]+?(?=\s+in|\s+from|$)|tesla\s+\w+)/i;
+
+function detectCurrency(match: RegExpMatchArray | null, message: string, fallback: string): string {
+  if (!match) return fallback;
+  if (match[1]) {
+    // Symbol form — extract the preceding symbol character
+    const sym = message[match.index!];
+    return SYMBOL_TO_CODE[sym] ?? fallback;
+  }
+  if (match[3]) return match[3].toUpperCase();
+  return fallback;
+}
+
+// ─── Node: loadContext ────────────────────────────────────────────────────────
+
+export function makeLoadContextNode(
+  loader: FinancialLoader,
+  chatRepo: ChatRepository,
+) {
+  return async function loadContextNode(
+    state: GraphState,
+  ): Promise<Partial<GraphState>> {
+    const [profile, history] = await Promise.all([
+      loader.loadProfile(state.userId, {}),
+      chatRepo.getHistory(state.userId, state.sessionId, 12),
+    ]);
+    console.log(
+      `[Graph:loadContext] profile loaded for ${state.userId}, currency=${profile.homeCurrency}`,
+    );
+    return { profile, history };
+  };
+}
+
+// ─── Node: extractIntent ──────────────────────────────────────────────────────
+
+export function makeExtractIntentNode() {
+  return function extractIntentNode(
+    state: GraphState,
+  ): Partial<GraphState> {
+    const msg = state.userMessage;
+    const homeCurrency = state.profile?.homeCurrency ?? "GBP";
+
+    // ── EMI confirmation? ───────────────────────────────────────────────────
+    const isEmiConfirmation = EMI_CONFIRM_RE.test(msg);
+
+    let prevCost: number | null = null;
+    let prevCostCurrency: string | null = null;
+
+    if (isEmiConfirmation && state.history.length > 0) {
+      // Try to recover the RISKY/CANNOT_AFFORD cost from the last assistant turn
+      const lastAssistant = [...state.history]
+        .reverse()
+        .find((h) => h.role === "assistant");
+      if (lastAssistant) {
+        // Look for a cost pattern in the previous assistant message
+        const prevMatch = PRICE_RE.exec(lastAssistant.content);
+        if (prevMatch) {
+          const raw = (prevMatch[1] ?? prevMatch[2]).replace(/,/g, "");
+          prevCost = parseFloat(raw);
+          prevCostCurrency = detectCurrency(prevMatch, lastAssistant.content, homeCurrency);
+        }
+      }
+    }
+
+    // ── Product + price ─────────────────────────────────────────────────────
+    const priceMatch = PRICE_RE.exec(msg);
+    const costProvided = priceMatch
+      ? parseFloat((priceMatch[1] ?? priceMatch[2]).replace(/,/g, ""))
+      : null;
+    const costCurrency = detectCurrency(priceMatch, msg, homeCurrency);
+
+    const productMatch = PRODUCT_RE.exec(msg);
+    const product = productMatch ? productMatch[0].trim() : null;
+
+    console.log(
+      `[Graph:extractIntent] product="${product}" cost=${costProvided} currency=${costCurrency} emi=${isEmiConfirmation}`,
+    );
+
+    return { product, costProvided, costCurrency, isEmiConfirmation, prevCost, prevCostCurrency };
+  };
+}
+
+// ─── Node: fetchPrice ─────────────────────────────────────────────────────────
+
+export function makeFetchPriceNode() {
+  return async function fetchPriceNode(
+    state: GraphState,
+  ): Promise<Partial<GraphState>> {
+    // Skip if user already provided a cost or this is an EMI confirmation
+    if (state.costProvided !== null || state.isEmiConfirmation) {
+      console.log("[Graph:fetchPrice] skipped — cost already known or EMI confirmation");
+      return { priceData: null };
+    }
+
+    const query = state.product
+      ? `${state.product} price ${state.costCurrency}`
+      : `${state.userMessage} price`;
+
+    console.log(`[Graph:fetchPrice] searching: "${query}"`);
+    const result = await fetchLivePrice({ query });
+    console.log(
+      `[Graph:fetchPrice] confidence=${result.confidence} range=${JSON.stringify(result.priceRange)}`,
+    );
+
+    if (!result.priceRange) {
+      return { priceData: null };
+    }
+
+    // Use midpoint of the price range as the working price
+    const price = Math.round((result.priceRange.min + result.priceRange.max) / 2);
+
+    return {
+      priceData: {
+        price,
+        currency: result.priceRange.currency,
+        source: result.confidence === "confirmed" ? "live" : "retail estimate",
+        confidence: result.confidence,
+      },
+    };
+  };
+}
+
+// ─── Node: fetchFx ────────────────────────────────────────────────────────────
+
+export function makeFetchFxNode() {
+  return async function fetchFxNode(
+    state: GraphState,
+  ): Promise<Partial<GraphState>> {
+    const homeCurrency = state.profile?.homeCurrency ?? "GBP";
+
+    // Determine what currency the final price will be in
+    const priceCurrency = state.costProvided !== null
+      ? state.costCurrency ?? homeCurrency
+      : null; // Will be known after fetchPrice; but fetchFx runs in parallel
+
+    // If we're doing EMI or the price is already in home currency, skip FX
+    if (state.isEmiConfirmation) {
+      console.log("[Graph:fetchFx] skipped — EMI confirmation");
+      return { fxData: null };
+    }
+
+    // If user explicitly provided cost in home currency, no FX needed
+    if (state.costProvided !== null && (state.costCurrency ?? homeCurrency) === homeCurrency) {
+      console.log("[Graph:fetchFx] skipped — cost already in home currency");
+      return { fxData: null };
+    }
+
+    // We need FX: either user gave a foreign-currency cost, or we'll fetch a price
+    // and it might come back in EUR/USD. Fetch EUR→homeCurrency and USD→homeCurrency
+    // proactively so the data is ready when checkAffordability runs.
+    // Primary: use the currency the user mentioned, fall back to EUR (most common for EU purchases).
+    const fromCurrency =
+      state.costProvided !== null
+        ? (state.costCurrency ?? "EUR")
+        : (state.costCurrency !== homeCurrency ? state.costCurrency ?? "EUR" : null);
+
+    if (!fromCurrency || fromCurrency === homeCurrency) {
+      console.log("[Graph:fetchFx] skipped — same currency as home");
+      return { fxData: null };
+    }
+
+    console.log(`[Graph:fetchFx] fetching ${fromCurrency} → ${homeCurrency}`);
+    const result = await fetchMarketData({ fromCurrency, toCurrency: homeCurrency });
+    console.log(`[Graph:fetchFx] rate=${result.rate}`);
+
+    if (!result.rate) {
+      return { fxData: null };
+    }
+
+    return {
+      fxData: { rate: result.rate, from: fromCurrency, to: homeCurrency },
+    };
+  };
+}
+
+// ─── Node: checkAffordability ─────────────────────────────────────────────────
+
+export function makeCheckAffordabilityNode() {
+  return function checkAffordabilityNode(
+    state: GraphState,
+  ): Partial<GraphState> {
+    if (state.isEmiConfirmation || !state.profile) {
+      return { affordabilityData: null };
+    }
+
+    // Resolve the working cost: user-provided → fetched → unknown
+    let cost: number;
+    let currency: string;
+    const homeCurrency = state.profile.homeCurrency;
+
+    if (state.costProvided !== null) {
+      cost = state.costProvided;
+      currency = state.costCurrency ?? homeCurrency;
+    } else if (state.priceData) {
+      cost = state.priceData.price;
+      currency = state.priceData.currency;
+    } else {
+      console.warn("[Graph:checkAffordability] no cost data — skipping");
+      return { affordabilityData: { verdict: "UNKNOWN", explanation: "No price data available." } };
+    }
+
+    const fxRate = state.fxData?.rate;
+
+    console.log(
+      `[Graph:checkAffordability] cost=${cost} ${currency} fxRate=${fxRate ?? "n/a"} home=${homeCurrency}`,
+    );
+
+    const result = checkAffordability(
+      { userId: state.userId, cost, currency, fxRate },
+      state.profile,
+    );
+
+    return { affordabilityData: result as unknown as Record<string, unknown> };
+  };
+}
+
+// ─── Node: generateResponse ───────────────────────────────────────────────────
+
+export function makeGenerateResponseNode(llmClient: V3LlmClient, chatRepo: ChatRepository) {
+  return async function generateResponseNode(
+    state: GraphState,
+  ): Promise<Partial<GraphState>> {
+    if (!state.profile) {
+      return { response: "Sorry, I could not load your financial profile. Please try again." };
+    }
+
+    const af = state.affordabilityData as Record<string, unknown> | null;
+    const homeCurrency = state.profile.homeCurrency;
+
+    // Resolve display price details for the LLM context
+    const displayCost = state.costProvided ?? state.priceData?.price ?? null;
+    const displayCurrency = state.costProvided !== null
+      ? (state.costCurrency ?? homeCurrency)
+      : (state.priceData?.currency ?? homeCurrency);
+    const displaySource = state.costProvided !== null ? "user provided" : (state.priceData?.source ?? "unknown");
+    const fxRate = state.fxData?.rate ?? null;
+    const fxFrom = state.fxData?.from ?? null;
+    const fxTo = state.fxData?.to ?? null;
+
+    // Build a rich context message so the LLM only needs to FORMAT the answer
+    const dataContext = `
+FINANCIAL DATA (use these exact numbers — do NOT invent any figures):
+
+User profile:
+  • Savings: ${homeCurrency} ${state.profile.availableSavings.toLocaleString("en-GB")}
+  • Monthly surplus: ${state.profile.netMonthlySurplus != null ? `${homeCurrency} ${state.profile.netMonthlySurplus.toLocaleString("en-GB")}` : "unknown"}
+  • Home currency: ${homeCurrency}
+
+Price data:
+  • Item: ${state.product ?? "the requested item"}
+  • Price: ${displayCurrency} ${displayCost?.toLocaleString("en-GB") ?? "unknown"} (source: ${displaySource})
+  ${fxRate && fxFrom && fxTo && fxFrom !== fxTo ? `• FX rate: 1 ${fxFrom} = ${fxRate} ${fxTo}` : "• No FX conversion needed (price already in home currency)"}
+
+Affordability result:
+${af ? JSON.stringify(af, null, 2) : "  • Not computed"}
+
+Generate the affordability response now following the OUTPUT FORMAT rules in the system instructions.
+`.trim();
+
+    const messages = [
+      { role: "system" as const, content: buildSystemPrompt(state.profile) },
+      ...state.history.map((h) => ({
+        role: h.role as "user" | "assistant",
+        content: h.content,
+      })),
+      { role: "user" as const, content: state.userMessage },
+      { role: "user" as const, content: dataContext },
+    ];
+
+    console.log("[Graph:generateResponse] calling LLM for final narrative");
+    const llmResponse = await llmClient.chat(messages, []); // no tools on final call
+    const response = llmResponse.content ?? "I could not generate a response. Please try again.";
+
+    // Persist history
+    void chatRepo.saveMessage(state.userId, state.sessionId, "user", state.userMessage);
+    void chatRepo.saveMessage(state.userId, state.sessionId, "assistant", response);
+
+    console.log("[Graph:generateResponse] done");
+    return { response };
+  };
+}
+
+// ─── Node: generateEmi ────────────────────────────────────────────────────────
+
+export function makeGenerateEmiNode(llmClient: V3LlmClient, chatRepo: ChatRepository) {
+  return async function generateEmiNode(
+    state: GraphState,
+  ): Promise<Partial<GraphState>> {
+    if (!state.profile) {
+      return { response: "Sorry, I could not load your financial profile. Please try again." };
+    }
+
+    // Recover cost from prev turn (extracted in extractIntent)
+    const cost = state.prevCost ?? state.costProvided ?? null;
+    const currency = state.prevCostCurrency ?? state.costCurrency ?? state.profile.homeCurrency;
+
+    if (!cost) {
+      return {
+        response:
+          "I don't have the purchase amount on record. Could you share the cost so I can run the instalment plan?",
+      };
+    }
+
+    console.log(`[Graph:generateEmi] generating EMI plan: ${currency} ${cost}`);
+    const emiResult = generateEmiPlan(
+      { userId: state.userId, cost, currency },
+      state.profile,
+    );
+
+    const homeCurrency = state.profile.homeCurrency;
+    const dataContext = `
+EMI PLAN DATA (use these exact numbers — do NOT invent any figures):
+
+User profile:
+  • Savings: ${homeCurrency} ${state.profile.availableSavings.toLocaleString("en-GB")}
+  • Home currency: ${homeCurrency}
+
+EMI plan result:
+${JSON.stringify(emiResult, null, 2)}
+
+Generate the EMI plan response now following the OUTPUT FORMAT → EMI plan rules in the system instructions.
+Show all 3 options.
+`.trim();
+
+    const messages = [
+      { role: "system" as const, content: buildSystemPrompt(state.profile) },
+      ...state.history.map((h) => ({
+        role: h.role as "user" | "assistant",
+        content: h.content,
+      })),
+      { role: "user" as const, content: state.userMessage },
+      { role: "user" as const, content: dataContext },
+    ];
+
+    console.log("[Graph:generateEmi] calling LLM for EMI narrative");
+    const llmResponse = await llmClient.chat(messages, []); // no tools on final call
+    const response = llmResponse.content ?? "I could not generate the instalment plan. Please try again.";
+
+    void chatRepo.saveMessage(state.userId, state.sessionId, "user", state.userMessage);
+    void chatRepo.saveMessage(state.userId, state.sessionId, "assistant", response);
+
+    console.log("[Graph:generateEmi] done");
+    return { response };
+  };
+}
+
+// ─── Conditional router ───────────────────────────────────────────────────────
+
+/**
+ * After extractIntent: route to EMI generation or kick off the parallel
+ * price + FX analysis branch.
+ *
+ * Returning an array from addConditionalEdges causes LangGraph to fan-out to
+ * all listed nodes in parallel — this is the mechanism for running fetchPrice
+ * and fetchFx concurrently.
+ */
+export function routeAfterIntent(state: GraphState): string | string[] {
+  if (state.isEmiConfirmation) {
+    console.log("[Graph:router] → generateEmi");
+    return "generateEmi";
+  }
+  // Parallel fan-out: fetchPrice and fetchFx run concurrently
+  console.log("[Graph:router] → [fetchPrice ∥ fetchFx]");
+  return ["fetchPrice", "fetchFx"];
+}
