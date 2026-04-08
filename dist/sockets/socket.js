@@ -1,7 +1,9 @@
 import { WebSocketServer, WebSocket } from "ws";
 import crypto from "crypto";
 import { container } from "../config/di.container.js";
+import { ENV } from "../config/env.js";
 import { parseClientSocketMessage, } from "./socket.dto.js";
+const ACTIVE_PIPELINE = ENV.PIPELINE_VERSION.toUpperCase();
 /**
  * userId -> active WebSocket connections
  */
@@ -196,7 +198,8 @@ export const initWebSocket = (server) => {
                 v: 1,
                 type: "diagnostic",
                 status: "online",
-                message: "FinAi is online and ready",
+                message: `FinAi is online and ready (${ACTIVE_PIPELINE})`,
+                pipelineVersion: ENV.PIPELINE_VERSION,
                 timestamp: new Date().toISOString(),
             }));
         }
@@ -215,6 +218,7 @@ export const initWebSocket = (server) => {
                         v: 1,
                         type: "diagnostic",
                         status: "online",
+                        pipelineVersion: ENV.PIPELINE_VERSION,
                         timestamp: new Date().toISOString(),
                     }));
                     return;

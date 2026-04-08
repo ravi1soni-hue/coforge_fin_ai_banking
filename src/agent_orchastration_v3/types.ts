@@ -59,6 +59,12 @@ export interface ToolCallingResponse {
   content: string | null;
   /** Present when the LLM wants to call one or more tools */
   toolCalls?: ToolCall[];
+  /**
+   * True when tool calls were parsed from plain-text content rather than
+   * from the native OpenAI tool_calls field.  The pipeline uses a different
+   * result-injection strategy in this case (user message instead of tool role).
+   */
+  textBased?: boolean;
 }
 
 // ─── Tool result (returned from executor to the pipeline) ─────────────────────

@@ -134,26 +134,46 @@ export class PipelineV3 {
         response.toolCalls.map((tc) => tc.function.name),
       );
 
-      // Append the assistant's tool-call message
-      iterationMessages.push({
-        role: "assistant",
-        content: response.content ?? null,
-        tool_calls: response.toolCalls,
-      });
-
-      // Execute ALL tool calls in parallel, then inject results in order
+      // Execute ALL tool calls in parallel
       console.log(`[PipelineV3] Running ${response.toolCalls.length} tool(s) in parallel`);
       const toolResults = await Promise.all(
         response.toolCalls.map((tc) => this.toolExecutor.execute(tc, userId, profile)),
       );
+      for (const r of toolResults) {
+        console.log(`[PipelineV3] Tool "${r.toolName}" completed`);
+      }
 
-      for (let j = 0; j < response.toolCalls.length; j++) {
+      if (response.textBased) {
+        // ── Text-based tool dispatch (Coforge model) ────────────────────────
+        // The model does not understand role:"tool" messages; inject results
+        // as a user message so the next LLM call gets the data in-context.
+        const resultSections = toolResults
+          .map((r) => `**${r.toolName}** result:\n${JSON.stringify(r.data, null, 2)}`)
+          .join("\n\n");
+
         iterationMessages.push({
-          role: "tool",
-          tool_call_id: response.toolCalls[j].id,
-          content: JSON.stringify(toolResults[j].data),
+          role: "user",
+          content:
+            `Tool execution results:\n\n${resultSections}\n\n` +
+            "Using these results, provide a comprehensive final response to the user. " +
+            "Do NOT output any more JSON tool calls — give a human-readable answer only.",
         });
-        console.log(`[PipelineV3] Tool "${toolResults[j].toolName}" completed`);
+      } else {
+        // ── Native OpenAI tool_calls (standard flow) ────────────────────────
+        // Append the assistant's tool-call message then each tool result
+        iterationMessages.push({
+          role: "assistant",
+          content: response.content ?? null,
+          tool_calls: response.toolCalls,
+        });
+
+        for (let j = 0; j < response.toolCalls.length; j++) {
+          iterationMessages.push({
+            role: "tool",
+            tool_call_id: response.toolCalls[j].id,
+            content: JSON.stringify(toolResults[j].data),
+          });
+        }
       }
     }
 

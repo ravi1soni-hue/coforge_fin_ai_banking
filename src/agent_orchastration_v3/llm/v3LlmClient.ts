@@ -12,7 +12,7 @@
  * supports the `tools` / `tool_calls` format used in GPT-4+ models.
  */
 
-import type { ToolDefinition, ToolCallingResponse, AgenticMessage } from "../types.js";
+import type { ToolDefinition, ToolCall, ToolCallingResponse, AgenticMessage } from "../types.js";
 
 const API_URL =
   "https://quasarmarket.coforge.com/qag/llmrouter-api/v2/chat/completions";
@@ -69,7 +69,7 @@ export class V3LlmClient {
 
       const message = choice.message;
 
-      // LLM wants to call one or more tools
+      // LLM wants to call one or more tools (native OpenAI tool_calls format)
       if (
         choice.finish_reason === "tool_calls" ||
         (Array.isArray(message?.tool_calls) && message.tool_calls.length > 0)
@@ -77,19 +77,78 @@ export class V3LlmClient {
         return {
           content: message.content ?? null,
           toolCalls: message.tool_calls,
+          textBased: false,
+        };
+      }
+
+      // Fallback: some models (including Coforge gpt-5-chat) output tool calls as
+      // plain-text JSON lines instead of the structured tool_calls field.
+      // Example output:
+      //   {"name":"fetch_live_price","arguments":{"query":"iPhone 16 Pro Europe"}}
+      //   {"name":"fetch_market_data","arguments":{"fromCurrency":"EUR","toCurrency":"GBP"}}
+      const rawContent = (message?.content ?? "").trim();
+      const textParsed = this.parseTextualToolCalls(rawContent);
+      if (textParsed.length > 0) {
+        console.log(
+          `[V3LlmClient] Detected ${textParsed.length} text-based tool call(s):`,
+          textParsed.map((t) => t.function.name),
+        );
+        return {
+          content: null,
+          toolCalls: textParsed,
+          textBased: true,
         };
       }
 
       // LLM gave a final text response
-      const content = message?.content?.trim();
+      const content = rawContent.length > 0 ? rawContent : "No response from AI.";
       return {
-        content: content && content.length > 0 ? content : "No response from AI.",
+        content,
         toolCalls: undefined,
       };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       throw new Error(`V3LlmClient.chat failed: ${message}`);
     }
+  }
+
+  /**
+   * Parse newline-separated JSON tool call objects from plain text content.
+   *
+   * The Coforge model outputs tool invocations as text instead of using the
+   * native tool_calls field.  Each line is a JSON object with shape:
+   *   { "name": "<tool>", "arguments": { ... } }
+   */
+  private parseTextualToolCalls(text: string): ToolCall[] {
+    if (!text) return [];
+    const toolCalls: ToolCall[] = [];
+    let seq = 0;
+
+    // Split on newlines; also handle back-to-back JSON objects on one line
+    const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+
+    for (const line of lines) {
+      try {
+        const obj = JSON.parse(line) as { name?: unknown; arguments?: unknown };
+        if (typeof obj.name === "string" && obj.arguments !== undefined) {
+          toolCalls.push({
+            id: `call_text_${Date.now()}_${seq++}`,
+            type: "function",
+            function: {
+              name: obj.name,
+              arguments:
+                typeof obj.arguments === "string"
+                  ? obj.arguments
+                  : JSON.stringify(obj.arguments),
+            },
+          });
+        }
+      } catch {
+        // Not a JSON tool call line — could be part of a normal text answer
+      }
+    }
+
+    return toolCalls;
   }
 
   /**
