@@ -133,4 +133,56 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       },
     },
   },
+
+  {
+    type: "function",
+    function: {
+      name: "fetch_live_price",
+      description:
+        "Search the web (DuckDuckGo) for the realistic price or cost of something the user wants to buy or plan for. " +
+        "Call this when the user mentions a product or financial goal but has NOT provided a specific numeric amount. " +
+        "You MUST craft a concise, specific search query (max 8 words) as the `query` argument. " +
+        "Example queries: 'new Honda Civic price UK 2026', '3 day Paris trip cost 2026'. " +
+        "If the result has confidence=none, ask the user for the amount directly.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description:
+              "Concise web search query (max 8 words) to find the price or cost. " +
+              "Include year and country/currency context for accuracy. E.g. 'iPhone 16 Pro price UK 2026'.",
+          },
+        },
+        required: ["query"],
+      },
+    },
+  },
+
+  {
+    type: "function",
+    function: {
+      name: "fetch_market_data",
+      description:
+        "Fetch the live foreign exchange (FX) rate between two currencies. " +
+        "Call this when the purchase cost is in a different currency to the user's home currency, " +
+        "or when the user asks about converting amounts between currencies. " +
+        "Uses the Frankfurter API (European Central Bank data). " +
+        "If the rate is unavailable, proceed with the user's home currency.",
+      parameters: {
+        type: "object",
+        properties: {
+          fromCurrency: {
+            type: "string",
+            description: "Source currency ISO code (e.g. EUR, USD, GBP).",
+          },
+          toCurrency: {
+            type: "string",
+            description: "Target currency ISO code (e.g. GBP, EUR, USD).",
+          },
+        },
+        required: ["fromCurrency", "toCurrency"],
+      },
+    },
+  },
 ];

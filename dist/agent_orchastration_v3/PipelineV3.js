@@ -102,15 +102,16 @@ export class PipelineV3 {
                 content: response.content ?? null,
                 tool_calls: response.toolCalls,
             });
-            // Execute each tool in sequence and inject results
-            for (const toolCall of response.toolCalls) {
-                const toolResult = await this.toolExecutor.execute(toolCall, userId, profile);
+            // Execute ALL tool calls in parallel, then inject results in order
+            console.log(`[PipelineV3] Running ${response.toolCalls.length} tool(s) in parallel`);
+            const toolResults = await Promise.all(response.toolCalls.map((tc) => this.toolExecutor.execute(tc, userId, profile)));
+            for (let j = 0; j < response.toolCalls.length; j++) {
                 iterationMessages.push({
                     role: "tool",
-                    tool_call_id: toolCall.id,
-                    content: JSON.stringify(toolResult.data),
+                    tool_call_id: response.toolCalls[j].id,
+                    content: JSON.stringify(toolResults[j].data),
                 });
-                console.log(`[PipelineV3] Tool "${toolResult.toolName}" completed`);
+                console.log(`[PipelineV3] Tool "${toolResults[j].toolName}" completed`);
             }
         }
         // Safety net — should never be reached with well-prompted models

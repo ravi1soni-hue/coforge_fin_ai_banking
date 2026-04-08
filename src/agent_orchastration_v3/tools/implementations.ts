@@ -8,8 +8,10 @@
  * The LLM decides WHEN to call these; TypeScript decides WHAT they return.
  */
 
+import axios from "axios";
 import type { UserProfile } from "../../agent_orchastration_v2/types.js";
 import { computeAffordabilityVerdict } from "../../agent_orchastration_v2/responseGenerators.js";
+import { FxAdapter } from "../../agent_orchastration/services/marketData.adapters.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -318,5 +320,187 @@ export function calculateSavingsProjection(
     feasible,
     canAlreadyAfford: false,
     explanation,
+  };
+}
+
+// ─── Tool: fetch_live_price ───────────────────────────────────────────────────
+
+export interface FetchLivePriceArgs {
+  query: string;
+}
+
+export interface ExtractedPrice {
+  amount: number;
+  currency: string;
+  label: string;
+}
+
+export interface FetchLivePriceResult {
+  query: string;
+  priceRange: { min: number; max: number; currency: string } | null;
+  extractedPrices: ExtractedPrice[];
+  rawAbstract: string | null;
+  confidence: "confirmed" | "partial" | "none";
+  searchedAt: string;
+  note: string;
+}
+
+// Private helpers (no LangChain dependency — pure HTTP + regex)
+const YEAR_SET = new Set([2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027]);
+
+const extractPricesFromText = (text: string): ExtractedPrice[] => {
+  const results: ExtractedPrice[] = [];
+  const pattern = /([£$€])([\d,]+(?:\.\d{1,2})?)/g;
+  let m: RegExpExecArray | null;
+  while ((m = pattern.exec(text)) !== null) {
+    const sym = m[1];
+    const raw = m[2].replace(/,/g, "");
+    const amount = Number(raw);
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 50_000_000) continue;
+    if (YEAR_SET.has(amount)) continue;
+    const currency = sym === "£" ? "GBP" : sym === "$" ? "USD" : "EUR";
+    results.push({ amount, currency, label: "text_extracted" });
+  }
+  return results;
+};
+
+const extractPricesFromInfobox = (
+  content: Array<{ label?: string; value?: string }>,
+): ExtractedPrice[] => {
+  const PRICE_LABELS = /price|cost|msrp|rrp|starting|from|fee/i;
+  const results: ExtractedPrice[] = [];
+  for (const item of content) {
+    if (!item.label || !item.value || !PRICE_LABELS.test(item.label)) continue;
+    for (const p of extractPricesFromText(item.value)) results.push({ ...p, label: item.label });
+  }
+  return results;
+};
+
+const buildPriceRange = (
+  prices: ExtractedPrice[],
+): { min: number; max: number; currency: string } | null => {
+  if (prices.length === 0) return null;
+  const counts: Record<string, number> = {};
+  for (const p of prices) counts[p.currency] = (counts[p.currency] ?? 0) + 1;
+  const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+  const amounts = prices.filter((p) => p.currency === dominant).map((p) => p.amount);
+  if (amounts.length === 0) return null;
+  return { min: Math.min(...amounts), max: Math.max(...amounts), currency: dominant };
+};
+
+/**
+ * Calls DuckDuckGo Instant Answer API to find the price / cost of something.
+ * The LLM provides the search query as a tool argument — no second LLM call needed here.
+ * Returns null priceRange + confidence="none" on any failure instead of throwing.
+ */
+export async function fetchLivePrice(args: FetchLivePriceArgs): Promise<FetchLivePriceResult> {
+  const { query } = args;
+  const searchedAt = new Date().toISOString();
+
+  try {
+    type DdgResponse = {
+      Abstract?: string;
+      AbstractText?: string;
+      Answer?: string;
+      RelatedTopics?: Array<{ Text?: string }>;
+      Infobox?: { content?: Array<{ label?: string; value?: string }> };
+    };
+
+    const response = await axios.get<DdgResponse>("https://api.duckduckgo.com/", {
+      params: {
+        q: query,
+        format: "json",
+        no_redirect: "1",
+        no_html: "1",
+        skip_disambig: "1",
+      },
+      timeout: 8000,
+      headers: { "Accept-Encoding": "gzip", "User-Agent": "BankingAssistant/1.0 (research)" },
+    });
+
+    const data = response.data;
+    const allPrices: ExtractedPrice[] = [];
+
+    const infoboxPrices = extractPricesFromInfobox(data.Infobox?.content ?? []);
+    allPrices.push(...infoboxPrices);
+
+    const textSources = [data.Answer ?? "", data.AbstractText ?? "", data.Abstract ?? ""]
+      .filter(Boolean)
+      .join(" ");
+    allPrices.push(...extractPricesFromText(textSources));
+
+    const topicTexts = (data.RelatedTopics ?? [])
+      .slice(0, 10)
+      .map((t) => t.Text ?? "")
+      .join(" ");
+    allPrices.push(...extractPricesFromText(topicTexts));
+
+    const priceRange = buildPriceRange(allPrices);
+    const confidence: "confirmed" | "partial" | "none" =
+      infoboxPrices.length > 0 || (data.Answer && allPrices.length > 0)
+        ? "confirmed"
+        : allPrices.length > 0
+          ? "partial"
+          : "none";
+
+    return {
+      query,
+      priceRange,
+      extractedPrices: allPrices,
+      rawAbstract: data.AbstractText ?? data.Abstract ?? null,
+      confidence,
+      searchedAt,
+      note:
+        priceRange != null
+          ? `Found price range ${priceRange.currency} ${Math.round(priceRange.min).toLocaleString("en-GB")}–${Math.round(priceRange.max).toLocaleString("en-GB")} (confidence: ${confidence}).`
+          : "No price data found. Ask the user to provide the amount.",
+    };
+  } catch {
+    return {
+      query,
+      priceRange: null,
+      extractedPrices: [],
+      rawAbstract: null,
+      confidence: "none",
+      searchedAt,
+      note: "Price lookup failed. Ask the user to provide the amount.",
+    };
+  }
+}
+
+// ─── Tool: fetch_market_data ──────────────────────────────────────────────────
+
+export interface FetchMarketDataArgs {
+  fromCurrency: string;
+  toCurrency: string;
+}
+
+export interface FetchMarketDataResult {
+  pair: string;
+  rate: number | null;
+  asOf: string | null;
+  source: string;
+  confidence: string;
+  note: string;
+}
+
+const _fxAdapter = new FxAdapter();
+
+/**
+ * Fetches the live FX exchange rate between two currencies via Frankfurter API.
+ * Reuses the existing FxAdapter so the same timeout / error-handling applies.
+ */
+export async function fetchMarketData(args: FetchMarketDataArgs): Promise<FetchMarketDataResult> {
+  const result = await _fxAdapter.getRate(args.fromCurrency, args.toCurrency);
+  return {
+    pair: result.pair,
+    rate: result.rate ?? null,
+    asOf: result.asOf ?? null,
+    source: result.source,
+    confidence: result.confidence.label,
+    note:
+      result.rate != null
+        ? `1 ${args.fromCurrency.toUpperCase()} = ${result.rate} ${args.toCurrency.toUpperCase()} (as of ${result.asOf ?? "today"}, source: ${result.source}).`
+        : `FX rate for ${result.pair} unavailable. Use the user's home currency for calculations.`,
   };
 }
