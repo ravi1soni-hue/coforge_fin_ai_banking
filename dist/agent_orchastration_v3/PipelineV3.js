@@ -112,8 +112,9 @@ export class PipelineV3 {
                 iterationMessages.push({
                     role: "user",
                     content: `Tool execution results:\n\n${resultSections}\n\n` +
-                        "Using these results, provide a comprehensive final response to the user. " +
-                        "Do NOT output any more JSON tool calls — give a human-readable answer only.",
+                        "If you still need additional tools (e.g. fetch_financial_news, get_financial_profile, check_affordability, generate_emi_plan) " +
+                        "to complete your analysis, call them now in the same text-based JSON format. " +
+                        "If you have all required data, provide a comprehensive final human-readable response only.",
                 });
             }
             else {
