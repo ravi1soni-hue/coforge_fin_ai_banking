@@ -95,9 +95,11 @@ export class V3LlmClient {
     /**
      * Parse newline-separated JSON tool call objects from plain text content.
      *
-     * The Coforge model outputs tool invocations as text instead of using the
-     * native tool_calls field.  Each line is a JSON object with shape:
-     *   { "name": "<tool>", "arguments": { ... } }
+     * The Coforge model outputs tool invocations as text in one of two formats:
+     *
+     * Format 1 (preferred): { "name": "<tool>", "arguments": { ... } }
+     * Format 2 (bare args): { "userId": "...", "cost": 1234, "currency": "EUR" }
+     *   — model omits the name wrapper; we infer the tool from the key signature.
      */
     parseTextualToolCalls(text) {
         if (!text)
@@ -109,6 +111,7 @@ export class V3LlmClient {
         for (const line of lines) {
             try {
                 const obj = JSON.parse(line);
+                // ── Format 1: {"name":"tool_name","arguments":{…}} ──────────────────
                 if (typeof obj.name === "string" && obj.arguments !== undefined) {
                     toolCalls.push({
                         id: `call_text_${Date.now()}_${seq++}`,
@@ -120,6 +123,20 @@ export class V3LlmClient {
                                 : JSON.stringify(obj.arguments),
                         },
                     });
+                    continue;
+                }
+                // ── Format 2: bare argument object — infer tool from key signature ──
+                const inferredName = this.inferToolNameFromArgs(obj);
+                if (inferredName) {
+                    console.log(`[V3LlmClient] Inferred tool "${inferredName}" from bare arg object keys: ${Object.keys(obj).join(",")}`);
+                    toolCalls.push({
+                        id: `call_text_${Date.now()}_${seq++}`,
+                        type: "function",
+                        function: {
+                            name: inferredName,
+                            arguments: JSON.stringify(obj),
+                        },
+                    });
                 }
             }
             catch {
@@ -127,6 +144,44 @@ export class V3LlmClient {
             }
         }
         return toolCalls;
+    }
+    /**
+     * Infer a tool name from a bare argument object by matching its key signature
+     * against known tool schemas.
+     *
+     * More-specific signatures are checked first to avoid ambiguity.
+     */
+    inferToolNameFromArgs(obj) {
+        const keys = new Set(Object.keys(obj));
+        // generate_emi_plan — userId + cost + currency + months
+        if (keys.has("userId") && keys.has("cost") && keys.has("currency") && keys.has("months")) {
+            return "generate_emi_plan";
+        }
+        // check_affordability — userId + cost + currency (no months)
+        if (keys.has("userId") && keys.has("cost") && keys.has("currency")) {
+            return "check_affordability";
+        }
+        // calculate_savings_projection — userId + targetAmount + currency
+        if (keys.has("userId") && keys.has("targetAmount") && keys.has("currency")) {
+            return "calculate_savings_projection";
+        }
+        // get_financial_profile — userId only (no cost, no targetAmount)
+        if (keys.has("userId") && !keys.has("cost") && !keys.has("targetAmount")) {
+            return "get_financial_profile";
+        }
+        // fetch_market_data — fromCurrency + toCurrency
+        if (keys.has("fromCurrency") && keys.has("toCurrency")) {
+            return "fetch_market_data";
+        }
+        // fetch_financial_news — query + region (or topic)
+        if (keys.has("query") && (keys.has("region") || keys.has("topic"))) {
+            return "fetch_financial_news";
+        }
+        // fetch_live_price — query (generic price lookup)
+        if (keys.has("query")) {
+            return "fetch_live_price";
+        }
+        return null; // Cannot identify — treat as plain text
     }
     /**
      * Simple text-only call (no tools) — used for health checks or simple fallbacks.
