@@ -61,6 +61,13 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
             type: "string",
             description: "The currency of the cost (e.g. EUR, GBP, USD). Use the user's home currency if the same.",
           },
+          fxRate: {
+            type: "number",
+            description:
+              "REQUIRED when cost currency differs from the user's home currency. " +
+              "Pass the 'rate' value from fetch_market_data result (e.g. if fetch_market_data returned rate: 0.8725, pass 0.8725). " +
+              "This converts the cost to home currency before computing the verdict.",
+          },
         },
         required: ["userId", "cost", "currency"],
       },

@@ -61,22 +61,29 @@ export function getFinancialProfile(args, profile) {
  * identical thresholds across both versions.
  */
 export function checkAffordability(args, profile) {
-    const { cost, currency } = args;
+    const { cost, currency, fxRate } = args;
     const { availableSavings, netMonthlySurplus, homeCurrency } = profile;
-    const verdict = computeAffordabilityVerdict(profile, { goalType: "PURCHASE", cost, currency });
-    const remaining = availableSavings - cost;
+    // Convert cost to home currency when currencies differ and an FX rate was supplied
+    const needsConversion = currency !== homeCurrency && fxRate && fxRate > 0;
+    const costInHomeCurrency = needsConversion ? cost * fxRate : cost;
+    const verdict = computeAffordabilityVerdict(profile, { goalType: "PURCHASE", cost: costInHomeCurrency, currency: homeCurrency });
+    const remaining = availableSavings - costInHomeCurrency;
     const emergencyBuffer = netMonthlySurplus && netMonthlySurplus > 0
         ? netMonthlySurplus * 3
         : availableSavings * 0.2;
+    const displayCostLabel = needsConversion
+        ? `${currency} ${fmt(cost)} (${homeCurrency} ${fmt(costInHomeCurrency)} after FX)`
+        : `${currency} ${fmt(cost)}`;
     const explanation = verdict === "COMFORTABLE"
-        ? `After paying ${currency} ${fmt(cost)}, savings would be ${homeCurrency} ${fmt(remaining)}, well above the ${homeCurrency} ${fmt(emergencyBuffer)} emergency buffer.`
+        ? `After paying ${displayCostLabel}, savings would be ${homeCurrency} ${fmt(remaining)}, well above the ${homeCurrency} ${fmt(emergencyBuffer)} emergency buffer.`
         : verdict === "RISKY"
-            ? `After paying ${currency} ${fmt(cost)}, savings would be ${homeCurrency} ${fmt(remaining)}, below the ${homeCurrency} ${fmt(emergencyBuffer)} emergency buffer. Risky but technically possible.`
-            : `Cost of ${currency} ${fmt(cost)} exceeds available savings of ${homeCurrency} ${fmt(availableSavings)} by ${homeCurrency} ${fmt(Math.abs(remaining))}.`;
+            ? `After paying ${displayCostLabel}, savings would be ${homeCurrency} ${fmt(remaining)}, below the ${homeCurrency} ${fmt(emergencyBuffer)} emergency buffer. Risky but technically possible.`
+            : `Cost of ${displayCostLabel} exceeds available savings of ${homeCurrency} ${fmt(availableSavings)} by ${homeCurrency} ${fmt(Math.abs(remaining))}.`;
     return {
         verdict,
         availableSavings,
         savingsCurrency: homeCurrency,
+        costInHomeCurrency: Math.round(costInHomeCurrency),
         cost,
         costCurrency: currency,
         remainingAfterPayment: remaining,
