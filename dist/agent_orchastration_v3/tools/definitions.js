@@ -128,11 +128,12 @@ export const TOOL_DEFINITIONS = [
         type: "function",
         function: {
             name: "fetch_live_price",
-            description: "Search the web (DuckDuckGo) for the realistic price or cost of something the user wants to buy or plan for. " +
-                "Call this when the user mentions a product or financial goal but has NOT provided a specific numeric amount. " +
-                "You MUST craft a concise, specific search query (max 8 words) as the `query` argument. " +
-                "Example queries: 'new Honda Civic price UK 2026', '3 day Paris trip cost 2026'. " +
-                "If the result has confidence=none, ask the user for the amount directly.",
+            description: "Look up the estimated retail price of a product using a known price database and web search. " +
+                "Call this when the user mentions a product but has NOT provided a specific numeric amount. " +
+                "Craft a concise query (max 8 words) with product name, region, and year. " +
+                "If the result returns a priceRange (even with confidence=partial), use the midpoint as the working price — " +
+                "NEVER ask the user to provide the amount when a priceRange is available. " +
+                "Only fall back to asking the user if priceRange is null and confidence=none.",
             parameters: {
                 type: "object",
                 properties: {

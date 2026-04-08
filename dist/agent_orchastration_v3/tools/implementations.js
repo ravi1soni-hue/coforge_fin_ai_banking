@@ -199,6 +199,28 @@ export function calculateSavingsProjection(args, profile) {
  * Prices are approximate starting prices as of early 2026.
  */
 const KNOWN_PRODUCT_PRICES = [
+    // ── iPhone 17 series (released Sep 2025) ──
+    {
+        patterns: [/iphone\s*17\s*pro\s*max/i],
+        priceRange: { min: 1629, max: 2299, currency: "EUR" },
+        note: "iPhone 17 Pro Max starts from EUR 1,629 (256GB) in Europe.",
+    },
+    {
+        patterns: [/iphone\s*17\s*pro(?!\s*max)/i],
+        priceRange: { min: 1399, max: 1899, currency: "EUR" },
+        note: "iPhone 17 Pro starts from EUR 1,399 (128GB) in Europe.",
+    },
+    {
+        patterns: [/iphone\s*17\s*plus/i],
+        priceRange: { min: 1099, max: 1399, currency: "EUR" },
+        note: "iPhone 17 Plus starts from EUR 1,099 in Europe.",
+    },
+    {
+        patterns: [/iphone\s*17(?!\s*(pro|plus))/i],
+        priceRange: { min: 899, max: 1199, currency: "EUR" },
+        note: "iPhone 17 starts from EUR 899 (128GB) in Europe.",
+    },
+    // ── iPhone 16 series ──
     {
         patterns: [/iphone\s*16\s*pro\s*max/i],
         priceRange: { min: 1479, max: 1969, currency: "EUR" },
@@ -214,6 +236,7 @@ const KNOWN_PRODUCT_PRICES = [
         priceRange: { min: 999, max: 1329, currency: "EUR" },
         note: "iPhone 16 starts from EUR 999 (128GB) in Europe.",
     },
+    // ── iPhone 15 series ──
     {
         patterns: [/iphone\s*15\s*pro\s*max/i],
         priceRange: { min: 1329, max: 1709, currency: "EUR" },
@@ -224,16 +247,23 @@ const KNOWN_PRODUCT_PRICES = [
         priceRange: { min: 1199, max: 1629, currency: "EUR" },
         note: "iPhone 15 Pro starts from EUR 1,199 in Europe.",
     },
+    // ── Samsung ──
     {
         patterns: [/samsung\s*(galaxy)?\s*s25\s*ultra/i],
         priceRange: { min: 1499, max: 1949, currency: "EUR" },
         note: "Samsung Galaxy S25 Ultra starts from EUR 1,499 in Europe.",
     },
     {
-        patterns: [/samsung\s*(galaxy)?\s*s25\+?/i],
-        priceRange: { min: 899, max: 1299, currency: "EUR" },
+        patterns: [/samsung\s*(galaxy)?\s*s25\s*(plus|\+)/i],
+        priceRange: { min: 1199, max: 1499, currency: "EUR" },
+        note: "Samsung Galaxy S25+ starts from EUR 1,199 in Europe.",
+    },
+    {
+        patterns: [/samsung\s*(galaxy)?\s*s25(?!\s*(ultra|plus|\+))/i],
+        priceRange: { min: 899, max: 1199, currency: "EUR" },
         note: "Samsung Galaxy S25 starts from EUR 899 in Europe.",
     },
+    // ── Apple Mac ──
     {
         patterns: [/macbook\s*pro/i],
         priceRange: { min: 1999, max: 3999, currency: "EUR" },
@@ -249,6 +279,7 @@ const KNOWN_PRODUCT_PRICES = [
         priceRange: { min: 1099, max: 2299, currency: "EUR" },
         note: "iPad Pro M4 starts from EUR 1,099 in Europe.",
     },
+    // ── Google ──
     {
         patterns: [/pixel\s*9\s*pro/i],
         priceRange: { min: 1099, max: 1449, currency: "EUR" },
