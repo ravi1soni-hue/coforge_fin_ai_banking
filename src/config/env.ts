@@ -31,4 +31,11 @@ export const ENV = {
   MARKET_DATA_STOOQ_BASE_URL: optionalEnv("MARKET_DATA_STOOQ_BASE_URL", "https://stooq.com"),
   MARKET_DATA_FX_BASE_URL: optionalEnv("MARKET_DATA_FX_BASE_URL", "https://api.frankfurter.app"),
   MARKET_DATA_TIMEOUT_MS: optionalInt("MARKET_DATA_TIMEOUT_MS", 3500),
+  /**
+   * Pipeline version selector.
+   * Set PIPELINE_VERSION=v3 in your .env or Railway environment variables
+   * to switch to the V3 agentic tool-calling pipeline.
+   * Defaults to "v2" (deterministic state-machine pipeline).
+   */
+  PIPELINE_VERSION: optionalEnv("PIPELINE_VERSION", "v2") as "v2" | "v3",
 };
