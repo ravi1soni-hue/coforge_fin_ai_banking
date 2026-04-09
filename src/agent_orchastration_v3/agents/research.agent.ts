@@ -28,8 +28,9 @@ async function researchPrice(
   const resolvedCurrency = priceCurrency ?? "GBP";
   const noDataFallback = `No web data available — return {"price": 0, "currency": "${resolvedCurrency}", "source": "web_search", "confidence": "low"}.`;
 
-  // 1. Get web data from DuckDuckGo
-  const webData = await searchWeb(searchQuery);
+  // 1. Get web data from Serper.dev (Google Search, UK results)
+  const ukQuery = searchQuery.toLowerCase().includes("uk") ? searchQuery : `${searchQuery} UK price buy`;
+  const webData = await searchWeb(ukQuery);
   const webContext = [
     webData.abstract,
     webData.answer,
