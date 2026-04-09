@@ -10,7 +10,7 @@
  */
 
 import type { V3LlmClient } from "../llm/v3LlmClient.js";
-import type { AgenticMessage } from "../types.js";
+import type { AgenticMessage, UserProfile } from "../types.js";
 import type { AgentPlan, ConversationTurn } from "../graph/state.js";
 
 const SYSTEM_PROMPT = `You are a financial assistant supervisor serving UK-based clients exclusively.
@@ -69,10 +69,10 @@ const DEFAULT_PLAN: AgentPlan = {
 export async function runSupervisorAgent(
   llmClient: V3LlmClient,
   userMessage: string,
-  userProfile: Record<string, unknown>,
+  userProfile: UserProfile | null,
   conversationHistory: ConversationTurn[] = [],
 ): Promise<AgentPlan> {
-  const homeCurrency = String(userProfile.homeCurrency ?? "GBP");
+  const homeCurrency = String(userProfile?.homeCurrency ?? "GBP");
 
   // Format last 3 turns (6 messages) as context so LLM understands follow-ups
   const historyText = conversationHistory.length > 0

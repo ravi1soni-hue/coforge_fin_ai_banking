@@ -23,6 +23,7 @@ import type { V3LlmClient }        from "../llm/v3LlmClient.js";
 import type { SessionRepository }  from "../../repo/session.repo.js";
 import type { VectorQueryService } from "../../agent_orchastration/services/vector.query.service.js";
 import type { LlmClient }          from "../../agent_orchastration/llm/llmClient.js";
+import { UserProfile } from "../types.js";
 
 // ─── Dependency injection ─────────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ function makeLoadProfileNode(loader: FinancialLoader) {
     console.log("[loadProfile] userId=" + state.userId);
     const profile = await loader.loadProfile(state.userId, {});
     console.log("[loadProfile] name=" + (profile.userName ?? "unknown") + " savings=" + profile.availableSavings + " " + profile.homeCurrency);
-    return { userProfile: profile as unknown as Record<string, unknown> };
+    return { userProfile: profile as UserProfile };
   };
 }
 
@@ -54,7 +55,7 @@ function makeSupervisorNode(llmClient: V3LlmClient) {
     const plan = await runSupervisorAgent(
       llmClient,
       state.userMessage,
-      state.userProfile ?? {},
+      state.userProfile,
       state.conversationHistory ?? [],
     );
     return { plan };

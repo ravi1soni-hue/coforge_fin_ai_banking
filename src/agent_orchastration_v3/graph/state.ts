@@ -8,6 +8,7 @@
  */
 
 import { Annotation } from "@langchain/langgraph";
+import { UserProfile } from "../types.js";
 
 // ─── Supervisor plan ──────────────────────────────────────────────────────────
 
@@ -79,7 +80,7 @@ export const FinancialGraphState = Annotation.Root({
   conversationHistory: Annotation<ConversationTurn[]>,
 
   // ── User profile (loaded by loadProfileNode) ────────────────────────────────
-  userProfile: Annotation<Record<string, unknown> | null>,
+  userProfile: Annotation<UserProfile | null>,
 
   // ── Supervisor's plan (set by supervisorNode) ────────────────────────────────
   plan: Annotation<AgentPlan | null>,

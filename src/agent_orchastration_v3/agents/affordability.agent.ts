@@ -38,16 +38,16 @@ export async function runAffordabilityAgent(
   llmClient: V3LlmClient,
   state: FinancialState,
 ): Promise<AffordabilityInfo> {
-  const profile = state.userProfile ?? {};
+  const profile = state.userProfile ;
   const plan    = state.plan!;
   const price   = state.priceInfo;
   const fx      = state.fxInfo;
 
-  const savings   = Number(profile.availableSavings ?? 0);
-  const income    = Number(profile.monthlyIncome    ?? 0);
-  const expenses  = Number(profile.monthlyExpenses  ?? 0);
-  const surplus   = Number(profile.netMonthlySurplus ?? (income - expenses));
-  const currency  = String(profile.homeCurrency ?? plan.userHomeCurrency ?? "GBP");
+  const savings   = Number(profile?.availableSavings ?? 0);
+  const income    = Number(profile?.monthlyIncome    ?? 0);
+  const expenses  = Number(profile?.monthlyExpenses  ?? 0);
+  const surplus   = Number(profile?.netMonthlySurplus ?? (income - expenses));
+  const currency  = String(profile?.homeCurrency ?? plan.userHomeCurrency ?? "GBP");
 
   // Calculate price in home currency
   let priceInHome = price?.price ?? 0;
