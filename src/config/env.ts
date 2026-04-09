@@ -37,5 +37,5 @@ export const ENV = {
    * to switch to the V3 agentic tool-calling pipeline.
    * Defaults to "v2" (deterministic state-machine pipeline).
    */
-  PIPELINE_VERSION: optionalEnv("PIPELINE_VERSION", "v2") as "v2" | "v3",
+  PIPELINE_VERSION: optionalEnv("PIPELINE_VERSION", "v3") as "v2" | "v3",
 };
