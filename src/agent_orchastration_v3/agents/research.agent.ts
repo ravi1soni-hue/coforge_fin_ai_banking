@@ -25,6 +25,9 @@ async function researchPrice(
 ): Promise<PriceInfo> {
   console.log(`[ResearchAgent:Price] Searching for: "${searchQuery}"`);
 
+  const resolvedCurrency = priceCurrency ?? "GBP";
+  const noDataFallback = `No web data available — return {"price": 0, "currency": "${resolvedCurrency}", "source": "web_search", "confidence": "low"}.`;
+
   // 1. Get web data from DuckDuckGo
   const webData = await searchWeb(searchQuery);
   const webContext = [
@@ -51,16 +54,16 @@ Rules:
 - currency should be the ISO 4217 code (EUR, GBP, USD, etc.)
 - source is ALWAYS "web_search" — do NOT use your training knowledge to invent or estimate a price
 - confidence = 'high' if exact price found, 'medium' if approximate, 'low' if unclear
-- If no price can be found in the web data, return {"price": 0, "currency": "${priceCurrency ?? "GBP"}", "source": "web_search", "confidence": "low"}
+- If no price can be found in the web data, return {"price": 0, "currency": "${resolvedCurrency}", "source": "web_search", "confidence": "low"}
 - NEVER guess or fabricate a price — if uncertain, return price: 0`,
     },
     {
       role: "user",
       content: `Product search: "${searchQuery}"
-Expected currency: ${priceCurrency ?? "GBP"}
+Expected currency: ${resolvedCurrency}
 
 Web search results:
-${webContext || "No web data available — return {\"price\": 0, \"currency\": \"${priceCurrency ?? "GBP"}\", \"source\": \"web_search\", \"confidence\": \"low\"}."}
+${webContext || noDataFallback}
 
 Extract the current retail price strictly from the web data above. Do NOT use training knowledge to estimate a price.`,
     },
@@ -116,7 +119,7 @@ async function researchNews(
   product: string | undefined,
 ): Promise<NewsInfo> {
   const query = product
-    ? `${product} price market news 2025`
+    ? `${product} UK price market news 2025`
     : "UK consumer finance news 2025";
 
   console.log(`[ResearchAgent:News] Searching for news: "${query}"`);
