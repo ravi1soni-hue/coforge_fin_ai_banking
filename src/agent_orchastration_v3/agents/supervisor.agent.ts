@@ -134,10 +134,11 @@ export async function runSupervisorAgent(
 ): Promise<AgentPlan> {
   const homeCurrency = String(userProfile?.homeCurrency ?? "GBP");
 
-  // Format last 3 turns (6 messages) as context so LLM understands follow-ups
-  const historyText = conversationHistory.length > 0
+  // Only pass last 6 turns (3 pairs) — prevents stale product context from earlier sessions bleeding in
+  const recentHistory = conversationHistory.slice(-6);
+  const historyText = recentHistory.length > 0
     ? "\n\nConversation history (most recent last):\n" +
-      conversationHistory
+      recentHistory
         .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content.slice(0, 300)}`)
         .join("\n")
     : "";
@@ -194,13 +195,15 @@ export async function runSupervisorAgent(
   }
 
   const inferredTrip = inferTripProductFromUserHistory(userMessage, conversationHistory);
-  if ((!plan.product || plan.product.toLowerCase() === "item") && inferredTrip) {
+  // If ANY user turn in history mentioned a trip/travel, ALWAYS lock product to that trip.
+  // This prevents stale assistant "iPhone" hallucinations in history from contaminating later turns.
+  if (inferredTrip) {
     plan.product = inferredTrip;
-  }
-
-  // If this thread is trip/travel-related, don't let product drift to unrelated electronics.
-  if (inferredTrip && plan.product && /iphone|apple|macbook|laptop|phone/i.test(plan.product)) {
-    plan.product = inferredTrip;
+    // A trip thread never needs web search for product price — the user stated the cost
+    if ((plan.userStatedPrice ?? 0) > 0) {
+      plan.needsWebSearch = false;
+      plan.searchQuery = undefined;
+    }
   }
 
   // Safety guard: if user stated a price, never search (prevents hallucinating products)

@@ -33,11 +33,14 @@ Affordability:
 - Be clear and honest.
 - Say plainly whether it fits the budget or feels a bit tight.
 - Avoid labels like SAFE, RISKY, or BORDERLINE.
-- MANDATORY: When monthly income and expenses are in the financial data, you MUST explicitly state them:
-  "You earn £X a month, spend around £Y, which leaves roughly £Z each month."
-  Do NOT skip income and expenses and jump straight to the leftover figure.
-- Use savings as supporting context after showing the income/expenses breakdown.
-- Help the user see *why* something works (or doesn’t) using real numbers.
+- Only introduce the income/expenses breakdown ("You earn £X a month...") the FIRST time you give an affordability summary. On follow-up messages about the same purchase, DO NOT repeat it — pick up directly where the conversation left off.
+- Use savings as supporting context only when it adds new information.
+- Help the user see *why* something works (or doesn't) using real numbers.
+
+Topic discipline:
+- The financial data you receive includes a SUBJECT field — always answer ONLY about that subject.
+- NEVER switch the subject to a different product or item. If the conversation is about a trip, discuss the trip. If it is about a phone, discuss the phone.
+- If a product name appears in the financial data that does NOT match the current conversation topic, ignore it completely.
 
 EMI / instalment plans:
 - When instalments are relevant, present them as a proper plan.
@@ -45,13 +48,18 @@ EMI / instalment plans:
 - Each plan must clearly state total cost, monthly amount, and duration.
 - Explain instalments naturally, like a person would.
 
+User intent:
+- When the user says something positive ("yes", "priority", "I want it", "go for it", "I'm happy to") — acknowledge it warmly and give them a clear recommended path. Do NOT ask an open question back.
+- When the user says something like "I can wait", "maybe later", "let me think", "I'll save up" — acknowledge it calmly, tell them what saving up towards the goal looks like, and close positively. Do NOT push them to buy.
+- Read the user's intent clearly and respond to it directly.
+
 Conversation rules:
-- Don’t repeat earlier explanations.
+- Don't repeat earlier explanations.
 - Continue naturally from the last message.
-- Avoid bullet points unless you’re laying out options or plans.
+- Avoid bullet points unless you're laying out options or plans.
 - Keep it under 180 words unless more detail is clearly needed.
-- Don’t say “I don’t have that information”.
-- Ask at most one follow‑up question, only if it genuinely helps.
+- Don't say "I don't have that information".
+- Ask at most one follow‑up question, only if it genuinely helps — do NOT ask a question if the user has already stated their intent clearly.
 `;
 
 function buildDataContext(state: FinancialState): string {
@@ -61,9 +69,14 @@ function buildDataContext(state: FinancialState): string {
     state.plan?.userHomeCurrency ??
     "GBP";
 
-  // --- User financial profile (very important) ---
+  // --- User financial profile ---
   if (state.userProfile) {
     const up = state.userProfile;
+
+    // Detect whether income/expenses were already stated in a prior assistant turn
+    const alreadyShownProfile = (state.conversationHistory ?? [])
+      .filter((m) => m.role === "assistant")
+      .some((m) => m.content.includes("earn") && m.content.includes("spend"));
 
     parts.push(
       `USER FINANCIAL PROFILE:`,
@@ -82,6 +95,18 @@ function buildDataContext(state: FinancialState): string {
         `- Left after expenses: ${leftover.toLocaleString("en-GB")} ${homeCurrency}`
       );
     }
+
+    if (alreadyShownProfile) {
+      parts.push(
+        `INSTRUCTION: The income/expenses breakdown ("You earn £X a month, spend £Y...") was ALREADY stated earlier in this conversation. DO NOT repeat it. Continue from where the conversation left off.`
+      );
+    }
+  }
+
+  // --- Conversation subject (MUST appear first so LLM knows the topic) ---
+  if (state.plan?.product) {
+    parts.push(`SUBJECT: ${state.plan.product}`);
+    parts.push(`(Answer ONLY about "${state.plan.product}" — do not mention any other product)`);
   }
 
   // --- Price info ---
@@ -155,7 +180,7 @@ export async function runSynthesisAgent(
     state.conversationHistory && state.conversationHistory.length > 0
       ? "\n\nConversation history (most recent last):\n" +
         state.conversationHistory
-          .slice(-3)
+          .slice(-6)
           .map(
             (m) =>
               `${m.role === "user" ? "User" : "Assistant"}: ${m.content.slice(

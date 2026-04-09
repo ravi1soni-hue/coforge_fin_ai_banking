@@ -106,7 +106,9 @@ function routeAfterResearch(state: FinancialState): "affordability" | "synthesis
   // affordability agent produces a meaningless verdict and wastes an LLM call.
   // Synthesis already handles the "price unknown" case and will ask the user.
   const hasVerifiedPrice = (state.priceInfo?.price ?? 0) > 0;
-  if (state.plan?.needsAffordability && hasVerifiedPrice) return "affordability";
+  // Run affordability for both affordability AND EMI requests — EMI needs the
+  // priceInHomeCurrency anchor so synthesis doesn't have to guess the subject.
+  if ((state.plan?.needsAffordability || state.plan?.needsEmi) && hasVerifiedPrice) return "affordability";
   return "synthesis";
 }
 
