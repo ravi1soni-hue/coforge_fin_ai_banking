@@ -109,26 +109,45 @@ function extractStatedGbpPrice(text: string): number {
   return 0;
 }
 
-function inferTripProductFromUserHistory(
+/**
+ * Returns the product from conversation history when the current message is
+ * a pure follow-up (EMI, "run the numbers", "spread it", etc.) that mentions
+ * no product itself.  Checks user turns from newest to oldest.
+ *
+ * Trip detection is first-class: if any turn mentions a trip/holiday/flight
+ * the destination is returned so the supervisor never defaults to "iPhone".
+ */
+function inferProductFromHistory(
   userMessage: string,
   conversationHistory: ConversationTurn[],
 ): string | undefined {
+  // Only apply when the current message is clearly a follow-up with no product.
+  const isFollowUp = /emi|instalment|installment|spread|run the numbers|6 month|3 month|12 month|monthly|how much|savings|intact/i.test(userMessage);
+  const hasOwnProduct = /iphone|samsung|laptop|macbook|trip|holiday|car|house|flight|hotel|watch|tv|ipad/i.test(userMessage);
+  if (!isFollowUp || hasOwnProduct) return undefined;
+
+  // Search user turns most-recent-first (excluding the current message itself)
   const userTurns = conversationHistory
     .filter((m) => m.role === "user")
     .map((m) => m.content)
-    .concat(userMessage)
     .reverse();
 
   for (const text of userTurns) {
     const lower = text.toLowerCase();
-    if (!/(trip|travel|holiday|flight|hotel)/.test(lower)) continue;
 
-    const toMatch = text.match(/trip\s+to\s+([a-zA-Z\s'-]{2,40})/i);
-    if (toMatch?.[1]) {
-      const destination = toMatch[1].trim().replace(/[?.!,]$/, "");
-      return `${destination} trip`;
+    // Trip/travel product (highest priority to prevent iPhone defaults)
+    if (/(trip|travel|holiday|flight|hotel)/.test(lower)) {
+      const toMatch = text.match(/trip\s+to\s+([a-zA-Z\s'-]{2,40})/i);
+      if (toMatch?.[1]) {
+        const destination = toMatch[1].trim().replace(/[?.!,]$/, "");
+        return `${destination} trip`;
+      }
+      return "trip";
     }
-    return "trip";
+
+    // Physical product mentioned explicitly
+    const productMatch = text.match(/\b(iphone\s*\d*\s*\w*|samsung\s*\w+|macbook\s*\w*|laptop|ipad\s*\w*|car|house|watch\s*\w*)\b/i);
+    if (productMatch) return productMatch[0].trim();
   }
   return undefined;
 }
@@ -189,26 +208,32 @@ export async function runSupervisorAgent(
     userStatedPrice:    Number(parsed.userStatedPrice)    || 0,
   };
 
-  // Deterministic price fallback (GBP/£) from current or immediately previous user turn.
+  // Deterministic price fallback (GBP/£) from current or any previous user turn.
   if ((plan.userStatedPrice ?? 0) === 0) {
     const currentPrice = extractStatedGbpPrice(userMessage);
     if (currentPrice > 0) {
       plan.userStatedPrice = currentPrice;
     } else {
-      const prevUser = [...conversationHistory].reverse().find((m) => m.role === "user")?.content ?? "";
-      const prevPrice = extractStatedGbpPrice(prevUser);
-      if (prevPrice > 0) {
-        plan.userStatedPrice = prevPrice;
+      // Search all prior user turns newest-first for an explicit price
+      const priorUserTurns = [...conversationHistory]
+        .reverse()
+        .filter((m) => m.role === "user");
+      for (const turn of priorUserTurns) {
+        const prevPrice = extractStatedGbpPrice(turn.content);
+        if (prevPrice > 0) {
+          plan.userStatedPrice = prevPrice;
+          break;
+        }
       }
     }
   }
 
-  const inferredTrip = inferTripProductFromUserHistory(userMessage, conversationHistory);
-  // If ANY user turn in history mentioned a trip/travel, ALWAYS lock product to that trip.
-  // This prevents stale assistant "iPhone" hallucinations in history from contaminating later turns.
-  if (inferredTrip) {
-    plan.product = inferredTrip;
-    // A trip thread never needs web search for product price — the user stated the cost
+  const inferredProduct = inferProductFromHistory(userMessage, conversationHistory);
+  // Lock to previously-established product when the current message is a pure follow-up.
+  // This prevents the LLM from defaulting back to "latest iPhone model" when user says
+  // "can you run the numbers for 6 months" after a Lisbon trip conversation.
+  if (inferredProduct) {
+    plan.product = inferredProduct;
     if ((plan.userStatedPrice ?? 0) > 0) {
       plan.needsWebSearch = false;
       plan.searchQuery = undefined;
