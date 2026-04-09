@@ -92,6 +92,8 @@ function makeSynthesisNode(llmClient: V3LlmClient) {
 function routeAfterSupervisor(state: FinancialState): "research" | "affordability" | "synthesis" {
   const p = state.plan;
   if (!p) return "synthesis";
+  // Pure follow-up / continuation — skip research & affordability entirely
+  if (p.conversationalOnly) return "synthesis";
   if (p.needsWebSearch || p.needsFxConversion || p.needsNews) return "research";
   if (p.needsAffordability) return "affordability";
   return "synthesis";

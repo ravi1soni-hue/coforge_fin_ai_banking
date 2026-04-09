@@ -21,6 +21,7 @@ export interface AgentPlan {
   needsNews: boolean;            // needs financial news context
   needsAffordability: boolean;   // needs affordability analysis
   needsEmi: boolean;             // needs installment plan options
+  conversationalOnly: boolean;   // pure follow-up — skip research & affordability, go straight to synthesis
   product?: string;              // product name, e.g. "iPhone 16 Pro"
   searchQuery?: string;          // optimised web search query (≤8 words)
   priceCurrency?: string;        // ISO code of the price currency, e.g. "EUR"

@@ -43,7 +43,7 @@ Rules:
         {
             role: "user",
             content: `Product search: "${searchQuery}"
-Expected currency: ${priceCurrency ?? "EUR"}
+Expected currency: ${priceCurrency ?? "GBP"}
 
 Web search results:
 ${webContext || "No web data available — use your knowledge."}
@@ -62,7 +62,7 @@ What is the current retail price of this product? Provide the most accurate pric
         console.log(`[ResearchAgent:Price] Found: ${parsed.price} ${parsed.currency} (${src}, ${conf})`);
         return {
             price: Number(parsed.price),
-            currency: String(parsed.currency ?? priceCurrency ?? "EUR").toUpperCase(),
+            currency: String(parsed.currency ?? priceCurrency ?? "GBP").toUpperCase(),
             source: src === "web_search" ? "web_search" : "llm_knowledge",
             confidence: (["high", "medium", "low"].includes(conf) ? conf : "medium"),
             rawContext: webContext.slice(0, 600),
@@ -71,7 +71,7 @@ What is the current retail price of this product? Provide the most accurate pric
     console.warn("[ResearchAgent:Price] Could not extract price, returning 0");
     return {
         price: 0,
-        currency: priceCurrency ?? "EUR",
+        currency: priceCurrency ?? "GBP",
         source: "llm_knowledge",
         confidence: "low",
         rawContext: webContext.slice(0, 300),

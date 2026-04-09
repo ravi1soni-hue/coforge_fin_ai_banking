@@ -58,6 +58,9 @@ function routeAfterSupervisor(state) {
     const p = state.plan;
     if (!p)
         return "synthesis";
+    // Pure follow-up / continuation — skip research & affordability entirely
+    if (p.conversationalOnly)
+        return "synthesis";
     if (p.needsWebSearch || p.needsFxConversion || p.needsNews)
         return "research";
     if (p.needsAffordability)

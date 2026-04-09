@@ -8,15 +8,16 @@
  * This is the ONLY place in the pipeline where routing decisions are made.
  * Everything else is determined by this agent's LLM reasoning.
  */
-const SYSTEM_PROMPT = `You are a financial assistant supervisor. Analyze the user's query and decide what research and analysis is needed.
+const SYSTEM_PROMPT = `You are a financial assistant supervisor. Analyze the user's current message and decide what work the downstream agents need to do.
 
-Return ONLY a JSON object with this exact structure — no explanation, no markdown:
+Return ONLY a JSON object — no explanation, no markdown:
 {
   "needsWebSearch": <true|false>,
   "needsFxConversion": <true|false>,
   "needsNews": <true|false>,
   "needsAffordability": <true|false>,
   "needsEmi": <true|false>,
+  "conversationalOnly": <true|false>,
   "product": "<product name or null>",
   "searchQuery": "<optimised web search query for price, max 8 words, or null>",
   "priceCurrency": "<3-letter ISO currency code or null>",
@@ -25,28 +26,27 @@ Return ONLY a JSON object with this exact structure — no explanation, no markd
 }
 
 Decision rules:
-- needsWebSearch = true  → user mentions buying something WITHOUT stating the exact price
-- needsFxConversion = true → price currency differs from user's home currency
-- needsNews = true → user asks for news/context or market conditions
-- needsAffordability = true → any question about "can I afford", "budget", "is it too expensive"
-- needsEmi = true → user asks about installments, EMI, monthly payment options
-- product → extract the exact product name from the query (use conversation history if the current message is a follow-up)
-- searchQuery → create the best web search query to find this product's current retail price
-- priceCurrency → the currency the product is likely priced in (EUR for Europe, USD for US, etc.)
-- targetCurrency → the user's home currency (what they want to convert TO)
+- conversationalOnly = true → the message is a short follow-up, confirmation, or clarification where the full context is already in conversation history and NO new product research is needed. When conversationalOnly=true, set ALL other booleans to false. Examples: "yes", "ok sure", "yes please do that", "tell me more", "sounds good", "what about interest rates?", "show me the comparison", "yes please", "go ahead", "ok what if I pay in 6 months".
+- needsWebSearch = true → user asks about buying a SPECIFIC NEW product and has NOT stated the price
+- needsFxConversion = true → price currency differs from user's home currency AND this is a fresh product query (not a follow-up)
+- needsNews = true → user explicitly asks for news or market context
+- needsAffordability = true → user asks "can I afford" or similar AND this is a fresh query (not a follow-up)
+- needsEmi = true → user asks about installments, EMI, monthly payments AND this is a fresh query
+- product → extract product name (use history if follow-up); null if conversationalOnly
+- searchQuery → best web search query to find current retail price; null if conversationalOnly
+- priceCurrency → currency the product is priced in; null if conversationalOnly
+- targetCurrency → user's home currency; null if conversationalOnly
 
-IMPORTANT: If the current message is a short follow-up (e.g. "yes", "compare", "yes please compare"), 
-read the conversation history to understand what was being discussed and infer the full intent.
-For example, if the assistant previously mentioned comparing iPhone 17 Pro Max vs iPhone 17 Pro,
-and the user says "yes please compare", set product/searchQuery accordingly.
+IMPORTANT: When in doubt between conversationalOnly=true and a fresh query, prefer conversationalOnly if there is relevant conversation history. The key signal is whether new external research is actually needed.
 
-If this is a greeting or general question with no prior context, set all booleans to false.`;
+If this is a greeting or general question with NO prior history, set all booleans to false.`;
 const DEFAULT_PLAN = {
     needsWebSearch: false,
     needsFxConversion: false,
     needsNews: false,
     needsAffordability: false,
     needsEmi: false,
+    conversationalOnly: false,
     userHomeCurrency: "GBP",
 };
 export async function runSupervisorAgent(llmClient, userMessage, userProfile, conversationHistory = []) {
@@ -83,6 +83,7 @@ export async function runSupervisorAgent(llmClient, userMessage, userProfile, co
         needsNews: Boolean(parsed.needsNews),
         needsAffordability: Boolean(parsed.needsAffordability),
         needsEmi: Boolean(parsed.needsEmi),
+        conversationalOnly: Boolean(parsed.conversationalOnly),
         product: parsed.product || undefined,
         searchQuery: parsed.searchQuery || undefined,
         priceCurrency: parsed.priceCurrency || undefined,
