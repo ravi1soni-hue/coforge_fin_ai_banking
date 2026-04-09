@@ -110,6 +110,7 @@ export const initWebSocket = (server: any): void => {
   type TrackedWebSocket = WebSocket & {
     userId?: string;
     isAlive?: boolean;
+    sessionId?: string;
   };
 
   // ⚡ Railway proxy kills idle streams after ~15-20s
@@ -254,6 +255,8 @@ export const initWebSocket = (server: any): void => {
 
       ws.userId = userId;
       ws.isAlive = true;
+      // Keep a stable per-connection session when client omits sessionId.
+      ws.sessionId = `ws-${crypto.randomUUID()}`;
       ws.on("pong", () => {
         ws.isAlive = true;
       });
@@ -303,7 +306,10 @@ export const initWebSocket = (server: any): void => {
 
           const parsedMessage = parseIncomingMessage(messageString);
           requestId = parsedMessage.requestId;
-          sessionId = parsedMessage.sessionId;
+          if (parsedMessage.sessionId) {
+            ws.sessionId = parsedMessage.sessionId;
+          }
+          sessionId = parsedMessage.sessionId ?? ws.sessionId;
 
           // ✅ Delegate logic to ChatService
           const result = await chatService.handleMessage({

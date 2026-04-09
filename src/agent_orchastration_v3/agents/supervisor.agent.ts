@@ -93,6 +93,39 @@ const DEFAULT_PLAN: AgentPlan = {
   userHomeCurrency: "GBP",
 };
 
+function extractStatedGbpPrice(text: string): number {
+  const moneyPattern = /(£\s*[\d,]+(?:\.\d+)?|[\d,]+(?:\.\d+)?\s*GBP)/i;
+  const m = text.match(moneyPattern);
+  if (!m) return 0;
+  const digits = m[0].replace(/[^\d.]/g, "");
+  const n = Number(digits);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function inferTripProductFromUserHistory(
+  userMessage: string,
+  conversationHistory: ConversationTurn[],
+): string | undefined {
+  const userTurns = conversationHistory
+    .filter((m) => m.role === "user")
+    .map((m) => m.content)
+    .concat(userMessage)
+    .reverse();
+
+  for (const text of userTurns) {
+    const lower = text.toLowerCase();
+    if (!/(trip|travel|holiday|flight|hotel)/.test(lower)) continue;
+
+    const toMatch = text.match(/trip\s+to\s+([a-zA-Z\s'-]{2,40})/i);
+    if (toMatch?.[1]) {
+      const destination = toMatch[1].trim().replace(/[?.!,]$/, "");
+      return `${destination} trip`;
+    }
+    return "trip";
+  }
+  return undefined;
+}
+
 export async function runSupervisorAgent(
   llmClient: V3LlmClient,
   userMessage: string,
@@ -146,10 +179,36 @@ export async function runSupervisorAgent(
     userStatedPrice:    Number(parsed.userStatedPrice)    || 0,
   };
 
+  // Deterministic price fallback (GBP/£) from current or immediately previous user turn.
+  if ((plan.userStatedPrice ?? 0) === 0) {
+    const currentPrice = extractStatedGbpPrice(userMessage);
+    if (currentPrice > 0) {
+      plan.userStatedPrice = currentPrice;
+    } else {
+      const prevUser = [...conversationHistory].reverse().find((m) => m.role === "user")?.content ?? "";
+      const prevPrice = extractStatedGbpPrice(prevUser);
+      if (prevPrice > 0) {
+        plan.userStatedPrice = prevPrice;
+      }
+    }
+  }
+
+  const inferredTrip = inferTripProductFromUserHistory(userMessage, conversationHistory);
+  if ((!plan.product || plan.product.toLowerCase() === "item") && inferredTrip) {
+    plan.product = inferredTrip;
+  }
+
+  // If this thread is trip/travel-related, don't let product drift to unrelated electronics.
+  if (inferredTrip && plan.product && /iphone|apple|macbook|laptop|phone/i.test(plan.product)) {
+    plan.product = inferredTrip;
+  }
+
   // Safety guard: if user stated a price, never search (prevents hallucinating products)
   if ((plan.userStatedPrice ?? 0) > 0) {
     plan.needsWebSearch = false;
     plan.searchQuery    = undefined;
+    plan.priceCurrency  = plan.priceCurrency ?? "GBP";
+    plan.targetCurrency = plan.targetCurrency ?? "GBP";
   }
 
   console.log("[SupervisorAgent] Plan:", JSON.stringify(plan));
