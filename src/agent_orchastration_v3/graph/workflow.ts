@@ -12,7 +12,7 @@ import { StateGraph, START, END } from "@langchain/langgraph";
 import type { CompiledStateGraph } from "@langchain/langgraph";
 import type { Kysely } from "kysely";
 
-import { FinancialGraphState, type FinancialState } from "./state.js";
+import { FinancialGraphState, type FinancialState, type ConversationTurn } from "./state.js";
 import { runSupervisorAgent }    from "../agents/supervisor.agent.js";
 import { runResearchAgent }      from "../agents/research.agent.js";
 import { runAffordabilityAgent } from "../agents/affordability.agent.js";
@@ -20,7 +20,6 @@ import { runSynthesisAgent }     from "../agents/synthesis.agent.js";
 
 import { FinancialLoader }         from "../../agent_orchastration_v2/financialLoader.js";
 import type { V3LlmClient }        from "../llm/v3LlmClient.js";
-import type { ChatRepository }     from "../../repo/chat.repo.js";
 import type { SessionRepository }  from "../../repo/session.repo.js";
 import type { VectorQueryService } from "../../agent_orchastration/services/vector.query.service.js";
 import type { LlmClient }          from "../../agent_orchastration/llm/llmClient.js";
@@ -31,7 +30,6 @@ export interface GraphDeps {
   v3LlmClient:   V3LlmClient;
   baseLlmClient: LlmClient;          // used by FinancialLoader's vector-DB fallback
   vectorQuery:   VectorQueryService;
-  chatRepo:      ChatRepository;
   sessionRepo:   SessionRepository;
   db?:           Kysely<unknown>;
 }
@@ -53,7 +51,12 @@ function makeLoadProfileNode(loader: FinancialLoader) {
 function makeSupervisorNode(llmClient: V3LlmClient) {
   return async function supervisorNode(state: FinancialState): Promise<Partial<FinancialState>> {
     console.log("[supervisor] Analysing query: " + state.userMessage.slice(0, 80));
-    const plan = await runSupervisorAgent(llmClient, state.userMessage, state.userProfile ?? {});
+    const plan = await runSupervisorAgent(
+      llmClient,
+      state.userMessage,
+      state.userProfile ?? {},
+      state.conversationHistory ?? [],
+    );
     return { plan };
   };
 }
@@ -132,19 +135,20 @@ export function createFinancialGraph(deps: GraphDeps) {
 
 export async function runGraphTurn(
   graph: CompiledFinancialGraph,
-  input: { userId: string; sessionId: string; userMessage: string },
+  input: { userId: string; sessionId: string; userMessage: string; conversationHistory?: ConversationTurn[] },
 ): Promise<string> {
   const result = await graph.invoke({
-    userId:            input.userId,
-    sessionId:         input.sessionId,
-    userMessage:       input.userMessage,
-    userProfile:       null,
-    plan:              null,
-    priceInfo:         null,
-    fxInfo:            null,
-    newsInfo:          null,
-    affordabilityInfo: null,
-    finalResponse:     null,
+    userId:              input.userId,
+    sessionId:           input.sessionId,
+    userMessage:         input.userMessage,
+    conversationHistory: input.conversationHistory ?? [],
+    userProfile:         null,
+    plan:                null,
+    priceInfo:           null,
+    fxInfo:              null,
+    newsInfo:            null,
+    affordabilityInfo:   null,
+    finalResponse:       null,
   } as FinancialState);
 
   return result.finalResponse ?? "I could not complete the analysis. Please try again.";

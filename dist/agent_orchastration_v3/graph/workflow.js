@@ -26,7 +26,7 @@ function makeLoadProfileNode(loader) {
 function makeSupervisorNode(llmClient) {
     return async function supervisorNode(state) {
         console.log("[supervisor] Analysing query: " + state.userMessage.slice(0, 80));
-        const plan = await runSupervisorAgent(llmClient, state.userMessage, state.userProfile ?? {});
+        const plan = await runSupervisorAgent(llmClient, state.userMessage, state.userProfile ?? {}, state.conversationHistory ?? []);
         return { plan };
     };
 }
@@ -99,6 +99,7 @@ export async function runGraphTurn(graph, input) {
         userId: input.userId,
         sessionId: input.sessionId,
         userMessage: input.userMessage,
+        conversationHistory: input.conversationHistory ?? [],
         userProfile: null,
         plan: null,
         priceInfo: null,

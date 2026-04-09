@@ -59,6 +59,13 @@ export interface AffordabilityInfo {
   emiSuggested: boolean;
 }
 
+// ─── Conversation turn (for history) ─────────────────────────────────────────
+
+export interface ConversationTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
 // ─── LangGraph state annotation ──────────────────────────────────────────────
 
 export const FinancialGraphState = Annotation.Root({
@@ -66,6 +73,9 @@ export const FinancialGraphState = Annotation.Root({
   userId:      Annotation<string>,
   sessionId:   Annotation<string>,
   userMessage: Annotation<string>,
+
+  // ── Conversation history (loaded before graph, passed in) ───────────────────
+  conversationHistory: Annotation<ConversationTurn[]>,
 
   // ── User profile (loaded by loadProfileNode) ────────────────────────────────
   userProfile: Annotation<Record<string, unknown> | null>,

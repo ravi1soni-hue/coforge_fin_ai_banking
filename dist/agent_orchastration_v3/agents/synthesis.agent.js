@@ -18,9 +18,11 @@ Guidelines:
 - For affordability, state the verdict clearly (SAFE / BORDERLINE / RISKY) with specific reasoning
 - For EMI/instalments, calculate and show 3-month, 6-month, and 12-month options with exact monthly amounts
 - Include the exchange rate and converted price clearly when currency conversion happened
-- Keep the response under 250 words
+- Keep the response under 300 words
 - Be conversational but precise
-- If this is a simple greeting or general question, just be helpful and friendly`;
+- IMPORTANT: Read the conversation history carefully — if the user is following up on something previously discussed,
+  continue that thread naturally. Never ask "what would you like to compare?" if the context is already clear from history.
+- If this is a simple greeting or general question with no history, just be helpful and friendly`;
 function buildDataContext(state) {
     const parts = [];
     const homeCurrency = String(state.userProfile?.homeCurrency ?? state.plan?.userHomeCurrency ?? "GBP");
@@ -52,16 +54,25 @@ function buildDataContext(state) {
 }
 export async function runSynthesisAgent(llmClient, state) {
     const dataContext = buildDataContext(state);
+    // Include last 3 turns so the LLM knows the full conversation thread
+    const historyText = (state.conversationHistory ?? []).length > 0
+        ? "\n\nConversation history (most recent last):\n" +
+            (state.conversationHistory ?? [])
+                .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content.slice(0, 400)}`)
+                .join("\n")
+        : "";
     const messages = [
         { role: "system", content: SYSTEM_PROMPT },
         {
             role: "user",
-            content: `User's question: "${state.userMessage}"
+            content: `${historyText}
 
-Research data gathered by all agents:
-${dataContext || "(No specific financial data needed — this is a general query)"}
+Current message: "${state.userMessage}"
 
-Generate a helpful, specific response to the user's question using this data.`,
+Research data gathered by agents:
+${dataContext || "(No specific financial data needed — answer based on conversation context)"}
+
+Generate a helpful, specific response to the current message.`,
         },
     ];
     console.log("[SynthesisAgent] Generating final response...");

@@ -13,6 +13,8 @@ export const FinancialGraphState = Annotation.Root({
     userId: (Annotation),
     sessionId: (Annotation),
     userMessage: (Annotation),
+    // ── Conversation history (loaded before graph, passed in) ───────────────────
+    conversationHistory: (Annotation),
     // ── User profile (loaded by loadProfileNode) ────────────────────────────────
     userProfile: (Annotation),
     // ── Supervisor's plan (set by supervisorNode) ────────────────────────────────

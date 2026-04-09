@@ -11,7 +11,7 @@
 
 import type { V3LlmClient } from "../llm/v3LlmClient.js";
 import type { AgenticMessage } from "../types.js";
-import type { AgentPlan } from "../graph/state.js";
+import type { AgentPlan, ConversationTurn } from "../graph/state.js";
 
 const SYSTEM_PROMPT = `You are a financial assistant supervisor. Analyze the user's query and decide what research and analysis is needed.
 
@@ -35,12 +35,17 @@ Decision rules:
 - needsNews = true → user asks for news/context or market conditions
 - needsAffordability = true → any question about "can I afford", "budget", "is it too expensive"
 - needsEmi = true → user asks about installments, EMI, monthly payment options
-- product → extract the exact product name from the query
+- product → extract the exact product name from the query (use conversation history if the current message is a follow-up)
 - searchQuery → create the best web search query to find this product's current retail price
 - priceCurrency → the currency the product is likely priced in (EUR for Europe, USD for US, etc.)
 - targetCurrency → the user's home currency (what they want to convert TO)
 
-If this is a greeting or general question, set all booleans to false.`;
+IMPORTANT: If the current message is a short follow-up (e.g. "yes", "compare", "yes please compare"), 
+read the conversation history to understand what was being discussed and infer the full intent.
+For example, if the assistant previously mentioned comparing iPhone 17 Pro Max vs iPhone 17 Pro,
+and the user says "yes please compare", set product/searchQuery accordingly.
+
+If this is a greeting or general question with no prior context, set all booleans to false.`;
 
 const DEFAULT_PLAN: AgentPlan = {
   needsWebSearch: false,
@@ -55,14 +60,23 @@ export async function runSupervisorAgent(
   llmClient: V3LlmClient,
   userMessage: string,
   userProfile: Record<string, unknown>,
+  conversationHistory: ConversationTurn[] = [],
 ): Promise<AgentPlan> {
   const homeCurrency = String(userProfile.homeCurrency ?? "GBP");
+
+  // Format last 3 turns (6 messages) as context so LLM understands follow-ups
+  const historyText = conversationHistory.length > 0
+    ? "\n\nConversation history (most recent last):\n" +
+      conversationHistory
+        .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content.slice(0, 300)}`)
+        .join("\n")
+    : "";
 
   const messages: AgenticMessage[] = [
     { role: "system", content: SYSTEM_PROMPT },
     {
       role: "user",
-      content: `User query: "${userMessage}"\nUser's home currency: ${homeCurrency}`,
+      content: `User's home currency: ${homeCurrency}${historyText}\n\nCurrent message: "${userMessage}"`,
     },
   ];
 
