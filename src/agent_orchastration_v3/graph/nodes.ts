@@ -37,9 +37,9 @@ import { buildSystemPrompt } from "../systemPrompt.js";
 
 // ─── Regex helpers for intent extraction ─────────────────────────────────────
 
-/** Matches an explicit amount + currency: "4000 GBP", "£4000", "€1,329", "$1500" */
+/** Matches explicit amount + currency: "4000 GBP", "GBP 4000", "£4000", "€1,329", "$1500" */
 const PRICE_RE =
-  /(?:£|€|\$)\s*([\d,]+(?:\.\d{1,2})?)|(?:([\d,]+(?:\.\d{1,2})?)\s*(GBP|EUR|USD|INR))/i;
+  /(?:£|€|\$)\s*([\d,]+(?:\.\d{1,2})?)|(?:([\d,]+(?:\.\d{1,2})?)\s*(GBP|EUR|USD|INR))|(?:(GBP|EUR|USD|INR)\s*([\d,]+(?:\.\d{1,2})?))/i;
 
 /** Maps symbol → ISO code */
 const SYMBOL_TO_CODE: Record<string, string> = { "£": "GBP", "€": "EUR", "$": "USD" };
@@ -60,6 +60,7 @@ function detectCurrency(match: RegExpMatchArray | null, message: string, fallbac
     return SYMBOL_TO_CODE[sym] ?? fallback;
   }
   if (match[3]) return match[3].toUpperCase();
+  if (match[4]) return match[4].toUpperCase();
   return fallback;
 }
 
@@ -107,7 +108,7 @@ export function makeExtractIntentNode() {
         // Look for a cost pattern in the previous assistant message
         const prevMatch = PRICE_RE.exec(lastAssistant.content);
         if (prevMatch) {
-          const raw = (prevMatch[1] ?? prevMatch[2]).replace(/,/g, "");
+          const raw = (prevMatch[1] ?? prevMatch[2] ?? prevMatch[5]).replace(/,/g, "");
           prevCost = parseFloat(raw);
           prevCostCurrency = detectCurrency(prevMatch, lastAssistant.content, homeCurrency);
         }
@@ -117,9 +118,12 @@ export function makeExtractIntentNode() {
     // ── Product + price ─────────────────────────────────────────────────────
     const priceMatch = PRICE_RE.exec(msg);
     const costProvided = priceMatch
-      ? parseFloat((priceMatch[1] ?? priceMatch[2]).replace(/,/g, ""))
+      ? parseFloat((priceMatch[1] ?? priceMatch[2] ?? priceMatch[5]).replace(/,/g, ""))
       : null;
-    const costCurrency = detectCurrency(priceMatch, msg, homeCurrency);
+    // If user did not provide a numeric price/currency, keep this null so FX node can decide later.
+    const costCurrency = priceMatch
+      ? detectCurrency(priceMatch, msg, homeCurrency)
+      : null;
 
     const productMatch = PRODUCT_RE.exec(msg);
     const product = productMatch ? productMatch[0].trim() : null;
@@ -145,7 +149,7 @@ export function makeFetchPriceNode() {
     }
 
     const query = state.product
-      ? `${state.product} price ${state.costCurrency}`
+      ? (state.costCurrency ? `${state.product} price ${state.costCurrency}` : `${state.product} price`)
       : `${state.userMessage} price`;
 
     console.log(`[Graph:fetchPrice] searching: "${query}"`);
@@ -266,6 +270,92 @@ export function makeCheckAffordabilityNode() {
   };
 }
 
+function toNum(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+function toStr(v: unknown): string | null {
+  return typeof v === "string" && v.trim().length > 0 ? v : null;
+}
+
+function fmtAmount(currency: string, value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return `${currency} unknown`;
+  }
+  return `${currency} ${Math.round(value).toLocaleString("en-GB")}`;
+}
+
+function buildDeterministicAffordabilityResponse(
+  state: GraphState,
+  af: Record<string, unknown> | null,
+): string {
+  const homeCurrency = state.profile?.homeCurrency ?? "GBP";
+  const displayCost = state.costProvided ?? state.priceData?.price ?? null;
+  const displayCurrency = state.costProvided !== null
+    ? (state.costCurrency ?? homeCurrency)
+    : (state.priceData?.currency ?? homeCurrency);
+  const displaySource = state.costProvided !== null ? "user provided" : (state.priceData?.source ?? "unknown");
+
+  const verdict = (toStr(af?.verdict) ?? "UNKNOWN").toUpperCase();
+  const costInHome = toNum(af?.costInHomeCurrency);
+  const remaining = toNum(af?.remainingAfterPayment);
+  const buffer = toNum(af?.emergencyBuffer);
+
+  const lines: string[] = [];
+  lines.push(`**Verdict: ${verdict}**`);
+  lines.push(`• Price: ${fmtAmount(displayCurrency, displayCost)} (source: ${displaySource})`);
+
+  if (
+    state.fxData?.rate &&
+    state.fxData.from &&
+    state.fxData.to &&
+    state.fxData.from !== state.fxData.to &&
+    costInHome !== null
+  ) {
+    lines.push(
+      `• In ${state.fxData.to}: ${fmtAmount(state.fxData.to, costInHome)} (rate: 1 ${state.fxData.from} = ${state.fxData.rate} ${state.fxData.to})`,
+    );
+  }
+
+  if (remaining !== null && buffer !== null) {
+    const position = remaining >= buffer ? "above" : "below";
+    lines.push(
+      `• Savings after lump-sum: ${fmtAmount(homeCurrency, remaining)} (${position} ${fmtAmount(homeCurrency, buffer)} emergency buffer)`,
+    );
+  } else if (toStr(af?.explanation)) {
+    lines.push(`• ${toStr(af?.explanation)}`);
+  }
+
+  if (verdict === "RISKY" || verdict === "CANNOT_AFFORD") {
+    lines.push("");
+    lines.push("Would you like me to run an EMI plan or a savings projection?");
+  }
+
+  return lines.join("\n");
+}
+
+function buildDeterministicEmiResponse(emiResult: Record<string, unknown>): string {
+  const plans = Array.isArray(emiResult.plans)
+    ? emiResult.plans as Array<Record<string, unknown>>
+    : [];
+
+  const lines: string[] = ["EMI Plan:"];
+
+  plans.forEach((plan, index) => {
+    const months = toNum(plan.months) ?? 0;
+    const monthlyPayment = toNum(plan.monthlyPayment);
+    const currency = toStr(emiResult.currency) ?? "GBP";
+    lines.push(`• OPTION ${index + 1}: ${months}-Month Plan`);
+    lines.push(`• Monthly payment: ${fmtAmount(currency, monthlyPayment)}`);
+    lines.push("");
+  });
+
+  const why = toStr(emiResult.whyInstalments) ?? "Instalments spread payments and protect savings liquidity.";
+  lines.push(`• Why instalments help: ${why}`);
+
+  return lines.join("\n").trim();
+}
+
 // ─── Node: generateResponse ───────────────────────────────────────────────────
 
 export function makeGenerateResponseNode(llmClient: V3LlmClient, chatRepo: ChatRepository) {
@@ -319,9 +409,19 @@ Generate the affordability response now following the OUTPUT FORMAT rules in the
       { role: "user" as const, content: dataContext },
     ];
 
-    console.log("[Graph:generateResponse] calling LLM for final narrative");
-    const llmResponse = await llmClient.chat(messages, []); // no tools on final call
-    const response = llmResponse.content ?? "I could not generate a response. Please try again.";
+    let response = "";
+    try {
+      console.log("[Graph:generateResponse] calling LLM for final narrative");
+      const llmResponse = await llmClient.chat(messages, []); // no tools on final call
+      response = (llmResponse.content ?? "").trim();
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.warn(`[Graph:generateResponse] LLM formatting failed, using deterministic fallback: ${msg}`);
+    }
+
+    if (!response) {
+      response = buildDeterministicAffordabilityResponse(state, af);
+    }
 
     // Persist history
     void chatRepo.saveMessage(state.userId, state.sessionId, "user", state.userMessage);
@@ -384,9 +484,19 @@ Show all 3 options.
       { role: "user" as const, content: dataContext },
     ];
 
-    console.log("[Graph:generateEmi] calling LLM for EMI narrative");
-    const llmResponse = await llmClient.chat(messages, []); // no tools on final call
-    const response = llmResponse.content ?? "I could not generate the instalment plan. Please try again.";
+    let response = "";
+    try {
+      console.log("[Graph:generateEmi] calling LLM for EMI narrative");
+      const llmResponse = await llmClient.chat(messages, []); // no tools on final call
+      response = (llmResponse.content ?? "").trim();
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.warn(`[Graph:generateEmi] LLM formatting failed, using deterministic fallback: ${msg}`);
+    }
+
+    if (!response) {
+      response = buildDeterministicEmiResponse(emiResult as unknown as Record<string, unknown>);
+    }
 
     void chatRepo.saveMessage(state.userId, state.sessionId, "user", state.userMessage);
     void chatRepo.saveMessage(state.userId, state.sessionId, "assistant", response);
