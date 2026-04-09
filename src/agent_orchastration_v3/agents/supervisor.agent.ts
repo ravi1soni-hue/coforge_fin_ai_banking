@@ -31,20 +31,20 @@ Return ONLY a JSON object — no explanation, no markdown:
 }
 
 Decision rules:
-- conversationalOnly = true → the message is a short follow-up, confirmation, or clarification where the full context is already in conversation history and NO new product research is needed. When conversationalOnly=true, set ALL other booleans to false. Examples: "yes", "ok sure", "yes please do that", "tell me more", "sounds good", "what about interest rates?", "show me the comparison", "yes please", "go ahead", "ok what if I pay in 6 months".
-- needsWebSearch = true → user asks about buying a SPECIFIC NEW product and has NOT stated the price
-- needsFxConversion = true → price currency differs from user's home currency AND this is a fresh product query (not a follow-up)
+- conversationalOnly = true → ONLY for very short follow-ups or pure confirmations/affirmations with NO question about a product, price, or financial decision. Examples: "yes", "ok sure", "go ahead", "sounds good", "yes please", "that makes sense", "ok thanks". If the message is longer than ~6 words or contains ANY of: "?", "afford", "buy", "can I", "should I", "worth", "cost", "price", "how much", "EMI", "instalment", "pay" — set conversationalOnly=false. When conversationalOnly=true, set ALL other booleans to false.
+- needsWebSearch = true → user asks about buying a SPECIFIC product and has NOT stated the price in the CURRENT message (even if a price was mentioned in prior history, search again to confirm)
+- needsFxConversion = true → price currency differs from user's home currency
 - needsNews = true → user explicitly asks for news or market context
-- needsAffordability = true → user asks "can I afford" or similar AND this is a fresh query (not a follow-up)
-- needsEmi = true → user asks about installments, EMI, monthly payments AND this is a fresh query
-- product → extract product name (use history if follow-up); null if conversationalOnly
+- needsAffordability = true → user asks "can I afford", "should I buy", "is it worth it", or any affordability/purchase decision question
+- needsEmi = true → user asks about installments, EMI, monthly payments
+- product → extract product name (use history if needed); null if conversationalOnly
 - searchQuery → best web search query to find current retail price; null if conversationalOnly
 - priceCurrency → currency the product is priced in; null if conversationalOnly
 - targetCurrency → user's home currency; null if conversationalOnly
 
-IMPORTANT: When in doubt between conversationalOnly=true and a fresh query, prefer conversationalOnly if there is relevant conversation history. The key signal is whether new external research is actually needed.
+IMPORTANT: A message containing a question mark or an affordability/purchase intent is NEVER conversationalOnly, regardless of prior history. Prior history provides context but does NOT replace fresh research for new questions.
 
-If this is a greeting or general question with NO prior history, set all booleans to false.`;
+If this is a greeting or general question with NO product or financial intent, set all booleans to false.`;
 
 const DEFAULT_PLAN: AgentPlan = {
   needsWebSearch: false,
