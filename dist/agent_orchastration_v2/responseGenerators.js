@@ -12,10 +12,17 @@
  */
 // ─── System preamble ──────────────────────────────────────────────────────────
 // Injected at the top of every LLM prompt to establish agent identity.
-const SYSTEM_PREAMBLE = `You are a stateful Banking Reasoning Engine — not a chatbot.
+const SYSTEM_PREAMBLE = `You are a stateful UK Banking Reasoning Engine — not a chatbot.
+
+You operate exclusively in the UK banking context:
+- All monetary amounts are in GBP (£) unless the user explicitly states a different currency.
+- UK products are the default: ISAs, LISAs, Premium Bonds, Help to Buy, NS&I, etc.
+- Use UK English and UK financial terminology throughout.
+- Reference UK regulatory context (FCA, FSCS £85k protection, UK interest rates) where relevant.
+- Never suggest non-UK products (401k, IRA, HSA, Roth) unless directly asked.
 
 Your responsibility:
-- Analyze the user's financial situation using structured data
+- Analyse the user's financial situation using structured data
 - Produce verdicts, plans, or suggestions based on real numbers
 - Never hallucinate financial data
 - Never market products unless data justifies it
@@ -23,6 +30,8 @@ Your responsibility:
 
 Core rule: Solve the user's financial question first. Offer a product only when it fixes a real problem.
 `;
+// ─── Currency symbol helper ───────────────────────────────────────────────────
+const cs = (isoCode) => isoCode === "GBP" ? "£" : isoCode === "EUR" ? "€" : isoCode === "USD" ? "$" : `${isoCode} `;
 // ─── History formatting ───────────────────────────────────────────────────────
 const historyBlock = (turns, max = 6) => {
     const recent = turns.slice(-max);
@@ -173,13 +182,13 @@ export async function generateAffordabilityAnswer(llm, profile, goal, verdict, s
     const label = goalLabel(goal);
     const remaining = availableSavings - cost;
     const preComputed = [
-        `Available savings: ${homeCurrency}${availableSavings}`,
-        `Goal cost: ${goalCurrency}${cost}`,
+        `Available savings: ${cs(homeCurrency)}${availableSavings.toLocaleString("en-GB")}`,
+        `Goal cost: ${cs(goalCurrency)}${cost.toLocaleString("en-GB")}`,
         verdict !== "CANNOT_AFFORD"
-            ? `Remaining after payment: ${homeCurrency}${remaining.toFixed(0)}`
-            : `Shortfall: ${homeCurrency}${Math.abs(remaining).toFixed(0)}`,
+            ? `Remaining after payment: ${cs(homeCurrency)}${remaining.toFixed(0)}`
+            : `Shortfall: ${cs(homeCurrency)}${Math.abs(remaining).toFixed(0)}`,
         netMonthlySurplus && netMonthlySurplus > 0
-            ? `Monthly surplus: ${homeCurrency}${netMonthlySurplus}`
+            ? `Monthly surplus: ${cs(homeCurrency)}${netMonthlySurplus}`
             : "",
     ].filter(Boolean).join("\n");
     const verdictLabel = verdict === "COMFORTABLE" ? "✅ COMFORTABLE — can afford without risk"
@@ -208,7 +217,7 @@ RULES:
 2. Include key figures: savings, cost, what's left (or shortfall).
 3. If RISKY or CANNOT_AFFORD: briefly explain why it's risky (emergency buffer impact or shortfall).
 4. ${suggestionInstruction}
-5. Use ${homeCurrency} for the user's money. Use ${goalCurrency} for the goal cost${goalCurrency !== homeCurrency ? " — keep currencies distinct" : ""}.
+5. Use ${cs(homeCurrency)} for the user's money. Use ${cs(goalCurrency)} for the goal cost${goalCurrency !== homeCurrency ? " — keep currencies distinct" : "."}.
 6. Plain prose only. 3–4 sentences max.
 7. No disclaimers, no generic advice, no filler.`);
 }
@@ -267,7 +276,7 @@ export async function generatePlanningAnswer(llm, vectorQuery, userId, question,
     const { availableSavings, netMonthlySurplus, homeCurrency } = profile;
     const recentHistory = historyBlock(history);
     const goalSection = goal?.cost
-        ? `\nGOAL: ${goalLabel(goal)} — cost ${goal.currency ?? homeCurrency}${goal.cost}${goal.timeHorizon ? `, target by ${goal.timeHorizon}` : ""}`
+        ? `\nGOAL: ${goalLabel(goal)} — cost ${cs(goal.currency ?? homeCurrency)}${goal.cost?.toLocaleString("en-GB")}${goal.timeHorizon ? `, target by ${goal.timeHorizon}` : ""}`
         : "";
     const monthsToGoal = goal?.cost && netMonthlySurplus && netMonthlySurplus > 0
         ? `Months to reach goal from surplus alone: ${Math.ceil(goal.cost / netMonthlySurplus)}`
@@ -277,8 +286,8 @@ ${recentHistory ? `RECENT CONVERSATION:\n${recentHistory}\n\n` : ""}USER QUESTIO
 ${goalSection}
 
 USER FINANCIAL PROFILE:
-Available savings: ${homeCurrency}${availableSavings}
-${netMonthlySurplus ? `Monthly surplus: ${homeCurrency}${netMonthlySurplus}` : ""}
+Available savings: ${cs(homeCurrency)}${availableSavings.toLocaleString("en-GB")}
+${netMonthlySurplus ? `Monthly surplus: ${cs(homeCurrency)}${netMonthlySurplus.toLocaleString("en-GB")}` : ""}
 ${monthsToGoal}
 
 RETRIEVED CONTEXT:
@@ -321,8 +330,8 @@ export async function generateComparisonAnswer(llm, vectorQuery, userId, questio
 ${recentHistory ? `RECENT CONVERSATION:\n${recentHistory}\n\n` : ""}USER QUESTION: "${question}"
 
 USER PROFILE:
-Savings: ${profile.homeCurrency}${profile.availableSavings}
-${profile.netMonthlySurplus ? `Monthly surplus: ${profile.homeCurrency}${profile.netMonthlySurplus}` : ""}
+Savings: ${cs(profile.homeCurrency)}${profile.availableSavings?.toLocaleString("en-GB")}
+${profile.netMonthlySurplus ? `Monthly surplus: ${cs(profile.homeCurrency)}${profile.netMonthlySurplus.toLocaleString("en-GB")}` : ""}
 
 RETRIEVED CONTEXT:
 ${context || "No additional context."}
@@ -341,10 +350,10 @@ export async function generateGeneralAnswer(llm, vectorQuery, userId, question, 
     const { homeCurrency, availableSavings, monthlyIncome, monthlyExpenses, netMonthlySurplus } = profile;
     const recentHistory = historyBlock(history);
     const profileSummary = [
-        `Savings: ${homeCurrency}${availableSavings}`,
-        monthlyIncome ? `Monthly income: ${homeCurrency}${monthlyIncome}` : "",
-        monthlyExpenses ? `Monthly expenses: ${homeCurrency}${monthlyExpenses}` : "",
-        netMonthlySurplus ? `Monthly surplus: ${homeCurrency}${netMonthlySurplus}` : "",
+        `Savings: ${cs(homeCurrency)}${availableSavings.toLocaleString("en-GB")}`,
+        monthlyIncome ? `Monthly income: ${cs(homeCurrency)}${monthlyIncome.toLocaleString("en-GB")}` : "",
+        monthlyExpenses ? `Monthly expenses: ${cs(homeCurrency)}${monthlyExpenses.toLocaleString("en-GB")}` : "",
+        netMonthlySurplus ? `Monthly surplus: ${cs(homeCurrency)}${netMonthlySurplus.toLocaleString("en-GB")}` : "",
     ].filter(Boolean).join("\n");
     return llm.generateText(`${SYSTEM_PREAMBLE}
 ${recentHistory ? `RECENT CONVERSATION:\n${recentHistory}\n\n` : ""}USER QUESTION: "${question}"
@@ -357,7 +366,7 @@ ${context || "No additional context."}
 
 RULES:
 1. Answer directly and specifically using the data above.
-2. Use ${homeCurrency} for user's money throughout.
+2. Use ${cs(homeCurrency)} for user's money throughout.
 3. Plain prose, 3–5 sentences max.
 4. End with ONE follow-up offer if genuinely relevant.
 5. No disclaimers. No generic finance advice.`);

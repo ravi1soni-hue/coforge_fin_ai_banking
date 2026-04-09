@@ -24,7 +24,7 @@ async function start() {
             console.log(`📡 WebSocket ready at wss://coforgefinaibanking-development-ebdd.up.railway.app/ws`);
         });
         // 🔄 Run bootstrap in background - non-blocking
-        bootstrapAndSync();
+        //bootstrapAndSync();
     }
     catch (err) {
         console.error("❌ Server startup failed");

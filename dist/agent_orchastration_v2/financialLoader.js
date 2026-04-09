@@ -95,8 +95,10 @@ Return ONLY valid JSON (no markdown):
   "availableSavings": number | null,
   "monthlyIncome": number | null,
   "monthlyExpenses": number | null,
-  "currency": "GBP" | "EUR" | "USD" | null
-}`);
+  "currency": "GBP" | null
+}
+
+Note: This service is UK-only. currency is always "GBP" — only return null if completely absent from context.`);
         return {
             availableSavings: parseNum(extracted.availableSavings) ?? 0,
             monthlyIncome: parseNum(extracted.monthlyIncome),

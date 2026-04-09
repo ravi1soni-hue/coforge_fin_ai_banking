@@ -26,7 +26,7 @@ function makeLoadProfileNode(loader) {
 function makeSupervisorNode(llmClient) {
     return async function supervisorNode(state) {
         console.log("[supervisor] Analysing query: " + state.userMessage.slice(0, 80));
-        const plan = await runSupervisorAgent(llmClient, state.userMessage, state.userProfile ?? {}, state.conversationHistory ?? []);
+        const plan = await runSupervisorAgent(llmClient, state.userMessage, state.userProfile, state.conversationHistory ?? []);
         return { plan };
     };
 }
@@ -61,14 +61,20 @@ function routeAfterSupervisor(state) {
     // Pure follow-up / continuation — skip research & affordability entirely
     if (p.conversationalOnly)
         return "synthesis";
-    if (p.needsWebSearch || p.needsFxConversion || p.needsNews)
+    // Always run research first if any data-gathering is needed OR affordability/EMI is requested
+    // (affordability requires a real price — never go directly to affordability without research)
+    if (p.needsWebSearch || p.needsFxConversion || p.needsNews || p.needsAffordability || p.needsEmi)
         return "research";
-    if (p.needsAffordability)
-        return "affordability";
     return "synthesis";
 }
 function routeAfterResearch(state) {
-    return state.plan?.needsAffordability ? "affordability" : "synthesis";
+    // Skip affordability if no verified price was found — sending price=0 to the
+    // affordability agent produces a meaningless verdict and wastes an LLM call.
+    // Synthesis already handles the "price unknown" case and will ask the user.
+    const hasVerifiedPrice = (state.priceInfo?.price ?? 0) > 0;
+    if (state.plan?.needsAffordability && hasVerifiedPrice)
+        return "affordability";
+    return "synthesis";
 }
 // ─── Graph factory ────────────────────────────────────────────────────────────
 export function createFinancialGraph(deps) {

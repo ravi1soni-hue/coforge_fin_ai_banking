@@ -32,5 +32,6 @@ export const ENV = {
      * to switch to the V3 agentic tool-calling pipeline.
      * Defaults to "v2" (deterministic state-machine pipeline).
      */
-    PIPELINE_VERSION: optionalEnv("PIPELINE_VERSION", "v2"),
+    PIPELINE_VERSION: optionalEnv("PIPELINE_VERSION", "v3"),
+    SERPER_API_KEY: optionalEnv("SERPER_API_KEY", "58955909affd1968515ddf0c7a4376c0ae63021a"),
 };

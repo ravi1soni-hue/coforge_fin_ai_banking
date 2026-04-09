@@ -1,64 +1,104 @@
 /**
  * Synthesis Agent — final response generation.
  *
- * Receives the full graph state (all gathered data from every agent) and
- * generates a clear, concise, friendly final response for the user.
- *
- * This agent:
- *   - States actual numbers (prices, exchange rates, savings)
- *   - Gives a clear affordability verdict when relevant
- *   - Calculates and presents EMI options with real numbers
- *   - Adapts tone and content to what the user actually asked
+ * Takes the full financial graph state and produces a clear,
+ * simple, human-readable response for the user.
  */
-const SYSTEM_PROMPT = `You are a knowledgeable, warm UK banking friend — think of yourself as the financially-savvy mate who gives straight, honest money advice over a coffee. You're NOT writing a formal financial report.
+const SYSTEM_PROMPT = `
+You explain money clearly and simply, like a normal person.
+You are not a banker, not giving legal advice, and not writing a report.
 
-How to talk:
-- Sound natural and human. Use phrases like "honestly", "to be real with you", "the good news is", "here's the thing" — whatever flows naturally.
-- Wrap numbers in real language. Don't just state "£890" — say "you'd be spending around £890, which is about a quarter of what you set aside each month".
-- Vary your structure. For a quick follow-up, flowing prose is better than bullet points. Use lists only when comparing options side by side.
-- For affordability judgements, be direct and warm: "you're absolutely fine here" or "this one's a bit tight, honestly" — NOT clinical labels like "SAFE/BORDERLINE/RISKY".
-- When following up in a conversation, NEVER re-summarise everything from the previous message. Pick up naturally from where the conversation left off — the user already knows the context.
-- End naturally. Don't always ask a question. If the conversation has a natural conclusion, let it conclude. If a follow-up question genuinely helps, ask ONE — not two or three.
-- Keep it under 180 words unless the situation truly needs more.
-- Never say "I don't have that information" — work with what you know from the conversation history and the user's financial data.
-- Use £ for GBP, € for EUR, $ for USD.
-- For EMI/instalments, show the 3, 6, and 12-month options with exact per-month amounts, but frame them conversationally.`;
+Tone and language:
+- Use very simple, natural words.
+- Calm, friendly, and neutral. No role‑play.
+- Short sentences are fine.
+- Use phrases like “to be honest”, “the good news is”, “this should be manageable”, “this might feel a bit tight”.
+
+Numbers:
+- Always explain numbers in plain language.
+- Don’t just state figures — explain what they mean in everyday terms.
+- Example: instead of just “£1,200”, say “£1,200 in total — roughly what you’d spend over a month or two”.
+
+UK data:
+- Use UK prices and £ for money.
+- Use UK‑style formatting and realistic context.
+- Do not act like a UK bank or advisor — just use UK data.
+
+Affordability:
+- Be clear and honest.
+- Say plainly whether it fits the budget or feels a bit tight.
+- Avoid labels like SAFE, RISKY, or BORDERLINE.
+- MANDATORY: When monthly income and expenses are in the financial data, you MUST explicitly state them:
+  "You earn £X a month, spend around £Y, which leaves roughly £Z each month."
+  Do NOT skip income and expenses and jump straight to the leftover figure.
+- Use savings as supporting context after showing the income/expenses breakdown.
+- Help the user see *why* something works (or doesn’t) using real numbers.
+
+EMI / instalment plans:
+- When instalments are relevant, present them as a proper plan.
+- Always show 3, 6, and 12‑month options.
+- Each plan must clearly state total cost, monthly amount, and duration.
+- Explain instalments naturally, like a person would.
+
+Conversation rules:
+- Don’t repeat earlier explanations.
+- Continue naturally from the last message.
+- Avoid bullet points unless you’re laying out options or plans.
+- Keep it under 180 words unless more detail is clearly needed.
+- Don’t say “I don’t have that information”.
+- Ask at most one follow‑up question, only if it genuinely helps.
+`;
 function buildDataContext(state) {
     const parts = [];
-    const homeCurrency = String(state.userProfile?.homeCurrency ?? state.plan?.userHomeCurrency ?? "GBP");
-    if (state.priceInfo && state.priceInfo.price > 0) {
-        parts.push(`PRICE: ${state.plan?.product ?? "Item"} = ${state.priceInfo.price.toLocaleString("en-GB")} ${state.priceInfo.currency} (source: ${state.priceInfo.source}, confidence: ${state.priceInfo.confidence})`);
+    const homeCurrency = state.userProfile?.homeCurrency ??
+        state.plan?.userHomeCurrency ??
+        "GBP";
+    // --- User financial profile (very important) ---
+    if (state.userProfile) {
+        const up = state.userProfile;
+        parts.push(`USER FINANCIAL PROFILE:`, up.monthlyIncome != null
+            ? `- Monthly income: ${up.monthlyIncome.toLocaleString("en-GB")} ${homeCurrency}`
+            : `- Monthly income: Unknown`, up.monthlyExpenses != null
+            ? `- Monthly expenses: ${up.monthlyExpenses.toLocaleString("en-GB")} ${homeCurrency}`
+            : `- Monthly expenses: Unknown`, `- Available savings: ${up.availableSavings.toLocaleString("en-GB")} ${homeCurrency}`);
+        if (up.monthlyIncome != null && up.monthlyExpenses != null) {
+            const leftover = up.monthlyIncome - up.monthlyExpenses;
+            parts.push(`- Left after expenses: ${leftover.toLocaleString("en-GB")} ${homeCurrency}`);
+        }
     }
+    // --- Price info ---
+    if (state.priceInfo && state.priceInfo.price > 0) {
+        parts.push(`PRICE: ${state.plan?.product ?? "Item"} = ${state.priceInfo.price.toLocaleString("en-GB")} ${state.priceInfo.currency} (source: ${state.priceInfo.source})`);
+    }
+    else if (state.priceInfo && state.priceInfo.price === 0) {
+        parts.push(`PRICE: No verified price found. Ask the user to confirm the amount instead of estimating.`);
+    }
+    // --- FX info ---
     if (state.fxInfo) {
         parts.push(`EXCHANGE RATE: 1 ${state.fxInfo.from} = ${state.fxInfo.rate.toFixed(4)} ${state.fxInfo.to}`);
         if (state.priceInfo && state.priceInfo.price > 0) {
-            const converted = (state.priceInfo.price * state.fxInfo.rate).toFixed(2);
-            parts.push(`CONVERTED PRICE: ${converted} ${state.fxInfo.to}`);
+            const converted = state.priceInfo.price * state.fxInfo.rate;
+            parts.push(`CONVERTED PRICE: ${converted.toFixed(2)} ${state.fxInfo.to}`);
         }
     }
-    if (state.newsInfo) {
-        parts.push(`MARKET CONTEXT: ${state.newsInfo.context}`);
-        if (state.newsInfo.headlines.length > 0) {
-            parts.push(`NEWS HEADLINES: ${state.newsInfo.headlines.join(" | ")}`);
-        }
-    }
+    // --- Affordability ---
     if (state.affordabilityInfo) {
         const af = state.affordabilityInfo;
-        parts.push(`AFFORDABILITY VERDICT: ${af.verdict} (can afford: ${af.canAfford})`, `ANALYSIS: ${af.analysis}`, `PRICE IN ${homeCurrency}: ${af.priceInHomeCurrency.toLocaleString("en-GB")} ${homeCurrency}`);
+        parts.push(`AFFORDABILITY NOTES:`, af.analysis, `PRICE IN ${homeCurrency}: ${af.priceInHomeCurrency.toLocaleString("en-GB")} ${homeCurrency}`);
         if (af.emiSuggested || state.plan?.needsEmi) {
             const price = af.priceInHomeCurrency;
-            parts.push(`EMI OPTIONS (${homeCurrency}):`, `  - 3 months:  ${Math.round(price / 3).toLocaleString("en-GB")} ${homeCurrency}/month`, `  - 6 months:  ${Math.round(price / 6).toLocaleString("en-GB")} ${homeCurrency}/month`, `  - 12 months: ${Math.round(price / 12).toLocaleString("en-GB")} ${homeCurrency}/month`);
+            parts.push(`EMI OPTIONS (${homeCurrency}):`, `- 3 months: ${Math.round(price / 3).toLocaleString("en-GB")} ${homeCurrency} per month`, `- 6 months: ${Math.round(price / 6).toLocaleString("en-GB")} ${homeCurrency} per month`, `- 12 months: ${Math.round(price / 12).toLocaleString("en-GB")} ${homeCurrency} per month`);
         }
     }
     return parts.join("\n");
 }
 export async function runSynthesisAgent(llmClient, state) {
     const dataContext = buildDataContext(state);
-    // Include last 3 turns so the LLM knows the full conversation thread
-    const historyText = (state.conversationHistory ?? []).length > 0
+    const historyText = state.conversationHistory && state.conversationHistory.length > 0
         ? "\n\nConversation history (most recent last):\n" +
-            (state.conversationHistory ?? [])
-                .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content.slice(0, 400)}`)
+            state.conversationHistory
+                .slice(-3)
+                .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content.slice(0, 400)}`)
                 .join("\n")
         : "";
     const messages = [
@@ -69,17 +109,14 @@ export async function runSynthesisAgent(llmClient, state) {
 
 Current message: "${state.userMessage}"
 
-Research data gathered by agents:
-${dataContext || "(No specific financial data needed — answer based on conversation context)"}
+Financial data:
+${dataContext}
 
-Generate a helpful, specific response to the current message.`,
+Write a clear, natural response using this information.`,
         },
     ];
-    console.log("[SynthesisAgent] Generating final response...");
     const finalText = await llmClient.chat(messages);
-    if (!finalText.trim()) {
-        return "I'm sorry, I was unable to generate a response. Please try again.";
-    }
-    console.log(`[SynthesisAgent] Response: ${finalText.length} chars`);
-    return finalText;
+    return finalText.trim()
+        ? finalText
+        : "Sorry — I couldn’t generate a response just now. Please try again.";
 }

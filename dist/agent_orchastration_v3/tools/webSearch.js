@@ -1,34 +1,49 @@
 /**
- * Web search tool using the DuckDuckGo Instant Answer API.
- * Free — no API key required.
+ * Web search tool using Serper.dev (Google Search API).
+ * Provides real UK retail prices via Google Shopping + Organic results.
  */
-const DDG_API = "https://api.duckduckgo.com";
+const SERPER_API = "https://google.serper.dev/search";
 export async function searchWeb(query) {
+    const apiKey = process.env.SERPER_API_KEY;
+    if (!apiKey) {
+        console.warn("[webSearch] SERPER_API_KEY not set — returning empty results");
+        return { abstract: "", answer: "", relatedTopics: [] };
+    }
     try {
-        const url = new URL(DDG_API);
-        url.searchParams.set("q", query);
-        url.searchParams.set("format", "json");
-        url.searchParams.set("no_html", "1");
-        url.searchParams.set("skip_disambig", "1");
-        const res = await fetch(url.toString(), {
-            signal: AbortSignal.timeout(6000),
-            headers: { "User-Agent": "FinancialAssistant/1.0" },
+        const res = await fetch(SERPER_API, {
+            method: "POST",
+            headers: {
+                "X-API-KEY": apiKey,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ q: query, gl: "gb", hl: "en", num: 8 }),
+            signal: AbortSignal.timeout(8000),
         });
         if (!res.ok)
-            throw new Error(`DDG status ${res.status}`);
+            throw new Error(`Serper status ${res.status}`);
         const data = await res.json();
-        const relatedTopics = (data.RelatedTopics ?? [])
-            .slice(0, 8)
-            .map((t) => t.Text ?? "")
+        // Build abstract from knowledge graph + answer box
+        const kgDesc = data.knowledgeGraph?.description ?? "";
+        const kgAttrs = data.knowledgeGraph?.attributes
+            ? Object.entries(data.knowledgeGraph.attributes).map(([k, v]) => `${k}: ${v}`).join("; ")
+            : "";
+        const answerBox = data.answerBox?.answer ?? data.answerBox?.snippet ?? "";
+        const abstract = [kgDesc, kgAttrs, answerBox].filter(Boolean).join(" ");
+        // Shopping results are the most reliable for prices
+        const shoppingSnippets = (data.shopping ?? [])
+            .slice(0, 5)
+            .map((s) => [s.title, s.price, s.source].filter(Boolean).join(" — "));
+        // Organic snippets as fallback
+        const organicSnippets = (data.organic ?? [])
+            .slice(0, 5)
+            .map((r) => r.snippet ?? "")
             .filter(Boolean);
-        return {
-            abstract: data.AbstractText ?? data.Abstract ?? "",
-            answer: data.Answer ?? "",
-            relatedTopics,
-        };
+        const relatedTopics = [...shoppingSnippets, ...organicSnippets].slice(0, 8);
+        console.log(`[webSearch] Serper results: ${shoppingSnippets.length} shopping, ${organicSnippets.length} organic`);
+        return { abstract, answer: answerBox, relatedTopics };
     }
     catch (err) {
-        console.warn("[webSearch] DDG search failed:", err);
+        console.warn("[webSearch] Serper search failed:", err);
         return { abstract: "", answer: "", relatedTopics: [] };
     }
 }

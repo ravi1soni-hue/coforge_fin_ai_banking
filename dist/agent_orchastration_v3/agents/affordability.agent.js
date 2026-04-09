@@ -29,15 +29,15 @@ Set emiSuggested = true when BORDERLINE or RISKY, or when the user mentioned ins
 
 Your analysis must be specific — cite actual numbers from the profile, not vague statements.`;
 export async function runAffordabilityAgent(llmClient, state) {
-    const profile = state.userProfile ?? {};
+    const profile = state.userProfile;
     const plan = state.plan;
     const price = state.priceInfo;
     const fx = state.fxInfo;
-    const savings = Number(profile.availableSavings ?? 0);
-    const income = Number(profile.monthlyIncome ?? 0);
-    const expenses = Number(profile.monthlyExpenses ?? 0);
-    const surplus = Number(profile.netMonthlySurplus ?? (income - expenses));
-    const currency = String(profile.homeCurrency ?? plan.userHomeCurrency ?? "GBP");
+    const savings = Number(profile?.availableSavings ?? 0);
+    const income = Number(profile?.monthlyIncome ?? 0);
+    const expenses = Number(profile?.monthlyExpenses ?? 0);
+    const surplus = Number(profile?.netMonthlySurplus ?? (income - expenses));
+    const currency = String(profile?.homeCurrency ?? plan.userHomeCurrency ?? "GBP");
     // Calculate price in home currency
     let priceInHome = price?.price ?? 0;
     if (fx && price && price.currency !== currency) {
