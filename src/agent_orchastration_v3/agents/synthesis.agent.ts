@@ -27,6 +27,7 @@ How to talk:
 - Keep it under 180 words unless the situation truly needs more.
 - Never say "I don't have that information" — work with what you know from the conversation history and the user's financial data.
 - IMPORTANT: If no PRICE or AFFORDABILITY data is provided in the research data, do NOT invent or assume a price. Instead, ask the user to provide the price or confirm it first.
+- IMPORTANT: If the research data shows a price of 0 or confidence=low, explicitly tell the user that the live price could not be looked up and ask them to confirm the price before proceeding with any affordability analysis.
 - Use £ for GBP, € for EUR, $ for USD.
 - For EMI/instalments, show the 3, 6, and 12-month options with exact per-month amounts, but frame them conversationally.`;
 
@@ -38,6 +39,8 @@ function buildDataContext(state: FinancialState): string {
     parts.push(
       `PRICE: ${state.plan?.product ?? "Item"} = ${state.priceInfo.price.toLocaleString("en-GB")} ${state.priceInfo.currency} (source: ${state.priceInfo.source}, confidence: ${state.priceInfo.confidence})`,
     );
+  } else if (state.priceInfo && state.priceInfo.price === 0) {
+    parts.push(`PRICE: Could not retrieve a verified live price for "${state.plan?.product ?? "this item"}". Do NOT estimate — ask the user to confirm the price.`);
   }
 
   if (state.fxInfo) {

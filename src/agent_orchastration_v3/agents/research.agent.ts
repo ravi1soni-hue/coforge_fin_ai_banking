@@ -41,17 +41,18 @@ async function researchPrice(
   const messages: AgenticMessage[] = [
     {
       role: "system",
-      content: `You are a product price researcher. Extract the current retail price from the web data provided.
-If web data is unavailable or insufficient, use your knowledge of this product's current market price.
+      content: `You are a product price researcher. Extract the current retail price strictly from the web data provided below.
 
 Respond with ONLY this JSON (no explanation, no markdown):
-{"price": <number>, "currency": "<3-letter ISO code>", "source": "<'web_search' or 'llm_knowledge'>", "confidence": "<'high'|'medium'|'low'>"}
+{"price": <number>, "currency": "<3-letter ISO code>", "source": "web_search", "confidence": "<'high'|'medium'|'low'>"}
 
 Rules:
 - price must be a number (no currency symbols)
 - currency should be the ISO 4217 code (EUR, GBP, USD, etc.)
-- source = 'web_search' if price came from the web data, 'llm_knowledge' if from your training
-- confidence = 'high' if exact price found, 'medium' if approximate, 'low' if estimated`,
+- source is ALWAYS "web_search" — do NOT use your training knowledge to invent or estimate a price
+- confidence = 'high' if exact price found, 'medium' if approximate, 'low' if unclear
+- If no price can be found in the web data, return {"price": 0, "currency": "${priceCurrency ?? "GBP"}", "source": "web_search", "confidence": "low"}
+- NEVER guess or fabricate a price — if uncertain, return price: 0`,
     },
     {
       role: "user",
@@ -59,9 +60,9 @@ Rules:
 Expected currency: ${priceCurrency ?? "GBP"}
 
 Web search results:
-${webContext || "No web data available — use your knowledge."}
+${webContext || "No web data available — return {\"price\": 0, \"currency\": \"${priceCurrency ?? "GBP"}\", \"source\": \"web_search\", \"confidence\": \"low\"}."}
 
-What is the current retail price of this product? Provide the most accurate price you can.`,
+Extract the current retail price strictly from the web data above. Do NOT use training knowledge to estimate a price.`,
     },
   ];
 
@@ -81,11 +82,11 @@ What is the current retail price of this product? Provide the most accurate pric
     };
   }
 
-  console.warn("[ResearchAgent:Price] Could not extract price, returning 0");
+  console.warn("[ResearchAgent:Price] Could not extract price from web data — returning 0 to avoid hallucination");
   return {
     price: 0,
     currency: priceCurrency ?? "GBP",
-    source: "llm_knowledge",
+    source: "web_search",
     confidence: "low",
     rawContext: webContext.slice(0, 300),
   };

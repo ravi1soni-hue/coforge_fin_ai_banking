@@ -35,8 +35,8 @@ Decision rules:
 - needsWebSearch = true → user asks about buying a SPECIFIC product and has NOT stated the price in the CURRENT message (even if a price was mentioned in prior history, search again to confirm)
 - needsFxConversion = true → price currency differs from user's home currency
 - needsNews = true → user explicitly asks for news or market context
-- needsAffordability = true → user asks "can I afford", "should I buy", "is it worth it", or any affordability/purchase decision question
-- needsEmi = true → user asks about installments, EMI, monthly payments
+- needsAffordability = true → user asks "can I afford", "should I buy", "is it worth it", or any affordability/purchase decision question. IMPORTANT: whenever needsAffordability=true you MUST also set needsWebSearch=true so the price is always looked up from a real source — NEVER assume the price.
+- needsEmi = true → user asks about installments, EMI, monthly payments. IMPORTANT: whenever needsEmi=true you MUST also set needsWebSearch=true and needsAffordability=true.
 - product → extract product name (use history if needed); null if conversationalOnly
 - searchQuery → best web search query to find current retail price; null if conversationalOnly
 - priceCurrency → currency the product is priced in; null if conversationalOnly
