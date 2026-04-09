@@ -94,12 +94,19 @@ const DEFAULT_PLAN: AgentPlan = {
 };
 
 function extractStatedGbpPrice(text: string): number {
-  const moneyPattern = /(£\s*[\d,]+(?:\.\d+)?|[\d,]+(?:\.\d+)?\s*GBP)/i;
-  const m = text.match(moneyPattern);
-  if (!m) return 0;
-  const digits = m[0].replace(/[^\d.]/g, "");
-  const n = Number(digits);
-  return Number.isFinite(n) && n > 0 ? n : 0;
+  // Match explicit £/GBP amounts OR bare standalone numbers >= 100 (plain cost statements like "around 3000")
+  const explicit = text.match(/(£\s*[\d,]+(?:\.\d+)?|[\d,]+(?:\.\d+)?\s*(?:GBP|pounds?))/i);
+  if (explicit) {
+    const n = Number(explicit[0].replace(/[^\d.]/g, ""));
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  // Bare number (e.g. "around 3000", "costs 3000", "it's 2500")
+  const bare = text.match(/(?:around|about|roughly|costs?|is|=|\s)\s*([\d,]{3,7})(?:\s|$|[.,!?])/i);
+  if (bare) {
+    const n = Number(bare[1].replace(/,/g, ""));
+    if (Number.isFinite(n) && n >= 100) return n;
+  }
+  return 0;
 }
 
 function inferTripProductFromUserHistory(
@@ -134,12 +141,14 @@ export async function runSupervisorAgent(
 ): Promise<AgentPlan> {
   const homeCurrency = String(userProfile?.homeCurrency ?? "GBP");
 
-  // Only pass last 6 turns (3 pairs) — prevents stale product context from earlier sessions bleeding in
-  const recentHistory = conversationHistory.slice(-6);
-  const historyText = recentHistory.length > 0
-    ? "\n\nConversation history (most recent last):\n" +
-      recentHistory
-        .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content.slice(0, 300)}`)
+  // Pass ONLY user turns to the supervisor — the assistant's previous responses are outputs, not ground truth.
+  // Feeding assistant history back in causes the LLM to anchor on whatever the assistant said before
+  // (even if it was wrong), poisoning product detection for follow-up messages.
+  const recentUserTurns = conversationHistory.filter(m => m.role === "user").slice(-5);
+  const historyText = recentUserTurns.length > 0
+    ? "\n\nWhat the user has said so far (most recent last):\n" +
+      recentUserTurns
+        .map(m => `User: ${m.content.slice(0, 300)}`)
         .join("\n")
     : "";
 
