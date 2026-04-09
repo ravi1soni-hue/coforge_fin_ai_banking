@@ -1,7 +1,6 @@
 /**
- * V3 types — agentic tool-calling pipeline.
+ * V3 types — multi-agent LangGraph financial assistant.
  *
- * Re-uses V2 domain types (UserProfile, FinancialGoalContext, etc.) and adds
- * the OpenAI tool-calling message shapes required by V3.
+ * Re-uses V2 domain types and adds the LLM message shapes used by all agents.
  */
 export {};
