@@ -28,6 +28,7 @@ export interface AgentPlan {
   priceCurrency?: string;        // ISO code of the price currency, e.g. "EUR"
   targetCurrency?: string;       // ISO code of the user's home currency, e.g. "GBP"
   userHomeCurrency: string;      // always set — defaults to "GBP"
+  userStatedPrice?: number;      // price explicitly stated by user (0 = not stated)
 }
 
 // ─── Research results ─────────────────────────────────────────────────────────

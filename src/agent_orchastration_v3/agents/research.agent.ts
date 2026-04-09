@@ -29,7 +29,10 @@ async function researchPrice(
   const noDataFallback = `No web data available — return {"price": 0, "currency": "${resolvedCurrency}", "source": "web_search", "confidence": "low"}.`;
 
   // 1. Get web data from Serper.dev (Google Search, UK results)
-  const ukQuery = searchQuery.toLowerCase().includes("uk") ? searchQuery : `${searchQuery} UK price buy`;
+  // Don't append "UK price buy" if it already has UK context or is a travel query
+  const isTravel = /trip|holiday|hotel|flight|travel|vacation/i.test(searchQuery);
+  const hasUk = /\buk\b/i.test(searchQuery);
+  const ukQuery = hasUk ? searchQuery : isTravel ? `${searchQuery} UK cost 2025` : `${searchQuery} UK price`;
   const webData = await searchWeb(ukQuery);
   const webContext = [
     webData.abstract,
@@ -168,14 +171,28 @@ export async function runResearchAgent(
   llmClient: V3LlmClient,
   plan: AgentPlan,
 ): Promise<ResearchResult> {
+  // If the user stated a price explicitly, use it directly — no web search needed.
+  const statedPrice = plan.userStatedPrice ?? 0;
+  const userStatedPriceInfo: PriceInfo | null = statedPrice > 0
+    ? {
+        price:      statedPrice,
+        currency:   (plan.priceCurrency ?? plan.userHomeCurrency ?? "GBP").toUpperCase(),
+        source:     "user_stated",
+        confidence: "high",
+        rawContext: `User stated price: ${statedPrice}`,
+      }
+    : null;
+
   const tasks: [
     Promise<PriceInfo | null>,
     Promise<FxInfo | null>,
     Promise<NewsInfo | null>,
   ] = [
-    plan.needsWebSearch && plan.searchQuery
-      ? researchPrice(llmClient, plan.searchQuery, plan.priceCurrency)
-      : Promise.resolve(null),
+    userStatedPriceInfo
+      ? Promise.resolve(userStatedPriceInfo)
+      : plan.needsWebSearch && plan.searchQuery
+        ? researchPrice(llmClient, plan.searchQuery, plan.priceCurrency)
+        : Promise.resolve(null),
 
     plan.needsFxConversion && plan.priceCurrency && plan.targetCurrency
       ? researchFx(plan.priceCurrency, plan.targetCurrency)

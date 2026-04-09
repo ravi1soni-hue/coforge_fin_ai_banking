@@ -102,7 +102,12 @@ function routeAfterSupervisor(state: FinancialState): "research" | "affordabilit
 }
 
 function routeAfterResearch(state: FinancialState): "affordability" | "synthesis" {
-  return state.plan?.needsAffordability ? "affordability" : "synthesis";
+  // Skip affordability if no verified price was found — sending price=0 to the
+  // affordability agent produces a meaningless verdict and wastes an LLM call.
+  // Synthesis already handles the "price unknown" case and will ask the user.
+  const hasVerifiedPrice = (state.priceInfo?.price ?? 0) > 0;
+  if (state.plan?.needsAffordability && hasVerifiedPrice) return "affordability";
+  return "synthesis";
 }
 
 // ─── Graph factory ────────────────────────────────────────────────────────────

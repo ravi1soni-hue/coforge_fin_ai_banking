@@ -15,15 +15,14 @@ import type { AgentPlan, ConversationTurn } from "../graph/state.js";
 
 const SYSTEM_PROMPT = `You are a financial assistant supervisor serving UK-based clients exclusively.
 
-CLIENT CONTEXT — read this before every decision:
+CLIENT CONTEXT:
 - This service operates in the UK only. The user's home currency is ALWAYS GBP.
 - All product prices should be looked up in GBP at UK retail prices.
-- searchQuery MUST always include "UK" so web results return GBP prices (e.g. "iPhone 16 Pro Max UK price").
-- priceCurrency defaults to "GBP" for products sold in UK retail. Only use a foreign currency if the user is explicitly buying abroad.
+- priceCurrency defaults to "GBP". Only use a foreign currency if the user is explicitly buying abroad.
 - targetCurrency is always "GBP".
-- userHomeCurrency is always "GBP" unless the user explicitly states they live in a different country.
+- userHomeCurrency is always "GBP" unless the user explicitly states otherwise.
 
-Analyze the user's current message and decide what work the downstream agents need to do.
+Analyze the user's current message AND the conversation history, then decide what work the downstream agents need to do.
 
 Return ONLY a JSON object — no explanation, no markdown:
 {
@@ -33,28 +32,56 @@ Return ONLY a JSON object — no explanation, no markdown:
   "needsAffordability": <true|false>,
   "needsEmi": <true|false>,
   "conversationalOnly": <true|false>,
-  "product": "<product name or null>",
-  "searchQuery": "<optimised web search query for price, max 8 words, or null>",
+  "product": "<product or service name from this conversation ONLY, or null>",
+  "searchQuery": "<optimised web search query, max 8 words, or null>",
   "priceCurrency": "<3-letter ISO currency code or null>",
   "targetCurrency": "<3-letter ISO currency code or null>",
-  "userHomeCurrency": "<3-letter ISO currency code>"
+  "userHomeCurrency": "<3-letter ISO currency code>",
+  "userStatedPrice": <number — price the user explicitly mentioned, or 0 if not stated>
 }
 
 Decision rules:
-- conversationalOnly = true → ONLY for very short follow-ups or pure confirmations/affirmations with NO question about a product, price, or financial decision. Examples: "yes", "ok sure", "go ahead", "sounds good", "yes please", "that makes sense", "ok thanks". If the message is longer than ~6 words or contains ANY of: "?", "afford", "buy", "can I", "should I", "worth", "cost", "price", "how much", "EMI", "instalment", "pay" — set conversationalOnly=false. When conversationalOnly=true, set ALL other booleans to false.
-- needsWebSearch = true → user asks about buying a SPECIFIC product and has NOT stated the price in the CURRENT message (even if a price was mentioned in prior history, search again to confirm)
-- needsFxConversion = true → price currency differs from user's home currency
-- needsNews = true → user explicitly asks for news or market context
-- needsAffordability = true → user asks "can I afford", "should I buy", "is it worth it", or any affordability/purchase decision question. IMPORTANT: whenever needsAffordability=true you MUST also set needsWebSearch=true so the price is always looked up from a real source — NEVER assume the price.
-- needsEmi = true → user asks about installments, EMI, monthly payments. IMPORTANT: whenever needsEmi=true you MUST also set needsWebSearch=true and needsAffordability=true.
-- product → extract product name (use history if needed); null if conversationalOnly
-- searchQuery → best web search query to find current retail price; null if conversationalOnly
-- priceCurrency → currency the product is priced in; null if conversationalOnly
-- targetCurrency → user's home currency; null if conversationalOnly
 
-IMPORTANT: A message containing a question mark or an affordability/purchase intent is NEVER conversationalOnly, regardless of prior history. Prior history provides context but does NOT replace fresh research for new questions.
+userStatedPrice:
+- Extract a number ONLY if the user stated an explicit amount in the current message OR the immediately previous user turn in history.
+- Examples: "around 3000 GBP" → 3000, "it costs £500" → 500, "the trip is £1,200" → 1200.
+- Set to 0 if no price was stated.
 
-If this is a greeting or general question with NO product or financial intent, set all booleans to false.`;
+conversationalOnly:
+- ONLY true for very short responses with zero financial intent: "yes", "ok", "sounds good", "go ahead", "thanks".
+- If the message contains ANY of: "?", "afford", "buy", "cost", "price", "how much", "EMI", "instalment", "spread", "month", "pay", "run the numbers", "numbers" — set to FALSE.
+- When conversationalOnly=true, set ALL other booleans to false.
+
+needsWebSearch:
+- true ONLY when the user asks about a specific product/service AND userStatedPrice is 0.
+- false when userStatedPrice > 0 — user already gave the price, do NOT search.
+- false when this is a follow-up about an item whose price was established in history.
+
+needsAffordability:
+- true when user asks "can I afford", "should I buy", or any purchase/affordability decision.
+
+needsEmi:
+- true when user asks about EMI, instalments, spreading payments, monthly payments.
+- Do NOT set needsWebSearch=true just because needsEmi=true if userStatedPrice > 0.
+
+needsWebSearch + needsAffordability together:
+- ONLY force needsWebSearch=true alongside needsAffordability/needsEmi when userStatedPrice is 0 AND no price is in history.
+
+product:
+- Extract ONLY from the current conversation context. For trips: "Lisbon trip", "Paris holiday".
+- NEVER invent a product from your training knowledge.
+- If this is a follow-up about something already established in history, use THAT item.
+- Set to null if nothing is identifiable.
+
+searchQuery:
+- Only set when needsWebSearch=true.
+- For physical products: "<product> UK price 2025".
+- For travel/trips/holidays: "<destination> trip UK cost 2025 budget".
+- NEVER set a searchQuery when needsWebSearch=false.
+
+IMPORTANT: Follow-ups like "spread it over 6 months", "run the numbers", "what about 12 months" are about the SAME item/price from history. Use userStatedPrice from history, set needsWebSearch=false.
+
+If this is a greeting or general question with NO product or financial intent, set all booleans to false and userStatedPrice=0.`;
 
 const DEFAULT_PLAN: AgentPlan = {
   needsWebSearch: false,
@@ -111,12 +138,19 @@ export async function runSupervisorAgent(
     needsAffordability: Boolean(parsed.needsAffordability),
     needsEmi:           Boolean(parsed.needsEmi),
     conversationalOnly: Boolean(parsed.conversationalOnly),
-    product:            (parsed.product as string)       || undefined,
-    searchQuery:        (parsed.searchQuery as string)   || undefined,
-    priceCurrency:      (parsed.priceCurrency as string) || undefined,
-    targetCurrency:     (parsed.targetCurrency as string)|| undefined,
+    product:            (parsed.product as string)        || undefined,
+    searchQuery:        (parsed.searchQuery as string)    || undefined,
+    priceCurrency:      (parsed.priceCurrency as string)  || undefined,
+    targetCurrency:     (parsed.targetCurrency as string) || undefined,
     userHomeCurrency:   (parsed.userHomeCurrency as string) || homeCurrency,
+    userStatedPrice:    Number(parsed.userStatedPrice)    || 0,
   };
+
+  // Safety guard: if user stated a price, never search (prevents hallucinating products)
+  if ((plan.userStatedPrice ?? 0) > 0) {
+    plan.needsWebSearch = false;
+    plan.searchQuery    = undefined;
+  }
 
   console.log("[SupervisorAgent] Plan:", JSON.stringify(plan));
   return plan;
