@@ -32,7 +32,11 @@ Verdict guidelines (apply intelligently, not mechanically):
 
 Set emiSuggested = true when BORDERLINE or RISKY, or when the user mentioned instalments.
 
-Your analysis must be specific — cite actual numbers from the profile, not vague statements.`;
+Analysis rules:
+- Focus on the purchase decision: how the cost compares to savings, how long to replenish, whether instalments help.
+- Do NOT restate the user's income, monthly expenses, or monthly surplus — those are known. Never say "earns X" or "spends Y" or "surplus of Z".
+- Use relative terms instead: "the cost represents 6x the monthly surplus", "would use just over half of savings".
+- Your analysis must be specific — cite the cost, savings balance, and replenishment timeline, not vague statements.`;
 
 export async function runAffordabilityAgent(
   llmClient: V3LlmClient,

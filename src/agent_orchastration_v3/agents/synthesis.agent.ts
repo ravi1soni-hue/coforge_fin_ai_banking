@@ -33,7 +33,8 @@ Affordability:
 - Be clear and honest.
 - Say plainly whether it fits the budget or feels a bit tight.
 - Avoid labels like SAFE, RISKY, or BORDERLINE.
-- CRITICAL RULE: If the data context says "USER PROFILE (already shown)" — you MUST NOT open your reply with income or spending figures. Do not say "You earn £X" or "You spend £Y". Jump straight to the point.
+- ABSOLUTE RULE: NEVER open any response with "You earn £X" or "You spend £Y" or any restatement of income and expenses. Not on the first line, not in the middle, not anywhere. The user already knows their own finances. Jump straight to the point every time.
+- CRITICAL RULE: If the data context says "USER PROFILE (already shown)" — you MUST NOT mention income or spending figures at all. Do not say "You earn £X" or "You spend £Y" or "which leaves £Z". Jump straight to the point.
 - Use savings as supporting context only when it adds new information.
 - Help the user see *why* something works (or doesn't) using real numbers.
 
@@ -47,6 +48,7 @@ EMI / instalment plans:
 - Always show 3, 6, and 12‑month options.
 - Each plan must clearly state total cost, monthly amount, and duration.
 - Explain instalments naturally, like a person would.
+- CRITICAL: If the conversation history already shows instalment options (3/6/12 month plans), do NOT list them again. The user has already seen them. Respond to the user's actual question instead.
 
 User intent:
 - When the user says something positive ("yes", "priority", "I want it", "go for it", "I'm happy to") — acknowledge it warmly and give them a clear recommended path. Do NOT ask an open question back.
@@ -145,9 +147,21 @@ function buildDataContext(state: FinancialState): string {
   // --- Affordability ---
   if (state.affordabilityInfo) {
     const af = state.affordabilityInfo;
+    // Strip any sentences that restate income/expenses — the affordability agent
+    // is instructed not to include them, but filter defensively in case it does.
+    const cleanedAnalysis = af.analysis
+      .split(/(?<=[.!?])\s+/)
+      .filter((sentence) => {
+        const lower = sentence.toLowerCase();
+        return !(
+          (lower.includes("earn") || lower.includes("income")) &&
+          (lower.includes("spend") || lower.includes("expense") || lower.includes("surplus"))
+        );
+      })
+      .join(" ");
     parts.push(
       `AFFORDABILITY NOTES:`,
-      af.analysis,
+      cleanedAnalysis,
       `PRICE IN ${homeCurrency}: ${af.priceInHomeCurrency.toLocaleString(
         "en-GB"
       )} ${homeCurrency}`
