@@ -1,23 +1,87 @@
 /**
  * V3 types — multi-agent LangGraph financial assistant.
- *
- * Re-uses V2 domain types and adds the LLM message shapes used by all agents.
  */
 
-// ─── Re-export V2 domain types (unchanged) ────────────────────────────────────
+// ─── Intent taxonomy ─────────────────────────────────────────────────────────
 
-export type {
-  IntentType,
-  DomainType,
-  ReasoningLevel,
-  AffordabilityVerdict,
-  SuggestionReason,
-  FinancialGoalContext,
-  UserProfile,
-  ConversationTurn,
-  ChatRequestV2 as ChatRequestV3,
-  ChatResponseV2 as ChatResponseV3,
-} from "../agent_orchastration_v2/types.js";
+export type IntentType =
+  | "INFO_ONLY"
+  | "AFFORDABILITY_CHECK"
+  | "PLANNING"
+  | "COMPARISON"
+  | "ACTION_SUGGESTION";
+
+// ─── Domain taxonomy ─────────────────────────────────────────────────────────
+
+export type DomainType =
+  | "TRAVEL"
+  | "CONSUMER_PURCHASE"
+  | "HOUSING"
+  | "LOAN"
+  | "SAVINGS"
+  | "INVESTMENT"
+  | "SUBSCRIPTION"
+  | "LIFESTYLE"
+  | "GENERAL_BANKING";
+
+// ─── Reasoning level ─────────────────────────────────────────────────────────
+
+export type ReasoningLevel = "NONE" | "LIGHT" | "HEAVY";
+
+// ─── Affordability verdict ────────────────────────────────────────────────────
+
+export type AffordabilityVerdict = "COMFORTABLE" | "RISKY" | "CANNOT_AFFORD";
+
+// ─── Product suggestion reason ────────────────────────────────────────────────
+
+export type SuggestionReason =
+  | "INSUFFICIENT_FUNDS"
+  | "CASHFLOW_RISK"
+  | "CASHFLOW_IMPACT"
+  | "USER_REQUESTED";
+
+// ─── Financial goal context ───────────────────────────────────────────────────
+
+export interface FinancialGoalContext {
+  goalType: "TRIP" | "PURCHASE" | "HOUSING" | "LOAN" | "INVESTMENT" | "SAVINGS";
+  cost?: number;
+  currency?: string;
+  timeHorizon?: string;
+  metadata?: Record<string, unknown>;
+}
+
+// ─── User profile ─────────────────────────────────────────────────────────────
+
+export interface UserProfile {
+  availableSavings: number;
+  monthlyIncome?: number;
+  monthlyExpenses?: number;
+  netMonthlySurplus?: number;
+  homeCurrency: string;
+  userName?: string;
+}
+
+// ─── Conversation history ─────────────────────────────────────────────────────
+
+export interface ConversationTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+// ─── Socket contract ──────────────────────────────────────────────────────────
+
+export interface ChatRequestV3 {
+  userId: string;
+  message: string;
+  sessionId?: string;
+  knownFacts?: Record<string, unknown>;
+}
+
+export interface ChatResponseV3 {
+  type: "FINAL" | "FOLLOW_UP" | "ERROR";
+  message: string;
+  missingFacts?: string[];
+}
 
 // ─── LLM message shapes ────────────────────────────────────────────────────────
 

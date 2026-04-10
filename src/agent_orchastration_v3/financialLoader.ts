@@ -6,8 +6,8 @@
 
 import { sql } from "kysely";
 import type { Kysely } from "kysely";
-import type { VectorQueryService } from "../agent_orchastration/services/vector.query.service.js";
-import type { LlmClient } from "../agent_orchastration/llm/llmClient.js";
+import type { VectorQueryService } from "./services/vector.query.service.js";
+import type { LlmClient } from "./llm/llmClient.js";
 import type { UserProfile } from "./types.js";
 
 /** Parse a raw unknown value to a finite number (or undefined) */

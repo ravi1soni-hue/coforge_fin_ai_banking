@@ -14,8 +14,8 @@
 import type { Kysely } from "kysely";
 import type { ChatRepository }    from "../repo/chat.repo.js";
 import type { SessionRepository } from "../repo/session.repo.js";
-import type { VectorQueryService } from "../agent_orchastration/services/vector.query.service.js";
-import type { LlmClient }         from "../agent_orchastration/llm/llmClient.js";
+import type { VectorQueryService } from "./services/vector.query.service.js";
+import type { LlmClient }         from "./llm/llmClient.js";
 
 import { V3LlmClient } from "./llm/v3LlmClient.js";
 import type { ChatRequestV3, ChatResponseV3 } from "./types.js";
