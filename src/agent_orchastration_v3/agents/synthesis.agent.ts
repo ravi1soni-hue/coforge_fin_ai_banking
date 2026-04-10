@@ -33,7 +33,8 @@ Affordability:
 - Be clear and honest.
 - Say plainly whether it fits the budget or feels a bit tight.
 - Avoid labels like SAFE, RISKY, or BORDERLINE.
-- Only introduce the income/expenses breakdown ("You earn £X a month...") the FIRST time you give an affordability summary. On follow-up messages about the same purchase, DO NOT repeat it — pick up directly where the conversation left off.
+- When you see MANDATORY OPENING in the financial data, you MUST start your reply with the four numbers (income, expenses, leftover, savings) before anything else. No exceptions.
+- When you see "INSTRUCTION: ... was ALREADY shown", do NOT repeat those numbers. Continue the conversation naturally.
 - Use savings as supporting context only when it adds new information.
 - Help the user see *why* something works (or doesn't) using real numbers.
 
@@ -69,14 +70,14 @@ function buildDataContext(state: FinancialState): string {
     state.plan?.userHomeCurrency ??
     "GBP";
 
+  // Count prior assistant turns — reliable, no text-matching
+  const priorAssistantTurns = (state.conversationHistory ?? []).filter(
+    (m) => m.role === "assistant"
+  ).length;
+
   // --- User financial profile ---
   if (state.userProfile) {
     const up = state.userProfile;
-
-    // Detect whether income/expenses were already stated in a prior assistant turn
-    const alreadyShownProfile = (state.conversationHistory ?? [])
-      .filter((m) => m.role === "assistant")
-      .some((m) => m.content.includes("earn") && m.content.includes("spend"));
 
     parts.push(
       `USER FINANCIAL PROFILE:`,
@@ -96,9 +97,20 @@ function buildDataContext(state: FinancialState): string {
       );
     }
 
-    if (alreadyShownProfile) {
+    if (priorAssistantTurns === 0) {
+      // First reply — REQUIRE the financial snapshot to be shown explicitly
       parts.push(
-        `INSTRUCTION: The income/expenses breakdown ("You earn £X a month, spend £Y...") was ALREADY stated earlier in this conversation. DO NOT repeat it. Continue from where the conversation left off.`
+        `MANDATORY OPENING: This is the FIRST affordability response. You MUST begin your reply with a short financial snapshot that states ALL of these numbers on their own line or sentence, in this order:`,
+        `  1. Monthly income (e.g. "You bring in £4,200 a month")`,
+        `  2. Monthly expenses (e.g. "your regular spending comes to about £3,700")`,
+        `  3. Monthly leftover (e.g. "leaving you £500 each month")`,
+        `  4. Savings (e.g. "and you have £5,800 saved up")`,
+        `After showing these four numbers, THEN give the affordability analysis about the subject below.`
+      );
+    } else {
+      // Follow-up — do NOT repeat the snapshot
+      parts.push(
+        `INSTRUCTION: The income/expenses/savings breakdown was ALREADY shown in this conversation. Do NOT repeat it. Continue directly from where the conversation left off.`
       );
     }
   }
