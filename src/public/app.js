@@ -1,8 +1,12 @@
 const chat = document.getElementById("chat");
 const input = document.getElementById("messageInput");
 
-// Random userId
+
+const sessionId = "session_" + Math.random().toString(36).substring(2, 15);
+
 const userId = "uk_user_001";
+
+
 
 // WebSocket connection
 const socket = new WebSocket(
@@ -44,7 +48,7 @@ function sendMessage() {
       v: 1,
       type: "CHAT_QUERY",
       requestId: `ui-${Date.now()}`,
-      sessionId: userId,
+      sessionId: sessionId,
       payload: {
         message: text,
       },
