@@ -53,7 +53,8 @@ conversationalOnly:
 - When conversationalOnly=true, set ALL other booleans to false.
 
 needsWebSearch:
-- true ONLY when the user asks about a specific product/service AND userStatedPrice is 0.
+- true ONLY when the user asks about a specific physical product (phone, laptop, gadget, appliance) AND userStatedPrice is 0.
+- false for travel, trips, holidays, flights, hotels — web search cannot return a reliable price for these. If no price is stated, synthesis will ask the user.
 - false when userStatedPrice > 0 — user already gave the price, do NOT search.
 - false when this is a follow-up about an item whose price was established in history.
 
@@ -208,11 +209,11 @@ export async function runSupervisorAgent(
   // This prevents stale assistant "iPhone" hallucinations in history from contaminating later turns.
   if (inferredTrip) {
     plan.product = inferredTrip;
-    // A trip thread never needs web search for product price — the user stated the cost
-    if ((plan.userStatedPrice ?? 0) > 0) {
-      plan.needsWebSearch = false;
-      plan.searchQuery = undefined;
-    }
+    // Travel/trip costs are not googleable as a shopping price — Serper returns travel
+    // articles with no extractable price. Always skip web search for trips; if no price
+    // is stated yet, synthesis will ask the user for the cost directly.
+    plan.needsWebSearch = false;
+    plan.searchQuery = undefined;
   }
 
   // Safety guard: if user stated a price, never search (prevents hallucinating products)
