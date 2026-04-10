@@ -5,11 +5,10 @@ interface OpenAIClientDeps {
   model?: string;
 }
 
-var model = "gpt-5-chat"
+var model = "gpt-5-chat";
 
 export class OpenAIClient extends LlmClient {
   private readonly apiKey: string;
-
 
   constructor({ apiKey }: OpenAIClientDeps) {
     super();
@@ -19,10 +18,7 @@ export class OpenAIClient extends LlmClient {
     }
 
     this.apiKey = apiKey;
-
   }
-
-
 
   async generateResponse(prompt: string): Promise<string> {
     const url =

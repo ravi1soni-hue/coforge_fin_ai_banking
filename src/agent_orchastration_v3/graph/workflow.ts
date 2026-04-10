@@ -18,11 +18,11 @@ import { runResearchAgent }      from "../agents/research.agent.js";
 import { runAffordabilityAgent } from "../agents/affordability.agent.js";
 import { runSynthesisAgent }     from "../agents/synthesis.agent.js";
 
-import { FinancialLoader }         from "../../agent_orchastration_v2/financialLoader.js";
+import { FinancialLoader }         from "../financialLoader.js";
 import type { V3LlmClient }        from "../llm/v3LlmClient.js";
 import type { SessionRepository }  from "../../repo/session.repo.js";
-import type { VectorQueryService } from "../../agent_orchastration/services/vector.query.service.js";
-import type { LlmClient }          from "../../agent_orchastration/llm/llmClient.js";
+import type { VectorQueryService } from "../services/vector.query.service.js";
+import type { LlmClient }          from "../llm/llmClient.js";
 import { UserProfile } from "../types.js";
 
 // ─── Dependency injection ─────────────────────────────────────────────────────

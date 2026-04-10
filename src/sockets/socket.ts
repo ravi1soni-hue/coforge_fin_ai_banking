@@ -3,7 +3,7 @@ import { IncomingMessage } from "http";
 import crypto from "crypto";
 import { container } from "../config/di.container.js";
 import { ENV } from "../config/env.js";
-import type { ChatService } from "../services/chat/chat.service.js";
+import type { ChatServiceV3 } from "../agent_orchastration_v3/ChatServiceV3.js";
 import type { UserRepository } from "../repo/user.repo.js";
 import {
   parseClientSocketMessage,
@@ -18,7 +18,7 @@ const ACTIVE_PIPELINE = ENV.PIPELINE_VERSION.toUpperCase();
 const userConnections = new Map<string, Set<WebSocket>>();
 
 // ✅ Resolve singletons from Awilix (typed)
-const chatService = container.resolve<ChatService>("chatService");
+const chatService = container.resolve<ChatServiceV3>("chatService");
 const userRepo = container.resolve<UserRepository>("userRepo");
 
 const buildErrorMessage = ({
