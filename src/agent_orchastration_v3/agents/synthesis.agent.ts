@@ -17,7 +17,6 @@ Tone and language:
 - Use very simple, natural words.
 - Calm, friendly, and neutral. No role‑play.
 - Short sentences are fine.
-- Use phrases like “to be honest”, “the good news is”, “this should be manageable”, “this might feel a bit tight”.
 
 Numbers:
 - Always explain numbers in plain language.
@@ -33,10 +32,9 @@ Affordability:
 - Be clear and honest.
 - Say plainly whether it fits the budget or feels a bit tight.
 - Avoid labels like SAFE, RISKY, or BORDERLINE.
-- ABSOLUTE RULE: NEVER open any response with "You earn £X" or "You spend £Y" or any restatement of income and expenses. Not on the first line, not in the middle, not anywhere — in any message. The user already knows their own finances. Jump straight to what matters.
-- You receive a CALCULATION CONTEXT block with the user's numbers. Use these figures for maths (e.g. "that's 6 months of surplus", "would leave £2,800 in savings") but do NOT read them out to the user.
-- Use savings as supporting context only when it adds new information.
-- Help the user see *why* something works (or doesn't) using relative terms.
+- When you receive a FINANCIAL SUMMARY block, present it naturally at the start of your reply — it is the first time the user is seeing their financial picture in this conversation, so lay it out briefly: income, spending, monthly leftover, and savings.
+- When you receive a CALCULATION CONTEXT block (labelled "already presented"), do NOT repeat income or spending figures. Use the numbers for maths only (e.g. "that's 6 months of your monthly surplus", "would leave £2,800 in savings").
+- Help the user see *why* something works (or doesn't) using the numbers in context.
 
 Topic discipline:
 - The financial data you receive includes a SUBJECT field — always answer ONLY about that subject.
@@ -73,9 +71,10 @@ function buildDataContext(state: FinancialState): string {
     "GBP";
 
   // --- User financial profile ---
-  // Always pass as calculation-only numbers. Never label them as "tell the user this".
-  // The synthesis LLM uses these for maths (can they afford it, how long to repay)
-  // but must NOT narrate them back to the user as an opening statement.
+  // First assistant reply in the session → label as FINANCIAL SUMMARY so synthesis
+  // presents it naturally to the user (they haven't seen their profile yet).
+  // Subsequent replies → label as CALCULATION CONTEXT so synthesis uses the
+  // numbers for maths only and never repeats the income/expenses recap.
   if (state.userProfile) {
     const up = state.userProfile;
     const leftover =
@@ -83,18 +82,41 @@ function buildDataContext(state: FinancialState): string {
         ? up.monthlyIncome - up.monthlyExpenses
         : null;
 
-    parts.push(
-      `CALCULATION CONTEXT (use for maths only — do NOT narrate these numbers to the user):`,
-      up.monthlyIncome != null
-        ? `- Monthly income: ${up.monthlyIncome.toLocaleString("en-GB")} ${homeCurrency}`
-        : `- Monthly income: Unknown`,
-      up.monthlyExpenses != null
-        ? `- Monthly expenses: ${up.monthlyExpenses.toLocaleString("en-GB")} ${homeCurrency}`
-        : `- Monthly expenses: Unknown`,
-      `- Available savings: ${up.availableSavings.toLocaleString("en-GB")} ${homeCurrency}`,
-    );
-    if (leftover != null) {
-      parts.push(`- Monthly surplus: ${leftover.toLocaleString("en-GB")} ${homeCurrency}`);
+    // Count prior assistant turns — if zero, this is the first reply in the session.
+    const priorAssistantTurns = (state.conversationHistory ?? []).filter(
+      (m) => m.role === "assistant"
+    ).length;
+    const isFirstReply = priorAssistantTurns === 0;
+
+    if (isFirstReply) {
+      parts.push(
+        `FINANCIAL SUMMARY (present this to the user — they have not seen it yet this session):`,
+        up.monthlyIncome != null
+          ? `- Monthly income: ${up.monthlyIncome.toLocaleString("en-GB")} ${homeCurrency}`
+          : `- Monthly income: Unknown`,
+        up.monthlyExpenses != null
+          ? `- Monthly expenses: ${up.monthlyExpenses.toLocaleString("en-GB")} ${homeCurrency}`
+          : `- Monthly expenses: Unknown`,
+        `- Available savings: ${up.availableSavings.toLocaleString("en-GB")} ${homeCurrency}`,
+      );
+      if (leftover != null) {
+        parts.push(`- Monthly surplus (leftover): ${leftover.toLocaleString("en-GB")} ${homeCurrency}`);
+      }
+    } else {
+      // Follow-up — numbers for calculation only, never narrate back to the user.
+      parts.push(
+        `CALCULATION CONTEXT (already presented — do NOT repeat income/spending figures):`,
+        up.monthlyIncome != null
+          ? `- Monthly income: ${up.monthlyIncome.toLocaleString("en-GB")} ${homeCurrency}`
+          : `- Monthly income: Unknown`,
+        up.monthlyExpenses != null
+          ? `- Monthly expenses: ${up.monthlyExpenses.toLocaleString("en-GB")} ${homeCurrency}`
+          : `- Monthly expenses: Unknown`,
+        `- Available savings: ${up.availableSavings.toLocaleString("en-GB")} ${homeCurrency}`,
+      );
+      if (leftover != null) {
+        parts.push(`- Monthly surplus: ${leftover.toLocaleString("en-GB")} ${homeCurrency}`);
+      }
     }
   }
 
