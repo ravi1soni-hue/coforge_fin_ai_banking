@@ -33,10 +33,10 @@ Affordability:
 - Be clear and honest.
 - Say plainly whether it fits the budget or feels a bit tight.
 - Avoid labels like SAFE, RISKY, or BORDERLINE.
-- ABSOLUTE RULE: NEVER open any response with "You earn £X" or "You spend £Y" or any restatement of income and expenses. Not on the first line, not in the middle, not anywhere. The user already knows their own finances. Jump straight to the point every time.
-- CRITICAL RULE: If the data context says "USER PROFILE (already shown)" — you MUST NOT mention income or spending figures at all. Do not say "You earn £X" or "You spend £Y" or "which leaves £Z". Jump straight to the point.
+- ABSOLUTE RULE: NEVER open any response with "You earn £X" or "You spend £Y" or any restatement of income and expenses. Not on the first line, not in the middle, not anywhere — in any message. The user already knows their own finances. Jump straight to what matters.
+- You receive a CALCULATION CONTEXT block with the user's numbers. Use these figures for maths (e.g. "that's 6 months of surplus", "would leave £2,800 in savings") but do NOT read them out to the user.
 - Use savings as supporting context only when it adds new information.
-- Help the user see *why* something works (or doesn't) using real numbers.
+- Help the user see *why* something works (or doesn't) using relative terms.
 
 Topic discipline:
 - The financial data you receive includes a SUBJECT field — always answer ONLY about that subject.
@@ -73,39 +73,28 @@ function buildDataContext(state: FinancialState): string {
     "GBP";
 
   // --- User financial profile ---
+  // Always pass as calculation-only numbers. Never label them as "tell the user this".
+  // The synthesis LLM uses these for maths (can they afford it, how long to repay)
+  // but must NOT narrate them back to the user as an opening statement.
   if (state.userProfile) {
     const up = state.userProfile;
+    const leftover =
+      up.monthlyIncome != null && up.monthlyExpenses != null
+        ? up.monthlyIncome - up.monthlyExpenses
+        : null;
 
-    // Detect whether income/expenses were already stated in a prior assistant turn
-    const alreadyShownProfile = (state.conversationHistory ?? [])
-      .filter((m) => m.role === "assistant")
-      .some((m) => m.content.includes("earn") && m.content.includes("spend"));
-
-    if (!alreadyShownProfile) {
-      // First affordability message — include full income/expenses breakdown
-      parts.push(
-        `USER FINANCIAL PROFILE:`,
-        up.monthlyIncome != null
-          ? `- Monthly income: ${up.monthlyIncome.toLocaleString("en-GB")} ${homeCurrency}`
-          : `- Monthly income: Unknown`,
-        up.monthlyExpenses != null
-          ? `- Monthly expenses: ${up.monthlyExpenses.toLocaleString("en-GB")} ${homeCurrency}`
-          : `- Monthly expenses: Unknown`,
-        `- Available savings: ${up.availableSavings.toLocaleString("en-GB")} ${homeCurrency}`
-      );
-      if (up.monthlyIncome != null && up.monthlyExpenses != null) {
-        const leftover = up.monthlyIncome - up.monthlyExpenses;
-        parts.push(
-          `- Left after expenses: ${leftover.toLocaleString("en-GB")} ${homeCurrency}`
-        );
-      }
-    } else {
-      // Follow-up message — omit income/expenses entirely so LLM cannot repeat them.
-      // Only pass savings for calculation purposes.
-      parts.push(
-        `USER PROFILE (already shown — do NOT open with earnings/spending recap):`,
-        `- Available savings: ${up.availableSavings.toLocaleString("en-GB")} ${homeCurrency}`
-      );
+    parts.push(
+      `CALCULATION CONTEXT (use for maths only — do NOT narrate these numbers to the user):`,
+      up.monthlyIncome != null
+        ? `- Monthly income: ${up.monthlyIncome.toLocaleString("en-GB")} ${homeCurrency}`
+        : `- Monthly income: Unknown`,
+      up.monthlyExpenses != null
+        ? `- Monthly expenses: ${up.monthlyExpenses.toLocaleString("en-GB")} ${homeCurrency}`
+        : `- Monthly expenses: Unknown`,
+      `- Available savings: ${up.availableSavings.toLocaleString("en-GB")} ${homeCurrency}`,
+    );
+    if (leftover != null) {
+      parts.push(`- Monthly surplus: ${leftover.toLocaleString("en-GB")} ${homeCurrency}`);
     }
   }
 
