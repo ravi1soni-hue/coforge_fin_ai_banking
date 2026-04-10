@@ -174,6 +174,23 @@ function buildDataContext(state: FinancialState): string {
   return parts.join("\n");
 }
 
+/**
+ * Remove the recurring "You earn £X a month, spend £Y..." opener from prior
+ * assistant messages so the synthesis LLM cannot pattern-match against it and
+ * reproduce the preamble on every follow-up turn.
+ */
+function stripFinancialPreamble(text: string): string {
+  // Remove any leading sentence(s) that contain both "earn" and "spend"
+  return text
+    .split("\n")
+    .filter((line) => {
+      const lower = line.toLowerCase();
+      return !(lower.includes("earn") && lower.includes("spend"));
+    })
+    .join("\n")
+    .trim();
+}
+
 export async function runSynthesisAgent(
   llmClient: V3LlmClient,
   state: FinancialState
@@ -185,13 +202,14 @@ export async function runSynthesisAgent(
       ? "\n\nConversation history (most recent last):\n" +
         state.conversationHistory
           .slice(-6)
-          .map(
-            (m) =>
-              `${m.role === "user" ? "User" : "Assistant"}: ${m.content.slice(
-                0,
-                400
-              )}`
-          )
+          .map((m) => {
+            const raw = m.content.slice(0, 400);
+            // Strip income/expense preamble from prior assistant messages to
+            // prevent the LLM from treating it as a required opening pattern.
+            const cleaned =
+              m.role === "assistant" ? stripFinancialPreamble(raw) : raw;
+            return `${m.role === "user" ? "User" : "Assistant"}: ${cleaned}`;
+          })
           .join("\n")
       : "";
 
