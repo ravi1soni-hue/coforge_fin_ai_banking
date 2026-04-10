@@ -33,7 +33,7 @@ Affordability:
 - Be clear and honest.
 - Say plainly whether it fits the budget or feels a bit tight.
 - Avoid labels like SAFE, RISKY, or BORDERLINE.
-- Only introduce the income/expenses breakdown ("You earn £X a month...") the FIRST time you give an affordability summary. On follow-up messages about the same purchase, DO NOT repeat it — pick up directly where the conversation left off.
+- CRITICAL RULE: If the data context says "USER PROFILE (already shown)" — you MUST NOT open your reply with income or spending figures. Do not say "You earn £X" or "You spend £Y". Jump straight to the point.
 - Use savings as supporting context only when it adds new information.
 - Help the user see *why* something works (or doesn't) using real numbers.
 
@@ -57,11 +57,12 @@ Conversation rules:
 - Don't repeat earlier explanations.
 - Continue naturally from the last message.
 - Avoid bullet points unless you're laying out options or plans.
-- Keep it under 180 words unless more detail is clearly needed.
+- Keep it concise: simple answers under 80 words, EMI/plan breakdowns under 150 words total.
 - Don't say "I don't have that information".
-- Ask at most one follow‑up question, only if it genuinely helps — do NOT ask a question if the user has already stated their intent clearly.
+- After presenting EMI or instalment plans, do NOT ask another open-ended follow-up question. Close with a short invite such as "Happy to adjust these if you want different numbers" or just leave it open for the user to reply.
+- Only ask one question when you genuinely need information the user has not yet given.
 `;
-
+//
 function buildDataContext(state: FinancialState): string {
   const parts: string[] = [];
   const homeCurrency =
@@ -78,27 +79,30 @@ function buildDataContext(state: FinancialState): string {
       .filter((m) => m.role === "assistant")
       .some((m) => m.content.includes("earn") && m.content.includes("spend"));
 
-    parts.push(
-      `USER FINANCIAL PROFILE:`,
-      up.monthlyIncome != null
-        ? `- Monthly income: ${up.monthlyIncome.toLocaleString("en-GB")} ${homeCurrency}`
-        : `- Monthly income: Unknown`,
-      up.monthlyExpenses != null
-        ? `- Monthly expenses: ${up.monthlyExpenses.toLocaleString("en-GB")} ${homeCurrency}`
-        : `- Monthly expenses: Unknown`,
-      `- Available savings: ${up.availableSavings.toLocaleString("en-GB")} ${homeCurrency}`
-    );
-
-    if (up.monthlyIncome != null && up.monthlyExpenses != null) {
-      const leftover = up.monthlyIncome - up.monthlyExpenses;
+    if (!alreadyShownProfile) {
+      // First affordability message — include full income/expenses breakdown
       parts.push(
-        `- Left after expenses: ${leftover.toLocaleString("en-GB")} ${homeCurrency}`
+        `USER FINANCIAL PROFILE:`,
+        up.monthlyIncome != null
+          ? `- Monthly income: ${up.monthlyIncome.toLocaleString("en-GB")} ${homeCurrency}`
+          : `- Monthly income: Unknown`,
+        up.monthlyExpenses != null
+          ? `- Monthly expenses: ${up.monthlyExpenses.toLocaleString("en-GB")} ${homeCurrency}`
+          : `- Monthly expenses: Unknown`,
+        `- Available savings: ${up.availableSavings.toLocaleString("en-GB")} ${homeCurrency}`
       );
-    }
-
-    if (alreadyShownProfile) {
+      if (up.monthlyIncome != null && up.monthlyExpenses != null) {
+        const leftover = up.monthlyIncome - up.monthlyExpenses;
+        parts.push(
+          `- Left after expenses: ${leftover.toLocaleString("en-GB")} ${homeCurrency}`
+        );
+      }
+    } else {
+      // Follow-up message — omit income/expenses entirely so LLM cannot repeat them.
+      // Only pass savings for calculation purposes.
       parts.push(
-        `INSTRUCTION: The income/expenses breakdown ("You earn £X a month, spend £Y...") was ALREADY stated earlier in this conversation. DO NOT repeat it. Continue from where the conversation left off.`
+        `USER PROFILE (already shown — do NOT open with earnings/spending recap):`,
+        `- Available savings: ${up.availableSavings.toLocaleString("en-GB")} ${homeCurrency}`
       );
     }
   }
