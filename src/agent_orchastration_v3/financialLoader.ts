@@ -36,6 +36,9 @@ export class FinancialLoader {
         ? knownFacts.profileLookupUserId.trim()
         : userId;
 
+    // DEBUG: Log which userId is being used for profile lookup
+    console.log(`[FinancialLoader][DEBUG] profileLookupUserId:`, profileLookupUserId);
+
     // Primary: use already-normalised facts from the profile seed
     const savings =
       parseNum(knownFacts.availableSavings) ??
@@ -79,6 +82,8 @@ export class FinancialLoader {
              WHERE user_id = ${profileLookupUserId}
         `.execute(this.db);
 
+        console.log(`[FinancialLoader][DEBUG] account_balances row:`, row.rows);
+
         const monthlyRow = await sql<{
           monthly_income: string | null;
           monthly_expenses: string | null;
@@ -92,6 +97,8 @@ export class FinancialLoader {
           ORDER BY month DESC
           LIMIT 1
         `.execute(this.db);
+
+        console.log(`[FinancialLoader][DEBUG] financial_summary_monthly row:`, monthlyRow.rows);
 
         const p = row.rows[0];
         const m = monthlyRow.rows[0];
