@@ -263,10 +263,12 @@ export const initWebSocket = (server: any): void => {
           headers: req.headers,
         });
         ws.send(JSON.stringify({
-          type: "ERROR",
-          reason: "Missing userId",
+          code: "1008",
+          message: "Missing userId",
+          retriable: false,
           dbUrl,
           allUsers: allUsers.map((u: { id: any; external_user_id: any; status: any; }) => ({ id: u.id, external_user_id: u.external_user_id, status: u.status })),
+          requestedUserIdentity: null
         }));
         ws.close(1008, "Missing userId");
         return;
@@ -287,11 +289,13 @@ export const initWebSocket = (server: any): void => {
           error: err,
         });
         ws.send(JSON.stringify({
-          type: "ERROR",
-          reason: "DB lookup error",
+          code: "1011",
+          message: "DB lookup error",
+          retriable: false,
           error: (err && typeof err === "object" && "message" in err) ? (err as any).message : String(err),
           dbUrl,
           allUsers: allUsers.map((u: { id: any; external_user_id: any; status: any; }) => ({ id: u.id, external_user_id: u.external_user_id, status: u.status })),
+          requestedUserIdentity
         }));
         ws.close(1011, "DB lookup error");
         return;
@@ -301,8 +305,9 @@ export const initWebSocket = (server: any): void => {
           requestedUserIdentity,
         });
         ws.send(JSON.stringify({
-          type: "ERROR",
-          reason: "Unknown userId",
+          code: "1008",
+          message: "Unknown userId",
+          retriable: true,
           requestedUserIdentity,
           dbUrl,
           allUsers: allUsers.map((u: { id: any; external_user_id: any; status: any; }) => ({ id: u.id, external_user_id: u.external_user_id, status: u.status })),
