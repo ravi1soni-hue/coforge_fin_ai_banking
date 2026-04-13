@@ -62,6 +62,14 @@ Treasury payment-run rules:
 - If riskLevel is CAUTION or HIGH_RISK, suggest a two-batch release using the suggested amounts.
 - If the user asks to execute/schedule, do not claim execution is complete unless EXECUTION_STATUS is explicitly provided in financial data.
 - Prefer wording like "I can prepare this plan" or "ready to submit" when execution status is not provided.
+- For treasury flows, use this response shape:
+  1) "Current position" with liquidity, weekly outflow, payroll and inflow reliability context.
+  2) "Scenario" comparing full release vs split with projected low balances.
+  3) "Recommendation" with concrete now/later amounts and why.
+  4) "Next step" asking one concrete decision question OR confirming plan details.
+- If the user confirms a split plan, include an "Action plan" block with: today's batch, midweek conditional batch, trigger condition, and alert behaviour.
+- Mention explicitly that the analysis is based on bank-side transaction behaviour (cashflow + supplier + snapshot data).
+- If EXECUTION_STATUS is not provided, never say "Done" or "Scheduled" as completed actions.
 `;
 function buildDataContext(state) {
     const parts = [];
@@ -123,7 +131,11 @@ function buildDataContext(state) {
     // --- Treasury payment-run analysis ---
     if (state.treasuryAnalysis) {
         const t = state.treasuryAnalysis;
-        parts.push(`TREASURY ANALYSIS:`, `- Available liquidity: ${t.availableLiquidity.toLocaleString("en-GB")} ${t.currency}`, `- Weekly outflow baseline: ${t.weeklyOutflow.toLocaleString("en-GB")} ${t.currency}`, `- Expected midweek inflow: ${t.expectedMidweekInflow.toLocaleString("en-GB")} ${t.currency}`, `- Late inflow events (last 4 weeks): ${t.lateInflowEventsLast4Weeks}`, `- Comfort threshold: ${t.comfortThreshold.toLocaleString("en-GB")} ${t.currency}`, `- Proposed payment: ${t.paymentAmount.toLocaleString("en-GB")} ${t.currency}`, `- Projected low balance: ${t.projectedLowBalance.toLocaleString("en-GB")} ${t.currency}`, `- Risk level: ${t.riskLevel}`, `- Suggested split now/later: ${t.suggestedNowAmount.toLocaleString("en-GB")} / ${t.suggestedLaterAmount.toLocaleString("en-GB")} ${t.currency}`, `- Analysis rationale: ${t.rationale}`);
+        parts.push(`TREASURY ANALYSIS:`, `- Available liquidity: ${t.availableLiquidity.toLocaleString("en-GB")} ${t.currency}`, `- Weekly outflow baseline: ${t.weeklyOutflow.toLocaleString("en-GB")} ${t.currency}`, `- Expected midweek inflow: ${t.expectedMidweekInflow.toLocaleString("en-GB")} ${t.currency}`, `- Late inflow events (last 4 weeks): ${t.lateInflowEventsLast4Weeks}`, `- Comfort threshold: ${t.comfortThreshold.toLocaleString("en-GB")} ${t.currency}`, `- Proposed payment: ${t.paymentAmount.toLocaleString("en-GB")} ${t.currency}`, `- Urgent supplier amount: ${t.urgentSupplierTotal.toLocaleString("en-GB")} ${t.currency}`, `- Deferable supplier amount: ${t.deferableSupplierTotal.toLocaleString("en-GB")} ${t.currency}`, `- Projected low balance: ${t.projectedLowBalance.toLocaleString("en-GB")} ${t.currency}`, `- Projected low (full release): ${t.projectedLowBalanceIfFullRelease.toLocaleString("en-GB")} ${t.currency}`, `- Projected low (split): ${t.projectedLowBalanceIfSplit.toLocaleString("en-GB")} ${t.currency}`, `- Risk level: ${t.riskLevel}`, `- Suggested split now/later: ${t.suggestedNowAmount.toLocaleString("en-GB")} / ${t.suggestedLaterAmount.toLocaleString("en-GB")} ${t.currency}`, `- Min inflow needed for midweek release: ${t.minInflowForMidweekRelease.toLocaleString("en-GB")} ${t.currency}`, `- Release-condition hit rate (10 weeks): ${(t.releaseConditionHitRate10Weeks * 100).toFixed(0)}%`, `- Analysis rationale: ${t.rationale}`);
+    }
+    const execStatusRaw = (state.knownFacts?.executionStatus ?? state.knownFacts?.treasuryExecutionStatus ?? null);
+    if (typeof execStatusRaw === "string" && execStatusRaw.trim()) {
+        parts.push(`EXECUTION_STATUS: ${execStatusRaw.trim()}`);
     }
     return parts.join("\n");
 }

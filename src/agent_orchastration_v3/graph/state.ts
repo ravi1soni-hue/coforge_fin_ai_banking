@@ -71,10 +71,16 @@ export interface TreasuryAnalysis {
   lateInflowEventsLast4Weeks: number;
   comfortThreshold: number;
   paymentAmount: number;
+  urgentSupplierTotal: number;
+  deferableSupplierTotal: number;
   projectedLowBalance: number;
+  projectedLowBalanceIfFullRelease: number;
+  projectedLowBalanceIfSplit: number;
   riskLevel: "SAFE" | "CAUTION" | "HIGH_RISK";
   suggestedNowAmount: number;
   suggestedLaterAmount: number;
+  minInflowForMidweekRelease: number;
+  releaseConditionHitRate10Weeks: number;
   currency: string;
   rationale: string;
 }

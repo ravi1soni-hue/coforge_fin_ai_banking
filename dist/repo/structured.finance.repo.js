@@ -130,4 +130,90 @@ export class StructuredFinancialRepository {
             .orderBy("as_of_month", "desc")
             .execute();
     }
+    async getLatestTreasuryDecisionSnapshot(userId) {
+        return this.db
+            .selectFrom("treasury_decision_snapshots")
+            .select([
+            "snapshot_date",
+            "weekly_outflow_baseline",
+            "midweek_inflow_baseline",
+            "late_inflow_count_last_4_weeks",
+            "comfort_threshold",
+            "min_inflow_for_midweek_release",
+            "release_condition_hit_rate_10_weeks",
+            "currency",
+            "metadata",
+        ])
+            .where("user_id", "=", userId)
+            .orderBy("snapshot_date", "desc")
+            .executeTakeFirst()
+            .then((r) => r ? ({
+            snapshotDate: String(r.snapshot_date),
+            weeklyOutflowBaseline: Number(r.weekly_outflow_baseline),
+            midweekInflowBaseline: Number(r.midweek_inflow_baseline),
+            lateInflowCountLast4Weeks: Number(r.late_inflow_count_last_4_weeks),
+            comfortThreshold: Number(r.comfort_threshold),
+            minInflowForMidweekRelease: r.min_inflow_for_midweek_release == null ? null : Number(r.min_inflow_for_midweek_release),
+            releaseConditionHitRate10Weeks: r.release_condition_hit_rate_10_weeks == null ? null : Number(r.release_condition_hit_rate_10_weeks),
+            currency: String(r.currency),
+            metadata: r.metadata,
+        }) : undefined);
+    }
+    async getTreasurySupplierCandidates(userId) {
+        return this.db
+            .selectFrom("treasury_supplier_payment_candidates")
+            .select([
+            "supplier_ref",
+            "supplier_name",
+            "amount",
+            "currency",
+            "urgency",
+            "due_date",
+            "batch_hint",
+            "metadata",
+        ])
+            .where("user_id", "=", userId)
+            .orderBy("due_date", "asc")
+            .execute()
+            .then((rows) => rows.map((r) => ({
+            supplierRef: r.supplier_ref,
+            supplierName: r.supplier_name,
+            amount: Number(r.amount),
+            currency: String(r.currency),
+            urgency: r.urgency,
+            dueDate: r.due_date == null ? null : String(r.due_date),
+            batchHint: r.batch_hint,
+            metadata: r.metadata,
+        })));
+    }
+    async getRecentTreasuryCashflow(userId, days) {
+        return this.db
+            .selectFrom("treasury_cashflow_daily")
+            .select([
+            "business_date",
+            "day_name",
+            "total_inflows",
+            "total_outflows",
+            "payroll_outflow",
+            "supplier_outflow",
+            "closing_balance",
+            "currency",
+            "metadata",
+        ])
+            .where("user_id", "=", userId)
+            .orderBy("business_date", "desc")
+            .limit(Math.max(1, days))
+            .execute()
+            .then((rows) => rows.map((r) => ({
+            businessDate: String(r.business_date),
+            dayName: r.day_name,
+            totalInflows: Number(r.total_inflows),
+            totalOutflows: Number(r.total_outflows),
+            payrollOutflow: Number(r.payroll_outflow),
+            supplierOutflow: Number(r.supplier_outflow),
+            closingBalance: r.closing_balance == null ? null : Number(r.closing_balance),
+            currency: String(r.currency),
+            metadata: r.metadata,
+        })));
+    }
 }

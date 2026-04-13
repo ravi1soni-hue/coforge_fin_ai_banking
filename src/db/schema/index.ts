@@ -6,6 +6,10 @@ import {
   InvestmentSummaryTable,
   LoanAccountsTable,
   FinancialSummaryMonthlyTable,
+  TreasuryCashflowDailyTable,
+  TreasuryDecisionSnapshotsTable,
+  TreasurySupplierPaymentCandidatesTable,
+  TreasuryAccountTransactionsTable,
 } from "./structured_finance_data.js";
 import { FinancialDataSyncTable } from "./sync.js";
 import { UsersTable } from "./user.js";
@@ -21,5 +25,9 @@ export interface Database {
   loan_accounts: LoanAccountsTable;
   investment_summary: InvestmentSummaryTable;
   credit_profile: CreditProfileTable;
+  treasury_cashflow_daily: TreasuryCashflowDailyTable;
+  treasury_decision_snapshots: TreasuryDecisionSnapshotsTable;
+  treasury_supplier_payment_candidates: TreasurySupplierPaymentCandidatesTable;
+  treasury_account_transactions: TreasuryAccountTransactionsTable;
   financial_data_sync: FinancialDataSyncTable;
 }
