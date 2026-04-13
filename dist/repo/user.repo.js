@@ -19,6 +19,19 @@ export class UserRepository {
             .where("external_user_id", "=", externalId)
             .executeTakeFirst();
     }
+    async findByIdentity(identity) {
+        const normalized = identity.trim();
+        if (!normalized)
+            return undefined;
+        return this.db
+            .selectFrom("users")
+            .selectAll()
+            .where((eb) => eb.or([
+            eb("id", "=", normalized),
+            eb("external_user_id", "=", normalized),
+        ]))
+            .executeTakeFirst();
+    }
     async create(user) {
         return this.db
             .insertInto("users")

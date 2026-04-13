@@ -1,48 +1,50 @@
+# High-Level Design — AI Financial Assistant
+
 ```mermaid
 flowchart TD
-    subgraph CLIENT[Client]
-        FL[Flutter or Web App]
-    end
+    USER["👤 User
+    Flutter App or Web Browser"]
 
-    subgraph GATEWAY[Gateway]
-        WS[WebSocket Server]
-    end
+    GW["🌐 WebSocket Gateway
+    real-time two-way connection"]
 
-    subgraph AI[AI Agent Layer]
-        SUP[Supervisor - decides what to do]
-        RES[Research - finds price and FX rate]
-        AFF[Affordability - checks if user can afford it]
-        SYN[Response Generator - writes the final reply]
-    end
+    DB[("🗄️ PostgreSQL Database
+    financial profile · last 3 conversation turns")]
 
-    subgraph EXTERNAL[External Services]
-        LLM[Coforge LLM - reasoning]
-        SERPER[Google Search - live prices]
-        FXAPI[FX API - currency rates]
-    end
+    SUP["🧠 Supervisor Agent  ── Coforge LLM
+    reads the question and decides what work is needed
+    outputs a structured routing plan"]
 
-    subgraph DATA[Database]
-        PROFILE[User Financial Profile]
-        HISTORY[Chat History]
-    end
+    RES["🔍 Research Agent  ── Coforge LLM
+    fetches live product price via Google Search
+    converts currency using Frankfurter FX API
+    gathers relevant financial news"]
 
-    FL -->|user message| WS
-    WS -->|load profile + history| DATA
-    WS --> SUP
-    SUP -->|needs price or analysis| RES
-    SUP -->|simple reply| SYN
-    RES -->|price found| AFF
-    RES -->|price not found| SYN
-    AFF --> SYN
-    SYN -->|reply| WS
-    WS -->|response| FL
+    AFF["⚖️ Affordability Agent  ── Coforge LLM
+    compares price against savings & monthly surplus
+    returns verdict:  SAFE · BORDERLINE · RISKY
+    calculates 3 / 6 / 12-month instalment options"]
 
-    SUP --> LLM
-    AFF --> LLM
-    SYN --> LLM
-    RES --> LLM
-    RES --> SERPER
-    RES --> FXAPI
-    DATA --> PROFILE
-    DATA --> HISTORY
+    SYN["✍️ Response Writer  ── Coforge LLM
+    writes a plain-English reply under 180 words
+    UK context · GBP · no financial jargon"]
+
+    SAVE[("🗄️ PostgreSQL Database
+    saves this conversation turn for next message")]
+
+    USER -->|"asks a financial question"| GW
+    GW -->|"loads profile & chat history"| DB
+    DB -->|"profile + history ready"| SUP
+
+    SUP -->|"needs live price, FX rate or affordability check"| RES
+    SUP -->|"simple follow-up — no research needed"| SYN
+
+    RES -->|"price confirmed"| AFF
+    RES -->|"price not found — ask user to confirm"| SYN
+
+    AFF -->|"verdict + instalment plan"| SYN
+
+    SYN -->|"saves turn"| SAVE
+    SYN -->|"delivers answer"| GW
+    GW -->|"answer displayed"| USER
 ```

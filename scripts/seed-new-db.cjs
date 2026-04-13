@@ -101,24 +101,30 @@ async function seedBankingUser(client, banking) {
   const p = banking.userProfile;
 
   // users
-  const uRes = await client.query(
-    `INSERT INTO users (external_user_id, full_name, country_code, base_currency, timezone, status, metadata)
-     VALUES ($1, $2, $3, $4, $5, 1, $6)
-     ON CONFLICT (external_user_id) DO UPDATE
-       SET full_name = EXCLUDED.full_name,
-           updated_at = CURRENT_TIMESTAMP
-     RETURNING id`,
-    [
-      p.userId,
-      p.name,
-      p.country,
-      p.currency,
-      'Europe/London',
-      JSON.stringify({ employment: p.employment, savingsGoals: banking.savingsGoals }),
-    ]
-  );
-  const userId = uRes.rows[0].id;
-  console.log(`  ✓  users  id=${userId}`);
+    // Use a fixed UUID for the retail user
+    const RETAIL_USER_UUID = 'b7e6e2e2-1111-4c4a-aaaa-000000000001';
+
+    // users
+    const uRes = await client.query(
+      `INSERT INTO users (id, external_user_id, full_name, country_code, base_currency, timezone, status, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, 1, $7)
+       ON CONFLICT (id) DO UPDATE
+         SET full_name = EXCLUDED.full_name,
+             external_user_id = EXCLUDED.external_user_id,
+             updated_at = CURRENT_TIMESTAMP
+       RETURNING id`,
+      [
+        RETAIL_USER_UUID,
+        p.userId,
+        p.name,
+        p.country,
+        p.currency,
+        'Europe/London',
+        JSON.stringify({ employment: p.employment, savingsGoals: banking.savingsGoals }),
+      ]
+    );
+    const userId = uRes.rows[0].id;
+    console.log(`  ✓  users  id=${userId} (retail, fixed)`);
 
   // account_balances
   for (const acc of banking.accounts) {
@@ -252,13 +258,14 @@ async function seedTreasury(client) {
   const tu = conv.users[0];
 
   // users – use the fixed UUID so treasury tables link correctly
-  await client.query(
-    `INSERT INTO users (id, external_user_id, full_name, country_code, base_currency, timezone, status, metadata)
-     VALUES ($1,$2,$3,'GB','GBP','Europe/London',1,'{}')
-     ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, external_user_id = EXCLUDED.external_user_id`,
-    [tu.id, tu.external_user_id, tu.full_name]
-  );
-  console.log(`  ✓  users (treasury)  id=${tu.id}`);
+    // Use a fixed UUID for the corporate user (from seed data)
+    await client.query(
+      `INSERT INTO users (id, external_user_id, full_name, country_code, base_currency, timezone, status, metadata)
+       VALUES ($1,$2,$3,'GB','GBP','Europe/London',1,'{}')
+       ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, external_user_id = EXCLUDED.external_user_id`,
+      [tu.id, tu.external_user_id, tu.full_name]
+    );
+    console.log(`  ✓  users (treasury)  id=${tu.id} (corporate, fixed)`);
 
   // account_balances – 4.8m spread across 4 operating accounts
   const treasuryAccounts = [
@@ -516,13 +523,31 @@ async function main() {
   console.log(`\nConnecting to: ${connStr.replace(/:([^@]+)@/, ':****@')}`);
   const client = new Client({ connectionString: connStr });
   await client.connect();
+
+  // Wipe all relevant tables after connecting, before anything else
+  console.log('\n==== WIPING ALL USER/PROFILE DATA ====');
+  await client.query('DELETE FROM treasury_decision_snapshots');
+  await client.query('DELETE FROM treasury_cashflow_daily');
+  await client.query('DELETE FROM account_balances');
+  await client.query('DELETE FROM loan_accounts');
+  await client.query('DELETE FROM investment_summary');
+  await client.query('DELETE FROM financial_summary_monthly');
+  await client.query('DELETE FROM credit_profile');
+  await client.query('DELETE FROM users');
+  console.log('All relevant tables wiped.');
+
   console.log('Connected.\n');
 
   try {
     await runMigrations(client);
     const banking = readJson('banking_user_data.json');
-    await seedBankingUser(client, banking);
-    await seedTreasury(client);
+    const retailUserId = await seedBankingUser(client, banking);
+    const treasuryUserId = await seedTreasury(client);
+    // Print both UUIDs for clarity
+    console.log('\n==== FIXED USER IDS ====');
+    console.log('Retail user UUID (James Walker):    b7e6e2e2-1111-4c4a-aaaa-000000000001');
+    console.log('Corporate user UUID (Northstar):    ' + treasuryUserId);
+    console.log('External user IDs: retail=uk_user_001, corporate=corp-northstar-001');
     console.log('\n✅  All done. New Neon DB is ready.\n');
   } catch (err) {
     console.error('\n❌  Seed failed:', err.message);

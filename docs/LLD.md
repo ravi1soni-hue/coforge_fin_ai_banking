@@ -1,33 +1,49 @@
+# Low-Level Design — Message Flow
+
 ```mermaid
 sequenceDiagram
-    participant C as Client
-    participant WS as Gateway
+    participant U as User
+    participant GW as Gateway
     participant DB as Database
     participant SUP as Supervisor
     participant RES as Research
     participant AFF as Affordability
-    participant SYN as Response Generator
+    participant SYN as Response Writer
+    participant LLM as Coforge LLM
+    participant EXT as Google Search & FX API
 
-    C->>WS: send message
-    WS->>DB: load user profile + chat history
-    DB-->>WS: profile + history
+    U->>GW: sends a question
+    GW->>DB: load financial profile & last 3 conversation turns
+    DB-->>GW: profile + history
 
-    WS->>SUP: classify message
-    SUP-->>WS: routing plan
+    GW->>SUP: classify this message
+    SUP->>LLM: what does the user need?
+    LLM-->>SUP: routing plan
 
-    alt needs price or affordability check
-        WS->>RES: find price and FX rate
-        RES-->>WS: price result
+    alt user needs price, FX rate, or affordability check
+        SUP->>RES: research price, exchange rate & news
+        RES->>EXT: search Google + fetch live FX rate
+        EXT-->>RES: search results + exchange rate
+        RES->>LLM: extract confirmed price from results
+        LLM-->>RES: price (or not found)
 
-        alt price found
-            WS->>AFF: can user afford it?
-            AFF-->>WS: verdict + analysis
+        alt price confirmed
+            RES->>AFF: can the user afford this?
+            AFF->>LLM: compare price against savings & monthly surplus
+            LLM-->>AFF: SAFE / BORDERLINE / RISKY
+            AFF-->>SYN: verdict + analysis
+        else price not found
+            RES-->>SYN: no price available — ask user to confirm amount
         end
+
+    else simple conversational reply
+        SUP-->>SYN: no research needed
     end
 
-    WS->>SYN: generate reply
-    SYN-->>WS: final response
+    SYN->>LLM: write a plain-English reply under 180 words
+    LLM-->>SYN: final response
 
-    WS->>DB: save message to history
-    WS-->>C: response
+    SYN->>DB: save this conversation turn
+    SYN-->>GW: response
+    GW-->>U: delivers the answer
 ```

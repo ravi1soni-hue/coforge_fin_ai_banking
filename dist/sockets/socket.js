@@ -4,6 +4,8 @@ import { container } from "../config/di.container.js";
 import { ENV } from "../config/env.js";
 import { parseClientSocketMessage, } from "./socket.dto.js";
 const ACTIVE_PIPELINE = ENV.PIPELINE_VERSION.toUpperCase();
+const CANONICAL_EXTERNAL_USER_ID = "corp-northstar-001";
+const LINKED_RETAIL_EXTERNAL_USER_ID = "uk_user_001";
 /**
  * userId -> active WebSocket connections
  */
@@ -167,20 +169,31 @@ export const initWebSocket = (server) => {
         const headerUserId = typeof req.headers["x-user-id"] === "string"
             ? req.headers["x-user-id"]
             : undefined;
-        const rawExternalId = queryUserId?.trim() || headerUserId?.trim();
-        let userId;
-        if (rawExternalId) {
-            // Resolve external_user_id → internal UUID (vector_documents.user_id is UUID FK to users.id)
-            const user = await userRepo.findByExternalId(rawExternalId).catch(() => undefined);
-            userId = user?.id ?? rawExternalId;
-            if (!user) {
-                console.warn("⚠️ No DB user found for external_user_id; using raw id for session", { rawExternalId });
+        const requestedUserIdentity = queryUserId?.trim() || headerUserId?.trim();
+        if (!requestedUserIdentity) {
+            ws.close(1008, "Missing userId");
+            return;
+        }
+        // Single source of truth for identity: always resolve to canonical users.id,
+        // whether client passes internal UUID or external_user_id.
+        const resolvedUser = await userRepo.findByIdentity(requestedUserIdentity).catch(() => undefined);
+        if (!resolvedUser) {
+            ws.close(1008, "Unknown userId");
+            return;
+        }
+        // Keep one canonical identity in runtime. If legacy retail id is used,
+        // route the session through the canonical corporate identity.
+        let activeUser = resolvedUser;
+        if (resolvedUser.external_user_id === LINKED_RETAIL_EXTERNAL_USER_ID) {
+            const canonicalUser = await userRepo.findByExternalId(CANONICAL_EXTERNAL_USER_ID).catch(() => undefined);
+            if (canonicalUser) {
+                activeUser = canonicalUser;
             }
         }
-        else {
-            userId = `anonymous-${crypto.randomUUID()}`;
-            console.warn("⚠️ WebSocket connection opened without explicit userId; assigned fallback id", { url: req.url, assignedUserId: userId });
-        }
+        const linkedRetailUser = activeUser.external_user_id === CANONICAL_EXTERNAL_USER_ID
+            ? await userRepo.findByExternalId(LINKED_RETAIL_EXTERNAL_USER_ID).catch(() => undefined)
+            : undefined;
+        const userId = activeUser.id;
         ws.userId = userId;
         ws.isAlive = true;
         // Keep a stable per-connection session when client omits sessionId.
@@ -193,7 +206,7 @@ export const initWebSocket = (server) => {
             userConnections.set(userId, new Set());
         }
         userConnections.get(userId).add(ws);
-        console.log(`✅ User connected: ${userId} (total: ${wss.clients.size})`);
+        console.log(`✅ User connected: ${userId} (requested=${requestedUserIdentity}, external=${activeUser.external_user_id}, total=${wss.clients.size})`);
         // ✅ Proactively send diagnostic so Flutter preflight health check passes
         if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({
@@ -231,12 +244,20 @@ export const initWebSocket = (server) => {
                     ws.sessionId = parsedMessage.sessionId;
                 }
                 sessionId = parsedMessage.sessionId ?? ws.sessionId;
+                const knownFacts = {
+                    ...(parsedMessage.knownFacts ?? {}),
+                    userId,
+                    externalUserId: activeUser.external_user_id,
+                    canonicalExternalUserId: CANONICAL_EXTERNAL_USER_ID,
+                    linkedRetailExternalUserId: linkedRetailUser?.external_user_id,
+                    profileLookupUserId: linkedRetailUser?.id ?? userId,
+                };
                 // ✅ Delegate logic to ChatService
                 const result = await chatService.handleMessage({
                     userId,
                     message: parsedMessage.message,
                     sessionId,
-                    knownFacts: parsedMessage.knownFacts,
+                    knownFacts,
                 });
                 // ✅ Send response back to user
                 ws.send(JSON.stringify(buildSuccessMessage({ requestId, sessionId, data: result })));

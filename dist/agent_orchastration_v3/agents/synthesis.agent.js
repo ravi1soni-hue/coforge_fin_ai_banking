@@ -73,13 +73,14 @@ Treasury payment-run rules:
 `;
 function buildDataContext(state) {
     const parts = [];
+    const isTreasuryFlow = Boolean(state.treasuryAnalysis);
     const homeCurrency = state.userProfile?.homeCurrency ??
         state.plan?.userHomeCurrency ??
         "GBP";
     // Count prior assistant turns — reliable, no text-matching
     const priorAssistantTurns = (state.conversationHistory ?? []).filter((m) => m.role === "assistant").length;
     // --- User financial profile ---
-    if (state.userProfile) {
+    if (state.userProfile && !isTreasuryFlow) {
         const up = state.userProfile;
         parts.push(`USER FINANCIAL PROFILE:`, up.monthlyIncome != null
             ? `- Monthly income: ${up.monthlyIncome.toLocaleString("en-GB")} ${homeCurrency}`
@@ -120,7 +121,7 @@ function buildDataContext(state) {
         }
     }
     // --- Affordability ---
-    if (state.affordabilityInfo) {
+    if (state.affordabilityInfo && !isTreasuryFlow) {
         const af = state.affordabilityInfo;
         parts.push(`AFFORDABILITY NOTES:`, af.analysis, `PRICE IN ${homeCurrency}: ${af.priceInHomeCurrency.toLocaleString("en-GB")} ${homeCurrency}`);
         if (af.emiSuggested || state.plan?.needsEmi) {

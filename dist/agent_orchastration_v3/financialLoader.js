@@ -25,6 +25,9 @@ export class FinancialLoader {
         this.db = db;
     }
     async loadProfile(userId, knownFacts) {
+        const profileLookupUserId = typeof knownFacts.profileLookupUserId === "string" && knownFacts.profileLookupUserId.trim()
+            ? knownFacts.profileLookupUserId.trim()
+            : userId;
         // Primary: use already-normalised facts from the profile seed
         const savings = parseNum(knownFacts.availableSavings) ??
             parseNum(knownFacts.spendable_savings) ??
@@ -45,26 +48,36 @@ export class FinancialLoader {
                 userName,
             };
         }
-        // Secondary: query structured user_financial_profiles table (reliable, deterministic)
+        // Secondary: query account_balances + financial_summary_monthly (seeded, deterministic)
         if (this.db) {
             try {
                 const row = await sql `
-          SELECT current_balance, monthly_income, monthly_expenses, net_monthly_savings, currency
-          FROM user_financial_profiles
-          WHERE user_id = ${userId}
+          SELECT COALESCE(SUM(balance), 0)::text AS total_balance,
+                 MAX(currency) AS currency
+          FROM account_balances
+             WHERE user_id = ${profileLookupUserId}
+        `.execute(this.db);
+                const monthlyRow = await sql `
+          SELECT total_income AS monthly_income,
+                 total_expenses AS monthly_expenses,
+                 net_cashflow
+          FROM financial_summary_monthly
+             WHERE user_id = ${profileLookupUserId}
+          ORDER BY month DESC
           LIMIT 1
         `.execute(this.db);
                 const p = row.rows[0];
-                if (p && p.current_balance !== null) {
-                    const dbSavings = Number(p.current_balance);
-                    const dbIncome = p.monthly_income !== null ? Number(p.monthly_income) : undefined;
-                    const dbExpenses = p.monthly_expenses !== null ? Number(p.monthly_expenses) : undefined;
-                    const dbSurplus = p.net_monthly_savings !== null
-                        ? Number(p.net_monthly_savings)
+                const m = monthlyRow.rows[0];
+                if (p && p.total_balance !== null && Number(p.total_balance) > 0) {
+                    const dbSavings = Number(p.total_balance);
+                    const dbIncome = m?.monthly_income != null ? Number(m.monthly_income) : undefined;
+                    const dbExpenses = m?.monthly_expenses != null ? Number(m.monthly_expenses) : undefined;
+                    const dbSurplus = m?.net_cashflow != null
+                        ? Number(m.net_cashflow)
                         : dbIncome !== undefined && dbExpenses !== undefined
                             ? dbIncome - dbExpenses
                             : undefined;
-                    console.log(`[FinancialLoader] Loaded from user_financial_profiles: savings=${dbSavings}, currency=${p.currency ?? currency}`);
+                    console.log(`[FinancialLoader] Loaded from account_balances+monthly: savings=${dbSavings}, income=${dbIncome}, expenses=${dbExpenses}, currency=${p.currency ?? currency}`);
                     return {
                         availableSavings: dbSavings,
                         monthlyIncome: dbIncome,
@@ -81,7 +94,7 @@ export class FinancialLoader {
         }
         // Tertiary: query vector DB and let LLM extract profile
         console.log("[FinancialLoader] knownFacts and DB empty — falling back to vector DB");
-        const context = await this.vectorQuery.getContext(userId, "savings balance monthly income expenses currency", { topK: 6 });
+        const context = await this.vectorQuery.getContext(profileLookupUserId, "savings balance monthly income expenses currency", { topK: 6 });
         if (!context) {
             return { availableSavings: 0, homeCurrency: currency };
         }
