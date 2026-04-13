@@ -1,8 +1,8 @@
 const chat = document.getElementById("chat");
 const input = document.getElementById("messageInput");
 
-// Random userId
-const userId = "uk_user_001";
+// Canonical test identity used for both retail and corporate flows
+const userId = "corp-northstar-001";
 
 // WebSocket connection
 const socket = new WebSocket(

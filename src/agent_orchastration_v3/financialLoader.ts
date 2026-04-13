@@ -31,6 +31,11 @@ export class FinancialLoader {
     userId: string,
     knownFacts: Record<string, unknown>,
   ): Promise<UserProfile> {
+    const profileLookupUserId =
+      typeof knownFacts.profileLookupUserId === "string" && knownFacts.profileLookupUserId.trim()
+        ? knownFacts.profileLookupUserId.trim()
+        : userId;
+
     // Primary: use already-normalised facts from the profile seed
     const savings =
       parseNum(knownFacts.availableSavings) ??
@@ -71,7 +76,7 @@ export class FinancialLoader {
           SELECT COALESCE(SUM(balance), 0)::text AS total_balance,
                  MAX(currency) AS currency
           FROM account_balances
-          WHERE user_id = ${userId}
+             WHERE user_id = ${profileLookupUserId}
         `.execute(this.db);
 
         const monthlyRow = await sql<{
@@ -83,7 +88,7 @@ export class FinancialLoader {
                  total_expenses AS monthly_expenses,
                  net_cashflow
           FROM financial_summary_monthly
-          WHERE user_id = ${userId}
+             WHERE user_id = ${profileLookupUserId}
           ORDER BY month DESC
           LIMIT 1
         `.execute(this.db);
@@ -117,7 +122,7 @@ export class FinancialLoader {
     // Tertiary: query vector DB and let LLM extract profile
     console.log("[FinancialLoader] knownFacts and DB empty — falling back to vector DB");
     const context = await this.vectorQuery.getContext(
-      userId,
+      profileLookupUserId,
       "savings balance monthly income expenses currency",
       { topK: 6 },
     );

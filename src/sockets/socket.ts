@@ -11,6 +11,8 @@ import {
 } from "./socket.dto.js";
 
 const ACTIVE_PIPELINE = ENV.PIPELINE_VERSION.toUpperCase();
+const CANONICAL_EXTERNAL_USER_ID = "corp-northstar-001";
+const LINKED_RETAIL_EXTERNAL_USER_ID = "uk_user_001";
 
 /**
  * userId -> active WebSocket connections
@@ -247,7 +249,22 @@ export const initWebSocket = (server: any): void => {
         return;
       }
 
-      const userId = resolvedUser.id;
+      // Keep one canonical identity in runtime. If legacy retail id is used,
+      // route the session through the canonical corporate identity.
+      let activeUser = resolvedUser;
+      if (resolvedUser.external_user_id === LINKED_RETAIL_EXTERNAL_USER_ID) {
+        const canonicalUser = await userRepo.findByExternalId(CANONICAL_EXTERNAL_USER_ID).catch(() => undefined);
+        if (canonicalUser) {
+          activeUser = canonicalUser;
+        }
+      }
+
+      const linkedRetailUser =
+        activeUser.external_user_id === CANONICAL_EXTERNAL_USER_ID
+          ? await userRepo.findByExternalId(LINKED_RETAIL_EXTERNAL_USER_ID).catch(() => undefined)
+          : undefined;
+
+      const userId = activeUser.id;
 
       ws.userId = userId;
       ws.isAlive = true;
@@ -263,7 +280,7 @@ export const initWebSocket = (server: any): void => {
       }
       userConnections.get(userId)!.add(ws);
 
-      console.log(`✅ User connected: ${userId} (requested=${requestedUserIdentity}, total=${wss.clients.size})`);
+      console.log(`✅ User connected: ${userId} (requested=${requestedUserIdentity}, external=${activeUser.external_user_id}, total=${wss.clients.size})`);
 
       // ✅ Proactively send diagnostic so Flutter preflight health check passes
       if (ws.readyState === WebSocket.OPEN) {
@@ -310,7 +327,10 @@ export const initWebSocket = (server: any): void => {
           const knownFacts = {
             ...(parsedMessage.knownFacts ?? {}),
             userId,
-            externalUserId: resolvedUser.external_user_id,
+            externalUserId: activeUser.external_user_id,
+            canonicalExternalUserId: CANONICAL_EXTERNAL_USER_ID,
+            linkedRetailExternalUserId: linkedRetailUser?.external_user_id,
+            profileLookupUserId: linkedRetailUser?.id ?? userId,
           };
 
           // ✅ Delegate logic to ChatService

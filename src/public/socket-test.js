@@ -363,7 +363,7 @@ async function copyLogs() {
 }
 
 function initDefaults() {
-  userIdEl.value = "uk_user_001";
+  userIdEl.value = "corp-northstar-001";
   sessionIdEl.value = randomId("session");
   wsUrlEl.value = normalizeWebSocketUrl(buildWsUrl());
   appendDiag("environment", {
