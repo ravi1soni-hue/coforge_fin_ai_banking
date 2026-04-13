@@ -262,14 +262,16 @@ export const initWebSocket = (server: any): void => {
           url: req.url,
           headers: req.headers,
         });
-        ws.send(JSON.stringify({
+        const errorPayload = {
           code: "1008",
           message: "Missing userId",
           retriable: false,
           dbUrl,
           allUsers: allUsers.map((u: { id: any; external_user_id: any; status: any; }) => ({ id: u.id, external_user_id: u.external_user_id, status: u.status })),
           requestedUserIdentity: null
-        }));
+        };
+        console.log("[SOCKET][SEND][ERROR_PAYLOAD]", errorPayload);
+        ws.send(JSON.stringify(errorPayload));
         ws.close(1008, "Missing userId");
         return;
       }
@@ -288,7 +290,7 @@ export const initWebSocket = (server: any): void => {
           requestedUserIdentity,
           error: err,
         });
-        ws.send(JSON.stringify({
+        const errorPayload = {
           code: "1011",
           message: "DB lookup error",
           retriable: false,
@@ -296,7 +298,9 @@ export const initWebSocket = (server: any): void => {
           dbUrl,
           allUsers: allUsers.map((u: { id: any; external_user_id: any; status: any; }) => ({ id: u.id, external_user_id: u.external_user_id, status: u.status })),
           requestedUserIdentity
-        }));
+        };
+        console.log("[SOCKET][SEND][ERROR_PAYLOAD]", errorPayload);
+        ws.send(JSON.stringify(errorPayload));
         ws.close(1011, "DB lookup error");
         return;
       }
@@ -304,14 +308,16 @@ export const initWebSocket = (server: any): void => {
         console.error("[SOCKET][CONNECT] Unknown userId. Closing connection.", {
           requestedUserIdentity,
         });
-        ws.send(JSON.stringify({
+        const errorPayload = {
           code: "1008",
           message: "Unknown userId",
           retriable: true,
           requestedUserIdentity,
           dbUrl,
           allUsers: allUsers.map((u: { id: any; external_user_id: any; status: any; }) => ({ id: u.id, external_user_id: u.external_user_id, status: u.status })),
-        }));
+        };
+        console.log("[SOCKET][SEND][ERROR_PAYLOAD]", errorPayload);
+        ws.send(JSON.stringify(errorPayload));
         ws.close(1008, "Unknown userId");
         return;
       }
