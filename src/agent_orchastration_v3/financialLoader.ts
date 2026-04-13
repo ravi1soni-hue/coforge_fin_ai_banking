@@ -61,34 +61,45 @@ export class FinancialLoader {
       };
     }
 
-    // Secondary: query structured user_financial_profiles table (reliable, deterministic)
+    // Secondary: query account_balances + financial_summary_monthly (seeded, deterministic)
     if (this.db) {
       try {
         const row = await sql<{
-          current_balance: string | null;
-          monthly_income: string | null;
-          monthly_expenses: string | null;
-          net_monthly_savings: string | null;
+          total_balance: string | null;
           currency: string | null;
         }>`
-          SELECT current_balance, monthly_income, monthly_expenses, net_monthly_savings, currency
-          FROM user_financial_profiles
+          SELECT COALESCE(SUM(balance), 0)::text AS total_balance,
+                 MAX(currency) AS currency
+          FROM account_balances
           WHERE user_id = ${userId}
+        `.execute(this.db);
+
+        const monthlyRow = await sql<{
+          monthly_income: string | null;
+          monthly_expenses: string | null;
+          net_cashflow: string | null;
+        }>`
+          SELECT total_income AS monthly_income,
+                 total_expenses AS monthly_expenses,
+                 net_cashflow
+          FROM financial_summary_monthly
+          WHERE user_id = ${userId}
+          ORDER BY month DESC
           LIMIT 1
         `.execute(this.db);
 
         const p = row.rows[0];
-        if (p && p.current_balance !== null) {
-          const dbSavings = Number(p.current_balance);
-          const dbIncome = p.monthly_income !== null ? Number(p.monthly_income) : undefined;
-          const dbExpenses = p.monthly_expenses !== null ? Number(p.monthly_expenses) : undefined;
-          const dbSurplus =
-            p.net_monthly_savings !== null
-              ? Number(p.net_monthly_savings)
-              : dbIncome !== undefined && dbExpenses !== undefined
-                ? dbIncome - dbExpenses
-                : undefined;
-          console.log(`[FinancialLoader] Loaded from user_financial_profiles: savings=${dbSavings}, currency=${p.currency ?? currency}`);
+        const m = monthlyRow.rows[0];
+        if (p && p.total_balance !== null && Number(p.total_balance) > 0) {
+          const dbSavings  = Number(p.total_balance);
+          const dbIncome   = m?.monthly_income   != null ? Number(m.monthly_income)   : undefined;
+          const dbExpenses = m?.monthly_expenses != null ? Number(m.monthly_expenses) : undefined;
+          const dbSurplus  = m?.net_cashflow     != null
+            ? Number(m.net_cashflow)
+            : dbIncome !== undefined && dbExpenses !== undefined
+              ? dbIncome - dbExpenses
+              : undefined;
+          console.log(`[FinancialLoader] Loaded from account_balances+monthly: savings=${dbSavings}, income=${dbIncome}, expenses=${dbExpenses}, currency=${p.currency ?? currency}`);
           return {
             availableSavings: dbSavings,
             monthlyIncome: dbIncome,

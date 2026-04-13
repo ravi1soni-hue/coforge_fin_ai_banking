@@ -232,26 +232,22 @@ export const initWebSocket = (server: any): void => {
         typeof req.headers["x-user-id"] === "string"
           ? req.headers["x-user-id"]
           : undefined;
-      const rawExternalId = queryUserId?.trim() || headerUserId?.trim();
-      let userId: string;
+      const requestedUserIdentity = queryUserId?.trim() || headerUserId?.trim();
 
-      if (rawExternalId) {
-        // Resolve external_user_id → internal UUID (vector_documents.user_id is UUID FK to users.id)
-        const user = await userRepo.findByExternalId(rawExternalId).catch(() => undefined);
-        userId = user?.id ?? rawExternalId;
-        if (!user) {
-          console.warn(
-            "⚠️ No DB user found for external_user_id; using raw id for session",
-            { rawExternalId }
-          );
-        }
-      } else {
-        userId = `anonymous-${crypto.randomUUID()}`;
-        console.warn(
-          "⚠️ WebSocket connection opened without explicit userId; assigned fallback id",
-          { url: req.url, assignedUserId: userId }
-        );
+      if (!requestedUserIdentity) {
+        ws.close(1008, "Missing userId");
+        return;
       }
+
+      // Single source of truth for identity: always resolve to canonical users.id,
+      // whether client passes internal UUID or external_user_id.
+      const resolvedUser = await userRepo.findByIdentity(requestedUserIdentity).catch(() => undefined);
+      if (!resolvedUser) {
+        ws.close(1008, "Unknown userId");
+        return;
+      }
+
+      const userId = resolvedUser.id;
 
       ws.userId = userId;
       ws.isAlive = true;
@@ -267,7 +263,7 @@ export const initWebSocket = (server: any): void => {
       }
       userConnections.get(userId)!.add(ws);
 
-      console.log(`✅ User connected: ${userId} (total: ${wss.clients.size})`);
+      console.log(`✅ User connected: ${userId} (requested=${requestedUserIdentity}, total=${wss.clients.size})`);
 
       // ✅ Proactively send diagnostic so Flutter preflight health check passes
       if (ws.readyState === WebSocket.OPEN) {
@@ -311,12 +307,18 @@ export const initWebSocket = (server: any): void => {
           }
           sessionId = parsedMessage.sessionId ?? ws.sessionId;
 
+          const knownFacts = {
+            ...(parsedMessage.knownFacts ?? {}),
+            userId,
+            externalUserId: resolvedUser.external_user_id,
+          };
+
           // ✅ Delegate logic to ChatService
           const result = await chatService.handleMessage({
             userId,
             message: parsedMessage.message,
             sessionId,
-            knownFacts: parsedMessage.knownFacts,
+            knownFacts,
           });
 
           // ✅ Send response back to user

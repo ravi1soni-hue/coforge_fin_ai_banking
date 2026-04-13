@@ -29,6 +29,22 @@ export class UserRepository {
       .executeTakeFirst();
   }
 
+  async findByIdentity(identity: string): Promise<User | undefined> {
+    const normalized = identity.trim();
+    if (!normalized) return undefined;
+
+    return this.db
+      .selectFrom("users")
+      .selectAll()
+      .where((eb) =>
+        eb.or([
+          eb("id", "=", normalized),
+          eb("external_user_id", "=", normalized),
+        ])
+      )
+      .executeTakeFirst();
+  }
+
   async create(user: NewUser): Promise<User> {
     return this.db
       .insertInto("users")
