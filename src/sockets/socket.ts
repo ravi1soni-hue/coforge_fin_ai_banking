@@ -4,7 +4,7 @@ import crypto from "crypto";
 import { container } from "../config/di.container.js";
 import { ENV } from "../config/env.js";
 import type { ChatServiceV3 } from "../agent_orchastration_v3/ChatServiceV3.js";
-import type { UserRepository } from "../repo/user.repo.js";
+import type { User, UserRepository } from "../repo/user.repo.js";
 import {
   parseClientSocketMessage,
   type ServerSocketMessage,

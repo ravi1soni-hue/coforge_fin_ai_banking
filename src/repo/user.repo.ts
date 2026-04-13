@@ -1,5 +1,5 @@
 import { Kysely, sql, Insertable, Selectable, Updateable } from "kysely";
-import { UserStatus, UserStatusType, UsersTable } from "../db/schema/user";
+import { UserStatus, UserStatusType, UsersTable } from "../db/schema/user.js";
 import { Database } from "../db/schema/index.js";
 
 export type User = Selectable<UsersTable>;
@@ -46,9 +46,19 @@ export class UserRepository {
   }
 
   async create(user: NewUser): Promise<User> {
+    // Ensure only valid fields for NewUser are passed
+    const validUser: NewUser = {
+      external_user_id: user.external_user_id,
+      full_name: user.full_name ?? null,
+      country_code: user.country_code ?? null,
+      base_currency: user.base_currency ?? null,
+      timezone: user.timezone ?? null,
+      status: user.status,
+      metadata: user.metadata,
+    };
     return this.db
       .insertInto("users")
-      .values(user)
+      .values(validUser)
       .returningAll()
       .executeTakeFirstOrThrow();
   }
