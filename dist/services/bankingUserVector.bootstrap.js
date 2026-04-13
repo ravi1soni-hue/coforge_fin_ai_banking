@@ -6,7 +6,8 @@ import { container } from "../config/di.container.js";
 let alreadyBootstrapped = false;
 let lastBootstrapSignature;
 export const bootstrapBankingUserVectors = async () => {
-    const filePath = path.resolve(process.cwd(), "banking_user_data.json");
+    // Use unified seed file
+    const filePath = path.resolve(process.cwd(), "seed/unified_fin_user_seed.json");
     const rawData = await readFile(filePath, "utf8");
     const signature = crypto
         .createHash("sha256")
@@ -15,7 +16,23 @@ export const bootstrapBankingUserVectors = async () => {
     if (alreadyBootstrapped && signature === lastBootstrapSignature) {
         return;
     }
-    const parsed = parseJsonWithComments(rawData);
+    // Parse unified seed and map to expected structure
+    const unifiedSeed = JSON.parse(rawData);
+    const user = unifiedSeed.user || {};
+    const parsed = {
+        userProfile: {
+            userId: user.external_user_id || user.id || "unknown_user",
+            name: user.full_name,
+            currency: user.base_currency,
+            employment: user.metadata?.employment || {},
+        },
+        accounts: unifiedSeed.accounts,
+        loans: unifiedSeed.loans,
+        subscriptions: unifiedSeed.subscriptions,
+        investments: unifiedSeed.investments,
+        transactions: unifiedSeed.transactions,
+        savingsGoals: unifiedSeed.savingsGoals,
+    };
     const externalUserId = parsed.userProfile?.userId ?? "unknown_user";
     // Resolve external_user_id → internal UUID (vector_documents.user_id is a UUID FK)
     const userRepo = container.resolve("userRepo");
@@ -30,7 +47,7 @@ export const bootstrapBankingUserVectors = async () => {
     await vectorRepo.deactivateAllForUser(userId);
     for (const doc of docs) {
         await processString(doc.text, {
-            source: "banking_user_data.json",
+            source: "unified_fin_user_seed.json",
             sourceType: "banking_profile",
             userId,
             section: doc.section,

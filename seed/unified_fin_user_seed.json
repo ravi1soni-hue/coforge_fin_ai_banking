@@ -1,0 +1,147 @@
+{
+  "dataset": "unified_fin_user_seed",
+  "version": "1.0.0",
+  "user": {
+    "id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+    "external_user_id": "uk_user_001",
+    "full_name": "James Walker / Northstar Retail Ltd Treasury",
+    "country_code": "GB",
+    "base_currency": "GBP",
+    "timezone": "Europe/London",
+    "status": 1,
+    "metadata": {
+      "segment": "mid_market",
+      "industry": "retail",
+      "isCorporate": true,
+      "isRetail": true,
+      "employment": {
+        "type": "Salaried",
+        "monthlyIncome": 3800,
+        "salaryCreditDay": 1
+      }
+    }
+  },
+  "accounts": [
+    {
+      "id": "b1e1e1e1-1111-4eaf-9f0a-b28d5c4b1001",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "account_type": "Savings",
+      "provider": "Lloyds Bank",
+      "account_ref": "GB00LOYD00000000000001",
+      "balance": 4200,
+      "currency": "GBP",
+      "metadata": { "averageMonthlyBalance": 3800 }
+    },
+    {
+      "id": "b1e1e1e1-1111-4eaf-9f0a-b28d5c4b1002",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "account_type": "Current",
+      "provider": "HSBC UK",
+      "account_ref": "GB00HSBC00000000000001",
+      "balance": 1600,
+      "currency": "GBP"
+    },
+    {
+      "id": "b1e1e1e1-1111-4eaf-9f0a-b28d5c4b1003",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "account_type": "operating",
+      "provider": "Barclays",
+      "account_ref": "GB89BARC20060512345678A",
+      "balance": 3200000.00,
+      "currency": "GBP"
+    },
+    {
+      "id": "b1e1e1e1-1111-4eaf-9f0a-b28d5c4b1004",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "account_type": "operating",
+      "provider": "HSBC",
+      "account_ref": "GB29NWBK60161331926819A",
+      "balance": 1100000.00,
+      "currency": "GBP"
+    },
+    {
+      "id": "b1e1e1e1-1111-4eaf-9f0a-b28d5c4b1005",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "account_type": "reserve",
+      "provider": "Lloyds",
+      "account_ref": "GB55LOYD30987654321098A",
+      "balance": 500000.00,
+      "currency": "GBP"
+    }
+  ],
+  "loans": [
+    {
+      "id": "c2e2e2e2-2222-4eaf-9f0a-b28d5c4b2001",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "type": "Personal Loan",
+      "provider": "Barclays",
+      "emi": 260,
+      "remainingTenureMonths": 18
+    },
+    {
+      "id": "c2e2e2e2-2222-4eaf-9f0a-b28d5c4b2002",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "type": "Car Loan",
+      "provider": "Santander UK",
+      "emi": 310,
+      "remainingTenureMonths": 26
+    }
+  ],
+  "investments": [
+    {
+      "id": "d3e3e3e3-3333-4eaf-9f0a-b28d5c4b3001",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "type": "Stocks & Shares ISA",
+      "provider": "Vanguard UK",
+      "currentValue": 5400,
+      "monthlyContribution": 300
+    },
+    {
+      "id": "d3e3e3e3-3333-4eaf-9f0a-b28d5c4b3002",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "type": "Premium Bonds",
+      "provider": "NS&I",
+      "currentValue": 2000,
+      "monthlyContribution": 100
+    }
+  ],
+  "subscriptions": [
+    { "name": "Netflix", "amount": 10.99, "cycle": "Monthly" },
+    { "name": "Spotify", "amount": 10.99, "cycle": "Monthly" },
+    { "name": "Amazon Prime", "amount": 8.99, "cycle": "Monthly" },
+    { "name": "iCloud Storage", "amount": 2.99, "cycle": "Monthly" }
+  ],
+  "transactions": [],
+  "savingsGoals": [
+    {
+      "id": "e4e4e4e4-4444-4eaf-9f0a-b28d5c4b4001",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "goal": "Japan Trip",
+      "targetAmount": 2000,
+      "targetDate": "2026-07-01",
+      "currentSaved": 600,
+      "status": "In Progress"
+    },
+    {
+      "id": "e4e4e4e4-4444-4eaf-9f0a-b28d5c4b4002",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "goal": "Car",
+      "targetAmount": 3000,
+      "targetDate": "2026-06-01",
+      "currentSaved": 1400,
+      "status": "In Progress"
+    }
+  ],
+  "treasury_cashflow_daily": [
+    { "business_date": "2026-03-15", "day_name": "Monday", "total_inflows": 120000, "total_outflows": 90000, "payroll_outflow": 20000, "supplier_outflow": 30000, "closing_balance": 3200000, "currency": "GBP" },
+    { "business_date": "2026-03-16", "day_name": "Tuesday", "total_inflows": 80000, "total_outflows": 70000, "payroll_outflow": 0, "supplier_outflow": 25000, "closing_balance": 3210000, "currency": "GBP" },
+    { "business_date": "2026-03-17", "day_name": "Wednesday", "total_inflows": 95000, "total_outflows": 85000, "payroll_outflow": 0, "supplier_outflow": 20000, "closing_balance": 3220000, "currency": "GBP" },
+    { "business_date": "2026-03-18", "day_name": "Thursday", "total_inflows": 100000, "total_outflows": 95000, "payroll_outflow": 0, "supplier_outflow": 30000, "closing_balance": 3230000, "currency": "GBP" },
+    { "business_date": "2026-03-19", "day_name": "Friday", "total_inflows": 110000, "total_outflows": 100000, "payroll_outflow": 0, "supplier_outflow": 35000, "closing_balance": 3240000, "currency": "GBP" }
+  ],
+  "treasury_decision_snapshots": [
+    { "snapshot_date": "2026-03-15", "weekly_outflow_baseline": 450000, "midweek_inflow_baseline": 200000, "late_inflow_count_last_4_weeks": 1, "comfort_threshold": 100000, "min_inflow_for_midweek_release": 50000, "release_condition_hit_rate_10_weeks": 0.8, "currency": "GBP" },
+    { "snapshot_date": "2026-03-22", "weekly_outflow_baseline": 470000, "midweek_inflow_baseline": 210000, "late_inflow_count_last_4_weeks": 2, "comfort_threshold": 110000, "min_inflow_for_midweek_release": 60000, "release_condition_hit_rate_10_weeks": 0.7, "currency": "GBP" },
+    { "snapshot_date": "2026-03-29", "weekly_outflow_baseline": 480000, "midweek_inflow_baseline": 220000, "late_inflow_count_last_4_weeks": 0, "comfort_threshold": 120000, "min_inflow_for_midweek_release": 70000, "release_condition_hit_rate_10_weeks": 0.9, "currency": "GBP" }
+  ]
+}

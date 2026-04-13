@@ -20,6 +20,8 @@ export const FinancialGraphState = Annotation.Root({
     userProfile: (Annotation),
     // ── Supervisor's plan (set by supervisorNode) ────────────────────────────────
     plan: (Annotation),
+    // ── Intent type (set by finance-decision-agent) ──────────────────────────────
+    intentType: (Annotation),
     // ── Research results (set by researchNode) ──────────────────────────────────
     priceInfo: (Annotation),
     fxInfo: (Annotation),

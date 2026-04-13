@@ -28,6 +28,8 @@ export class FinancialLoader {
         const profileLookupUserId = typeof knownFacts.profileLookupUserId === "string" && knownFacts.profileLookupUserId.trim()
             ? knownFacts.profileLookupUserId.trim()
             : userId;
+        // DEBUG: Log which userId is being used for profile lookup
+        console.log(`[FinancialLoader][DEBUG] profileLookupUserId:`, profileLookupUserId);
         // Primary: use already-normalised facts from the profile seed
         const savings = parseNum(knownFacts.availableSavings) ??
             parseNum(knownFacts.spendable_savings) ??
@@ -57,6 +59,7 @@ export class FinancialLoader {
           FROM account_balances
              WHERE user_id = ${profileLookupUserId}
         `.execute(this.db);
+                console.log(`[FinancialLoader][DEBUG] account_balances row:`, row.rows);
                 const monthlyRow = await sql `
           SELECT total_income AS monthly_income,
                  total_expenses AS monthly_expenses,
@@ -66,6 +69,7 @@ export class FinancialLoader {
           ORDER BY month DESC
           LIMIT 1
         `.execute(this.db);
+                console.log(`[FinancialLoader][DEBUG] financial_summary_monthly row:`, monthlyRow.rows);
                 const p = row.rows[0];
                 const m = monthlyRow.rows[0];
                 if (p && p.total_balance !== null && Number(p.total_balance) > 0) {

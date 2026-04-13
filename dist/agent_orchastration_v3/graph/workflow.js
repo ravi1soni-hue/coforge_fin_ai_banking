@@ -10,6 +10,7 @@
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { FinancialGraphState } from "./state.js";
 import { runSupervisorAgent } from "../agents/supervisor.agent.js";
+import { financeDecisionAgent } from "../finance-decision-agent.js";
 import { runResearchAgent } from "../agents/research.agent.js";
 import { runAffordabilityAgent } from "../agents/affordability.agent.js";
 import { runSynthesisAgent } from "../agents/synthesis.agent.js";
@@ -26,12 +27,23 @@ function makeLoadProfileNode(loader) {
 function makeSupervisorNode(llmClient) {
     return async function supervisorNode(state) {
         console.log("[supervisor] Analysing query: " + state.userMessage.slice(0, 80));
+        // Run intent classification first
+        const intentResult = await financeDecisionAgent(state.userMessage, {
+            userProfile: state.userProfile,
+            conversationHistory: state.conversationHistory ?? []
+        });
         const plan = await runSupervisorAgent(llmClient, state.userMessage, state.userProfile, state.conversationHistory ?? []);
-        return { plan };
+        return { plan, intentType: intentResult.type };
     };
 }
-function makeResearchNode(llmClient) {
+function makeResearchNode(llmClient, treasuryAnalysisService) {
     return async function researchNode(state) {
+        if (state.intentType === 'corporate_treasury') {
+            console.log('[research] Running treasury analysis...');
+            const treasuryAnalysis = await treasuryAnalysisService.analyze(state.userId, state.userMessage, state.knownFacts ?? {});
+            return { treasuryAnalysis };
+        }
+        // Default: retail flow
         console.log("[research] Starting parallel research (price + FX + news)...");
         const { priceInfo, fxInfo, newsInfo } = await runResearchAgent(llmClient, state.plan);
         console.log("[research] Done — price=" + (priceInfo?.price ?? "none") + " " + (priceInfo?.currency ?? "") + " fx=" + (fxInfo?.rate ?? "none") + " news=" + (newsInfo?.headlines?.length ?? 0));
@@ -40,6 +52,12 @@ function makeResearchNode(llmClient) {
 }
 function makeAffordabilityNode(llmClient) {
     return async function affordabilityNode(state) {
+        if (state.intentType === 'corporate_treasury') {
+            // Treasury queries do not use affordability agent
+            console.log('[affordability] Skipping for treasury/corporate intent.');
+            return {};
+        }
+        // Default: retail flow
         console.log("[affordability] Running LLM analysis...");
         const affordabilityInfo = await runAffordabilityAgent(llmClient, state);
         console.log("[affordability] Verdict=" + affordabilityInfo.verdict + " canAfford=" + affordabilityInfo.canAfford);
@@ -84,7 +102,7 @@ export function createFinancialGraph(deps) {
     const compiled = new StateGraph(FinancialGraphState)
         .addNode("loadProfile", makeLoadProfileNode(loader))
         .addNode("supervisor", makeSupervisorNode(deps.v3LlmClient))
-        .addNode("research", makeResearchNode(deps.v3LlmClient))
+        .addNode("research", makeResearchNode(deps.v3LlmClient, deps.treasuryAnalysisService))
         .addNode("affordability", makeAffordabilityNode(deps.v3LlmClient))
         .addNode("synthesis", makeSynthesisNode(deps.v3LlmClient))
         .addEdge(START, "loadProfile")
