@@ -62,6 +62,23 @@ export interface AffordabilityInfo {
   emiSuggested: boolean;
 }
 
+// ─── Treasury payment-run analysis ───────────────────────────────────────────
+
+export interface TreasuryAnalysis {
+  availableLiquidity: number;
+  weeklyOutflow: number;
+  expectedMidweekInflow: number;
+  lateInflowEventsLast4Weeks: number;
+  comfortThreshold: number;
+  paymentAmount: number;
+  projectedLowBalance: number;
+  riskLevel: "SAFE" | "CAUTION" | "HIGH_RISK";
+  suggestedNowAmount: number;
+  suggestedLaterAmount: number;
+  currency: string;
+  rationale: string;
+}
+
 // ─── Conversation turn (for history) ─────────────────────────────────────────
 
 export interface ConversationTurn {
@@ -76,6 +93,7 @@ export const FinancialGraphState = Annotation.Root({
   userId:      Annotation<string>,
   sessionId:   Annotation<string>,
   userMessage: Annotation<string>,
+  knownFacts:  Annotation<Record<string, unknown>>,
 
   // ── Conversation history (loaded before graph, passed in) ───────────────────
   conversationHistory: Annotation<ConversationTurn[]>,
@@ -93,6 +111,9 @@ export const FinancialGraphState = Annotation.Root({
 
   // ── Affordability analysis (set by affordabilityNode) ──────────────────────
   affordabilityInfo: Annotation<AffordabilityInfo | null>,
+
+  // ── Treasury analysis (optional, set before graph invoke) ───────────────────
+  treasuryAnalysis: Annotation<TreasuryAnalysis | null>,
 
   // ── Final response (set by synthesisNode) ───────────────────────────────────
   finalResponse: Annotation<string | null>,

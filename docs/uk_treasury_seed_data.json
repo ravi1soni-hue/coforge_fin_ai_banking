@@ -1,0 +1,313 @@
+{
+  "dataset": "uk_treasury_payment_run_scenario",
+  "version": "1.0.0",
+  "currency": "GBP",
+  "generatedAt": "2026-04-13T12:45:00Z",
+  "notes": [
+    "This file includes data for current tables and proposed treasury tables.",
+    "Use as reference for seed scripts after schema migration.",
+    "Values are synthetic and UK-focused."
+  ],
+  "currentTables": {
+    "users": [
+      {
+        "id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+        "external_user_id": "corp-northstar-001",
+        "full_name": "Northstar Retail Ltd Treasury",
+        "country_code": "GB",
+        "base_currency": "GBP",
+        "timezone": "Europe/London",
+        "status": 1,
+        "metadata": {
+          "segment": "mid_market",
+          "industry": "retail",
+          "isCorporate": true
+        }
+      }
+    ],
+    "account_balances": [
+      {
+        "id": "39f3a6d4-7b7a-4f2b-b2f3-b6397de7b101",
+        "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+        "account_type": "operating",
+        "provider": "Barclays",
+        "account_ref": "GB89BARC20060512345678",
+        "balance": 3200000.00,
+        "currency": "GBP",
+        "metadata": {
+          "available_balance": 3185000.00,
+          "ledger_balance": 3200000.00
+        }
+      },
+      {
+        "id": "d63f0f95-95de-4a8d-b95e-7f7ef1ac7b22",
+        "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+        "account_type": "operating",
+        "provider": "HSBC",
+        "account_ref": "GB29NWBK60161331926819",
+        "balance": 1100000.00,
+        "currency": "GBP",
+        "metadata": {
+          "available_balance": 1097000.00,
+          "ledger_balance": 1100000.00
+        }
+      },
+      {
+        "id": "f89e61cc-0327-4fb1-8cc6-2b0d5a5fcb33",
+        "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+        "account_type": "reserve",
+        "provider": "Lloyds",
+        "account_ref": "GB55LOYD30987654321098",
+        "balance": 500000.00,
+        "currency": "GBP",
+        "metadata": {
+          "available_balance": 500000.00,
+          "ledger_balance": 500000.00
+        }
+      }
+    ],
+    "financial_summary_monthly": [
+      {
+        "id": "c14c52d4-fdd8-44a5-8866-83a8276db001",
+        "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+        "month": "2026-01-01",
+        "total_income": 7920000.00,
+        "total_expenses": 14350000.00,
+        "total_savings": 4800000.00,
+        "total_investments": 250000.00,
+        "net_cashflow": -6430000.00,
+        "currency": "GBP",
+        "metadata": {
+          "weeklyOutflowAvg": 3587500.00,
+          "payrollDay": "FRIDAY"
+        }
+      },
+      {
+        "id": "b69f385f-0802-4d9b-a24f-a53711f19302",
+        "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+        "month": "2026-02-01",
+        "total_income": 8010000.00,
+        "total_expenses": 14520000.00,
+        "total_savings": 4800000.00,
+        "total_investments": 250000.00,
+        "net_cashflow": -6510000.00,
+        "currency": "GBP",
+        "metadata": {
+          "weeklyOutflowAvg": 3630000.00,
+          "payrollDay": "FRIDAY"
+        }
+      },
+      {
+        "id": "07e4efb6-4de6-4ac8-9444-928ec74e4c03",
+        "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+        "month": "2026-03-01",
+        "total_income": 7850000.00,
+        "total_expenses": 14450000.00,
+        "total_savings": 4800000.00,
+        "total_investments": 250000.00,
+        "net_cashflow": -6600000.00,
+        "currency": "GBP",
+        "metadata": {
+          "weeklyOutflowAvg": 3612500.00,
+          "payrollDay": "FRIDAY",
+          "expectedMidweekInflow": 1900000.00,
+          "lateInflowsLast4Weeks": 2,
+          "internalComfortThreshold": 1300000.00
+        }
+      }
+    ]
+  },
+  "proposedTables": {
+    "treasury_cashflow_daily": [
+      {
+        "id": "f2728de8-58a6-4c22-a325-9a99a8449001",
+        "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+        "business_date": "2026-04-01",
+        "day_name": "WEDNESDAY",
+        "total_inflows": 2050000.00,
+        "total_outflows": 830000.00,
+        "payroll_outflow": 0.00,
+        "supplier_outflow": 640000.00,
+        "closing_balance": 5120000.00,
+        "currency": "GBP",
+        "metadata": {
+          "receiptPunctuality": "ON_TIME"
+        }
+      },
+      {
+        "id": "2648b2ce-95ca-4de0-95f2-e04f8ffd9002",
+        "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+        "business_date": "2026-04-02",
+        "day_name": "THURSDAY",
+        "total_inflows": 1500000.00,
+        "total_outflows": 980000.00,
+        "payroll_outflow": 0.00,
+        "supplier_outflow": 710000.00,
+        "closing_balance": 4940000.00,
+        "currency": "GBP",
+        "metadata": {
+          "receiptPunctuality": "LATE"
+        }
+      },
+      {
+        "id": "9de79918-b12c-406e-a213-a8b094e59003",
+        "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+        "business_date": "2026-04-03",
+        "day_name": "FRIDAY",
+        "total_inflows": 400000.00,
+        "total_outflows": 2100000.00,
+        "payroll_outflow": 1450000.00,
+        "supplier_outflow": 420000.00,
+        "closing_balance": 3240000.00,
+        "currency": "GBP",
+        "metadata": {
+          "receiptPunctuality": "ON_TIME"
+        }
+      },
+      {
+        "id": "f1f1f454-c2d8-4c63-bbb3-f7401bdf9004",
+        "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+        "business_date": "2026-04-08",
+        "day_name": "WEDNESDAY",
+        "total_inflows": 1400000.00,
+        "total_outflows": 910000.00,
+        "payroll_outflow": 0.00,
+        "supplier_outflow": 700000.00,
+        "closing_balance": 3980000.00,
+        "currency": "GBP",
+        "metadata": {
+          "receiptPunctuality": "LATE"
+        }
+      }
+    ],
+    "treasury_payment_runs": [
+      {
+        "id": "3375c5f8-16d6-43d5-a6d4-54d6ca8d7001",
+        "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+        "run_reference": "PR-2026-04-13-001",
+        "requested_amount": 750000.00,
+        "currency": "GBP",
+        "requested_date": "2026-04-13",
+        "status": "PLANNED",
+        "recommended_now_amount": 520000.00,
+        "recommended_later_amount": 230000.00,
+        "recommended_later_date": "2026-04-15",
+        "projected_low_balance": 1050000.00,
+        "risk_level": "CAUTION",
+        "created_by": "treasury.manager@northstar.co.uk",
+        "metadata": {
+          "reason": "Supplier settlement",
+          "payrollWeek": true
+        }
+      }
+    ],
+    "treasury_payment_run_items": [
+      {
+        "id": "68ddfda8-3ad4-442f-b6d1-8d3ca3bb8001",
+        "payment_run_id": "3375c5f8-16d6-43d5-a6d4-54d6ca8d7001",
+        "supplier_name": "London Packaging Co",
+        "supplier_ref": "SUP-001",
+        "amount": 300000.00,
+        "currency": "GBP",
+        "urgency": "URGENT",
+        "proposed_batch": "T0"
+      },
+      {
+        "id": "56f8ec99-0913-4ac9-a3d0-01fcb7938002",
+        "payment_run_id": "3375c5f8-16d6-43d5-a6d4-54d6ca8d7001",
+        "supplier_name": "Manchester Logistics Ltd",
+        "supplier_ref": "SUP-002",
+        "amount": 220000.00,
+        "currency": "GBP",
+        "urgency": "URGENT",
+        "proposed_batch": "T0"
+      },
+      {
+        "id": "5d96304f-bacb-4882-a1e2-2fdce2068003",
+        "payment_run_id": "3375c5f8-16d6-43d5-a6d4-54d6ca8d7001",
+        "supplier_name": "Bristol Office Supply",
+        "supplier_ref": "SUP-003",
+        "amount": 120000.00,
+        "currency": "GBP",
+        "urgency": "DEFERABLE",
+        "proposed_batch": "T1"
+      },
+      {
+        "id": "f6e89f73-f08a-44da-b5a4-a97cfc5d8004",
+        "payment_run_id": "3375c5f8-16d6-43d5-a6d4-54d6ca8d7001",
+        "supplier_name": "Leeds Components PLC",
+        "supplier_ref": "SUP-004",
+        "amount": 110000.00,
+        "currency": "GBP",
+        "urgency": "DEFERABLE",
+        "proposed_batch": "T1"
+      }
+    ],
+    "treasury_release_conditions": [
+      {
+        "id": "cb0c08f2-4d57-4b1d-b790-ccf961e6a001",
+        "payment_run_id": "3375c5f8-16d6-43d5-a6d4-54d6ca8d7001",
+        "batch_name": "T1",
+        "condition_type": "MIN_CONFIRMED_INFLOW",
+        "operator": ">=",
+        "threshold_amount": 600000.00,
+        "threshold_currency": "GBP",
+        "evaluation_window_start": "2026-04-15T00:00:00Z",
+        "evaluation_window_end": "2026-04-15T11:00:00Z",
+        "status": "ARMED"
+      }
+    ],
+    "treasury_alert_rules": [
+      {
+        "id": "2e0c9662-2414-431e-a26c-cfce5188b001",
+        "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+        "rule_name": "Receipt deviation alert",
+        "trigger_type": "INFLOW_DELAY_OR_SHORTFALL",
+        "threshold_amount": 250000.00,
+        "severity": "HIGH",
+        "channel": "IN_APP_AND_EMAIL",
+        "is_active": true
+      }
+    ],
+    "treasury_approvals": [
+      {
+        "id": "1e77925d-24ff-4f11-b0ff-0b227fbbb001",
+        "payment_run_id": "3375c5f8-16d6-43d5-a6d4-54d6ca8d7001",
+        "approval_stage": "TREASURY_CONTROLLER",
+        "approver_id": "treasury.controller@northstar.co.uk",
+        "decision": "APPROVED",
+        "decision_at": "2026-04-13T10:10:00Z",
+        "comments": "Auto-release allowed if inflow condition is met"
+      }
+    ],
+    "treasury_audit_log": [
+      {
+        "id": "b2465e5f-aef9-4d16-8064-e5c0152ed001",
+        "entity_type": "PAYMENT_RUN",
+        "entity_id": "3375c5f8-16d6-43d5-a6d4-54d6ca8d7001",
+        "action": "CREATED",
+        "actor": "treasury.manager@northstar.co.uk",
+        "actor_role": "MAKER",
+        "occurred_at": "2026-04-13T09:58:00Z",
+        "event_payload": {
+          "requested_amount": 750000,
+          "recommended_now": 520000,
+          "recommended_later": 230000
+        }
+      },
+      {
+        "id": "8cc8eb22-5318-48c7-9d8a-05a571f2d002",
+        "entity_type": "PAYMENT_RUN",
+        "entity_id": "3375c5f8-16d6-43d5-a6d4-54d6ca8d7001",
+        "action": "AUTO_RELEASE_RULE_ARMED",
+        "actor": "system",
+        "actor_role": "SYSTEM",
+        "occurred_at": "2026-04-13T10:11:00Z",
+        "event_payload": {
+          "condition": "MIN_CONFIRMED_INFLOW >= 600000",
+          "batch": "T1"
+        }
+      }
+    ]
+  }
+}

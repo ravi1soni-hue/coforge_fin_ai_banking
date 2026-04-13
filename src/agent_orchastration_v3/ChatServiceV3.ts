@@ -15,10 +15,12 @@ import type { Kysely } from "kysely";
 import type { VectorQueryService } from "./services/vector.query.service.js";
 import type { ChatRepository } from "../repo/chat.repo.js";
 import type { SessionRepository } from "../repo/session.repo.js";
+import type { StructuredFinancialRepository } from "../repo/structured.finance.repo.js";
 
 import { OpenAIClient } from "./llm/openAIClient.js";
 import { V3LlmClient } from "./llm/v3LlmClient.js";
 import { PipelineV3 } from "./PipelineV3.js";
+import { TreasuryAnalysisService } from "./services/treasury.analysis.service.js";
 import type { ChatRequestV3, ChatResponseV3 } from "./types.js";
 
 export class ChatServiceV3 {
@@ -29,21 +31,25 @@ export class ChatServiceV3 {
     vectorQueryService,
     chatRepo,
     sessionRepo,
+    structuredFinanceRepo,
     db,
   }: {
     apiKey: string;
     vectorQueryService: VectorQueryService;
     chatRepo: ChatRepository;
     sessionRepo: SessionRepository;
+    structuredFinanceRepo: StructuredFinancialRepository;
     db?: Kysely<unknown>;
   }) {
     const v3LlmClient = new V3LlmClient(apiKey);
     // OpenAIClient is only used by FinancialLoader's tertiary vector-DB fallback path
     const baseLlmClient = new OpenAIClient({ apiKey });
+    const treasuryAnalysisService = new TreasuryAnalysisService(structuredFinanceRepo);
     this.pipeline = new PipelineV3(
       v3LlmClient,
       baseLlmClient,
       vectorQueryService,
+      treasuryAnalysisService,
       chatRepo,
       sessionRepo,
       db,

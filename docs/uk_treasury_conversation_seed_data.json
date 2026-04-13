@@ -1,0 +1,140 @@
+{
+  "dataset": "uk_treasury_conversation_only",
+  "version": "1.0.0",
+  "currency": "GBP",
+  "notes": [
+    "Seed for conversational treasury analysis only.",
+    "No execution workflow tables included.",
+    "Use with V8 migration."
+  ],
+  "users": [
+    {
+      "id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "external_user_id": "corp-northstar-001",
+      "full_name": "Northstar Retail Ltd Treasury"
+    }
+  ],
+  "treasury_cashflow_daily": [
+    {
+      "id": "8a04f9e2-a08e-4fb3-bde4-4f0ab0cd9001",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-04-01",
+      "day_name": "WEDNESDAY",
+      "total_inflows": 2050000.0,
+      "total_outflows": 830000.0,
+      "payroll_outflow": 0.0,
+      "supplier_outflow": 640000.0,
+      "closing_balance": 5120000.0,
+      "currency": "GBP",
+      "metadata": { "receiptPunctuality": "ON_TIME" }
+    },
+    {
+      "id": "8a04f9e2-a08e-4fb3-bde4-4f0ab0cd9002",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-04-02",
+      "day_name": "THURSDAY",
+      "total_inflows": 1500000.0,
+      "total_outflows": 980000.0,
+      "payroll_outflow": 0.0,
+      "supplier_outflow": 710000.0,
+      "closing_balance": 4940000.0,
+      "currency": "GBP",
+      "metadata": { "receiptPunctuality": "LATE" }
+    },
+    {
+      "id": "8a04f9e2-a08e-4fb3-bde4-4f0ab0cd9003",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-04-03",
+      "day_name": "FRIDAY",
+      "total_inflows": 400000.0,
+      "total_outflows": 2100000.0,
+      "payroll_outflow": 1450000.0,
+      "supplier_outflow": 420000.0,
+      "closing_balance": 3240000.0,
+      "currency": "GBP",
+      "metadata": { "receiptPunctuality": "ON_TIME" }
+    },
+    {
+      "id": "8a04f9e2-a08e-4fb3-bde4-4f0ab0cd9004",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-04-08",
+      "day_name": "WEDNESDAY",
+      "total_inflows": 1400000.0,
+      "total_outflows": 910000.0,
+      "payroll_outflow": 0.0,
+      "supplier_outflow": 700000.0,
+      "closing_balance": 3980000.0,
+      "currency": "GBP",
+      "metadata": { "receiptPunctuality": "LATE" }
+    }
+  ],
+  "treasury_decision_snapshots": [
+    {
+      "id": "5c9f4de5-53ec-4f77-9ea5-2636b3cf8001",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "snapshot_date": "2026-04-13",
+      "weekly_outflow_baseline": 3600000.0,
+      "midweek_inflow_baseline": 1900000.0,
+      "late_inflow_count_last_4_weeks": 2,
+      "comfort_threshold": 1300000.0,
+      "min_inflow_for_midweek_release": 600000.0,
+      "release_condition_hit_rate_10_weeks": 0.80,
+      "currency": "GBP",
+      "metadata": {
+        "payroll_day": "FRIDAY",
+        "historical_window_days": 90,
+        "note": "Derived from actual account movement aggregates"
+      }
+    }
+  ],
+  "treasury_supplier_payment_candidates": [
+    {
+      "id": "9a1b5b4c-7f63-4f07-8f9a-6e9daac77001",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "supplier_ref": "SUP-001",
+      "supplier_name": "London Packaging Co",
+      "amount": 300000.0,
+      "currency": "GBP",
+      "urgency": "URGENT",
+      "due_date": "2026-04-13",
+      "batch_hint": "T0",
+      "metadata": { "category": "packaging" }
+    },
+    {
+      "id": "9a1b5b4c-7f63-4f07-8f9a-6e9daac77002",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "supplier_ref": "SUP-002",
+      "supplier_name": "Manchester Logistics Ltd",
+      "amount": 220000.0,
+      "currency": "GBP",
+      "urgency": "URGENT",
+      "due_date": "2026-04-13",
+      "batch_hint": "T0",
+      "metadata": { "category": "logistics" }
+    },
+    {
+      "id": "9a1b5b4c-7f63-4f07-8f9a-6e9daac77003",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "supplier_ref": "SUP-003",
+      "supplier_name": "Bristol Office Supply",
+      "amount": 120000.0,
+      "currency": "GBP",
+      "urgency": "DEFERABLE",
+      "due_date": "2026-04-15",
+      "batch_hint": "T1",
+      "metadata": { "category": "office" }
+    },
+    {
+      "id": "9a1b5b4c-7f63-4f07-8f9a-6e9daac77004",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "supplier_ref": "SUP-004",
+      "supplier_name": "Leeds Components PLC",
+      "amount": 110000.0,
+      "currency": "GBP",
+      "urgency": "DEFERABLE",
+      "due_date": "2026-04-15",
+      "batch_hint": "T1",
+      "metadata": { "category": "components" }
+    }
+  ]
+}

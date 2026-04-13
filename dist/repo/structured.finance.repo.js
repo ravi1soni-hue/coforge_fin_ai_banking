@@ -94,9 +94,17 @@ export class StructuredFinancialRepository {
     async getMonthlySummary(userId, month) {
         return this.db
             .selectFrom("financial_summary_monthly")
-            .select(["month", "total_income", "total_expenses", "total_savings", "total_investments", "net_cashflow", "currency"])
+            .select(["month", "total_income", "total_expenses", "total_savings", "total_investments", "net_cashflow", "currency", "metadata"])
             .where("user_id", "=", userId)
             .where("month", "=", month)
+            .executeTakeFirst();
+    }
+    async getLatestMonthlySummary(userId) {
+        return this.db
+            .selectFrom("financial_summary_monthly")
+            .select(["month", "total_income", "total_expenses", "total_savings", "total_investments", "net_cashflow", "currency", "metadata"])
+            .where("user_id", "=", userId)
+            .orderBy("month", "desc")
             .executeTakeFirst();
     }
     async getActiveLoans(userId) {

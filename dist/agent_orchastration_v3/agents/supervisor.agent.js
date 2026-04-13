@@ -44,16 +44,18 @@ userStatedPrice:
 
 conversationalOnly:
 - ONLY true for very short responses with zero financial intent: "yes", "ok", "sounds good", "go ahead", "thanks".
-- If the message contains ANY of: "?", "afford", "buy", "cost", "price", "how much", "EMI", "instalment", "spread", "month", "pay", "run the numbers", "numbers" — set to FALSE.
+- If the message contains ANY of: "?", "afford", "buy", "cost", "price", "how much", "EMI", "instalment", "spread", "month", "pay", "run the numbers", "numbers", "payment", "supplier", "release", "split", "batch", "cash buffer", "liquidity", "inflow", "outflow", "payroll", "auto-release" — set to FALSE.
 - When conversationalOnly=true, set ALL other booleans to false.
 
 needsWebSearch:
-- true ONLY when the user asks about a specific product/service AND userStatedPrice is 0.
+- true ONLY when the user asks about a specific physical product (phone, laptop, gadget, appliance) AND userStatedPrice is 0.
+- false for travel, trips, holidays, flights, hotels — web search cannot return a reliable price for these. If no price is stated, synthesis will ask the user.
 - false when userStatedPrice > 0 — user already gave the price, do NOT search.
 - false when this is a follow-up about an item whose price was established in history.
 
 needsAffordability:
 - true when user asks "can I afford", "should I buy", or any purchase/affordability decision.
+- true for treasury payment-run risk checks (supplier payment run, release timing, split batch, liquidity risk).
 
 needsEmi:
 - true when user asks about EMI, instalments, spreading payments, monthly payments.
@@ -87,13 +89,30 @@ const DEFAULT_PLAN = {
     userHomeCurrency: "GBP",
 };
 function extractStatedGbpPrice(text) {
-    const moneyPattern = /(£\s*[\d,]+(?:\.\d+)?|[\d,]+(?:\.\d+)?\s*GBP)/i;
-    const m = text.match(moneyPattern);
-    if (!m)
-        return 0;
-    const digits = m[0].replace(/[^\d.]/g, "");
-    const n = Number(digits);
-    return Number.isFinite(n) && n > 0 ? n : 0;
+    const compact = text.toLowerCase().replace(/,/g, "");
+    const suffixed = compact.match(/(?:£|gbp\s*)?(\d+(?:\.\d+)?)\s*([km])\b/i);
+    if (suffixed) {
+        const base = Number(suffixed[1]);
+        const mult = suffixed[2].toLowerCase() === "m" ? 1_000_000 : 1_000;
+        const n = base * mult;
+        if (Number.isFinite(n) && n > 0)
+            return n;
+    }
+    // Match explicit £/GBP amounts OR bare standalone numbers >= 100 (plain cost statements like "around 3000")
+    const explicit = text.match(/(£\s*[\d,]+(?:\.\d+)?|[\d,]+(?:\.\d+)?\s*(?:GBP|pounds?))/i);
+    if (explicit) {
+        const n = Number(explicit[0].replace(/[^\d.]/g, ""));
+        if (Number.isFinite(n) && n > 0)
+            return n;
+    }
+    // Bare number (e.g. "around 3000", "costs 3000", "it's 2500")
+    const bare = text.match(/(?:around|about|roughly|costs?|is|=|\s)\s*([\d,]{3,7})(?:\s|$|[.,!?])/i);
+    if (bare) {
+        const n = Number(bare[1].replace(/,/g, ""));
+        if (Number.isFinite(n) && n >= 100)
+            return n;
+    }
+    return 0;
 }
 function inferTripProductFromUserHistory(userMessage, conversationHistory) {
     const userTurns = conversationHistory
@@ -116,11 +135,14 @@ function inferTripProductFromUserHistory(userMessage, conversationHistory) {
 }
 export async function runSupervisorAgent(llmClient, userMessage, userProfile, conversationHistory = []) {
     const homeCurrency = String(userProfile?.homeCurrency ?? "GBP");
-    // Format last 3 turns (6 messages) as context so LLM understands follow-ups
-    const historyText = conversationHistory.length > 0
-        ? "\n\nConversation history (most recent last):\n" +
-            conversationHistory
-                .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content.slice(0, 300)}`)
+    // Pass ONLY user turns to the supervisor — the assistant's previous responses are outputs, not ground truth.
+    // Feeding assistant history back in causes the LLM to anchor on whatever the assistant said before
+    // (even if it was wrong), poisoning product detection for follow-up messages.
+    const recentUserTurns = conversationHistory.filter(m => m.role === "user").slice(-5);
+    const historyText = recentUserTurns.length > 0
+        ? "\n\nWhat the user has said so far (most recent last):\n" +
+            recentUserTurns
+                .map(m => `User: ${m.content.slice(0, 300)}`)
                 .join("\n")
         : "";
     const messages = [
@@ -171,12 +193,15 @@ export async function runSupervisorAgent(llmClient, userMessage, userProfile, co
         }
     }
     const inferredTrip = inferTripProductFromUserHistory(userMessage, conversationHistory);
-    if ((!plan.product || plan.product.toLowerCase() === "item") && inferredTrip) {
+    // If ANY user turn in history mentioned a trip/travel, ALWAYS lock product to that trip.
+    // This prevents stale assistant "iPhone" hallucinations in history from contaminating later turns.
+    if (inferredTrip) {
         plan.product = inferredTrip;
-    }
-    // If this thread is trip/travel-related, don't let product drift to unrelated electronics.
-    if (inferredTrip && plan.product && /iphone|apple|macbook|laptop|phone/i.test(plan.product)) {
-        plan.product = inferredTrip;
+        // Travel/trip costs are not googleable as a shopping price — Serper returns travel
+        // articles with no extractable price. Always skip web search for trips; if no price
+        // is stated yet, synthesis will ask the user for the cost directly.
+        plan.needsWebSearch = false;
+        plan.searchQuery = undefined;
     }
     // Safety guard: if user stated a price, never search (prevents hallucinating products)
     if ((plan.userStatedPrice ?? 0) > 0) {

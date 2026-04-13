@@ -13,12 +13,12 @@ import { runSupervisorAgent } from "../agents/supervisor.agent.js";
 import { runResearchAgent } from "../agents/research.agent.js";
 import { runAffordabilityAgent } from "../agents/affordability.agent.js";
 import { runSynthesisAgent } from "../agents/synthesis.agent.js";
-import { FinancialLoader } from "../../agent_orchastration_v2/financialLoader.js";
+import { FinancialLoader } from "../financialLoader.js";
 // ─── Node factory functions ───────────────────────────────────────────────────
 function makeLoadProfileNode(loader) {
     return async function loadProfileNode(state) {
         console.log("[loadProfile] userId=" + state.userId);
-        const profile = await loader.loadProfile(state.userId, {});
+        const profile = await loader.loadProfile(state.userId, state.knownFacts ?? {});
         console.log("[loadProfile] name=" + (profile.userName ?? "unknown") + " savings=" + profile.availableSavings + " " + profile.homeCurrency);
         return { userProfile: profile };
     };
@@ -72,7 +72,9 @@ function routeAfterResearch(state) {
     // affordability agent produces a meaningless verdict and wastes an LLM call.
     // Synthesis already handles the "price unknown" case and will ask the user.
     const hasVerifiedPrice = (state.priceInfo?.price ?? 0) > 0;
-    if (state.plan?.needsAffordability && hasVerifiedPrice)
+    // Run affordability for both affordability AND EMI requests — EMI needs the
+    // priceInHomeCurrency anchor so synthesis doesn't have to guess the subject.
+    if ((state.plan?.needsAffordability || state.plan?.needsEmi) && hasVerifiedPrice)
         return "affordability";
     return "synthesis";
 }
@@ -109,12 +111,14 @@ export async function runGraphTurn(graph, input) {
         sessionId: input.sessionId,
         userMessage: input.userMessage,
         conversationHistory: input.conversationHistory ?? [],
+        knownFacts: input.knownFacts ?? {},
         userProfile: null,
         plan: null,
         priceInfo: null,
         fxInfo: null,
         newsInfo: null,
         affordabilityInfo: null,
+        treasuryAnalysis: input.treasuryAnalysis ?? null,
         finalResponse: null,
     });
     return result.finalResponse ?? "I could not complete the analysis. Please try again.";

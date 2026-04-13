@@ -49,7 +49,7 @@ userStatedPrice:
 
 conversationalOnly:
 - ONLY true for very short responses with zero financial intent: "yes", "ok", "sounds good", "go ahead", "thanks".
-- If the message contains ANY of: "?", "afford", "buy", "cost", "price", "how much", "EMI", "instalment", "spread", "month", "pay", "run the numbers", "numbers" — set to FALSE.
+- If the message contains ANY of: "?", "afford", "buy", "cost", "price", "how much", "EMI", "instalment", "spread", "month", "pay", "run the numbers", "numbers", "payment", "supplier", "release", "split", "batch", "cash buffer", "liquidity", "inflow", "outflow", "payroll", "auto-release" — set to FALSE.
 - When conversationalOnly=true, set ALL other booleans to false.
 
 needsWebSearch:
@@ -60,6 +60,7 @@ needsWebSearch:
 
 needsAffordability:
 - true when user asks "can I afford", "should I buy", or any purchase/affordability decision.
+- true for treasury payment-run risk checks (supplier payment run, release timing, split batch, liquidity risk).
 
 needsEmi:
 - true when user asks about EMI, instalments, spreading payments, monthly payments.
@@ -95,6 +96,15 @@ const DEFAULT_PLAN: AgentPlan = {
 };
 
 function extractStatedGbpPrice(text: string): number {
+  const compact = text.toLowerCase().replace(/,/g, "");
+  const suffixed = compact.match(/(?:£|gbp\s*)?(\d+(?:\.\d+)?)\s*([km])\b/i);
+  if (suffixed) {
+    const base = Number(suffixed[1]);
+    const mult = suffixed[2].toLowerCase() === "m" ? 1_000_000 : 1_000;
+    const n = base * mult;
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+
   // Match explicit £/GBP amounts OR bare standalone numbers >= 100 (plain cost statements like "around 3000")
   const explicit = text.match(/(£\s*[\d,]+(?:\.\d+)?|[\d,]+(?:\.\d+)?\s*(?:GBP|pounds?))/i);
   if (explicit) {

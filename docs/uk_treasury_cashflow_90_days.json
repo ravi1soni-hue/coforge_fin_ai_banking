@@ -1,0 +1,1546 @@
+{
+  "dataset": "uk_treasury_cashflow_90_days",
+  "version": "1.0.0",
+  "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+  "start_date": "2026-01-14",
+  "end_date": "2026-04-13",
+  "days": 90,
+  "assumptions": {
+    "target_weekly_outflow_baseline": 3600000,
+    "target_midweek_inflow_baseline_tue_to_thu": 1900000,
+    "payroll_day": "FRIDAY",
+    "late_inflow_events_last_4_weeks": 2
+  },
+  "treasury_cashflow_daily": [
+    {
+      "id": "cf90-2026-01-14",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-14",
+      "day_name": "WEDNESDAY",
+      "total_inflows": 670800,
+      "total_outflows": 602400,
+      "payroll_outflow": 0,
+      "supplier_outflow": 381520,
+      "closing_balance": 4868400,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-01-15",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-15",
+      "day_name": "THURSDAY",
+      "total_inflows": 645120,
+      "total_outflows": 565600,
+      "payroll_outflow": 0,
+      "supplier_outflow": 353500,
+      "closing_balance": 4947920,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-01-16",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-16",
+      "day_name": "FRIDAY",
+      "total_inflows": 386080,
+      "total_outflows": 1676400,
+      "payroll_outflow": 1450000,
+      "supplier_outflow": 223520,
+      "closing_balance": 3657600,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-01-17",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-17",
+      "day_name": "SATURDAY",
+      "total_inflows": 181440,
+      "total_outflows": 143080,
+      "payroll_outflow": 0,
+      "supplier_outflow": 71540,
+      "closing_balance": 3695960,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-01-18",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-18",
+      "day_name": "SUNDAY",
+      "total_inflows": 120000,
+      "total_outflows": 82240,
+      "payroll_outflow": 0,
+      "supplier_outflow": 30840,
+      "closing_balance": 3733720,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-01-19",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-19",
+      "day_name": "MONDAY",
+      "total_inflows": 317440,
+      "total_outflows": 434280,
+      "payroll_outflow": 0,
+      "supplier_outflow": 258500,
+      "closing_balance": 3616880,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-01-20",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-20",
+      "day_name": "TUESDAY",
+      "total_inflows": 610080,
+      "total_outflows": 540800,
+      "payroll_outflow": 0,
+      "supplier_outflow": 343200,
+      "closing_balance": 3686160,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-01-21",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-21",
+      "day_name": "WEDNESDAY",
+      "total_inflows": 634400,
+      "total_outflows": 627600,
+      "payroll_outflow": 0,
+      "supplier_outflow": 397480,
+      "closing_balance": 3692960,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-01-22",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-22",
+      "day_name": "THURSDAY",
+      "total_inflows": 609840,
+      "total_outflows": 589120,
+      "payroll_outflow": 0,
+      "supplier_outflow": 368200,
+      "closing_balance": 3713680,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-01-23",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-23",
+      "day_name": "FRIDAY",
+      "total_inflows": 392160,
+      "total_outflows": 1656600,
+      "payroll_outflow": 1450000,
+      "supplier_outflow": 220880,
+      "closing_balance": 2449240,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-01-24",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-24",
+      "day_name": "SATURDAY",
+      "total_inflows": 184320,
+      "total_outflows": 141400,
+      "payroll_outflow": 0,
+      "supplier_outflow": 70700,
+      "closing_balance": 2492160,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-01-25",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-25",
+      "day_name": "SUNDAY",
+      "total_inflows": 121920,
+      "total_outflows": 81280,
+      "payroll_outflow": 0,
+      "supplier_outflow": 30480,
+      "closing_balance": 2532800,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-01-26",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-26",
+      "day_name": "MONDAY",
+      "total_inflows": 322560,
+      "total_outflows": 429240,
+      "payroll_outflow": 0,
+      "supplier_outflow": 255500,
+      "closing_balance": 2426120,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-01-27",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-27",
+      "day_name": "TUESDAY",
+      "total_inflows": 620000,
+      "total_outflows": 534560,
+      "payroll_outflow": 0,
+      "supplier_outflow": 339240,
+      "closing_balance": 2511560,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-01-28",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-28",
+      "day_name": "WEDNESDAY",
+      "total_inflows": 644800,
+      "total_outflows": 620400,
+      "payroll_outflow": 0,
+      "supplier_outflow": 392920,
+      "closing_balance": 2535960,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-01-29",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-29",
+      "day_name": "THURSDAY",
+      "total_inflows": 619920,
+      "total_outflows": 582400,
+      "payroll_outflow": 0,
+      "supplier_outflow": 364000,
+      "closing_balance": 2573480,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-01-30",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-30",
+      "day_name": "FRIDAY",
+      "total_inflows": 370880,
+      "total_outflows": 1725900,
+      "payroll_outflow": 1450000,
+      "supplier_outflow": 230120,
+      "closing_balance": 1218460,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-01-31",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-31",
+      "day_name": "SATURDAY",
+      "total_inflows": 174240,
+      "total_outflows": 147280,
+      "payroll_outflow": 0,
+      "supplier_outflow": 73640,
+      "closing_balance": 1245420,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-01",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-01",
+      "day_name": "SUNDAY",
+      "total_inflows": 123840,
+      "total_outflows": 80320,
+      "payroll_outflow": 0,
+      "supplier_outflow": 30120,
+      "closing_balance": 1288940,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-02",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-02",
+      "day_name": "MONDAY",
+      "total_inflows": 327680,
+      "total_outflows": 424200,
+      "payroll_outflow": 0,
+      "supplier_outflow": 252500,
+      "closing_balance": 1192420,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-03",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-03",
+      "day_name": "TUESDAY",
+      "total_inflows": 629920,
+      "total_outflows": 528320,
+      "payroll_outflow": 0,
+      "supplier_outflow": 335280,
+      "closing_balance": 1294020,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-04",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-04",
+      "day_name": "WEDNESDAY",
+      "total_inflows": 655200,
+      "total_outflows": 613200,
+      "payroll_outflow": 0,
+      "supplier_outflow": 388360,
+      "closing_balance": 1336020,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-05",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-05",
+      "day_name": "THURSDAY",
+      "total_inflows": 630000,
+      "total_outflows": 575680,
+      "payroll_outflow": 0,
+      "supplier_outflow": 359800,
+      "closing_balance": 1390340,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-06",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-06",
+      "day_name": "FRIDAY",
+      "total_inflows": 376960,
+      "total_outflows": 1706100,
+      "payroll_outflow": 1450000,
+      "supplier_outflow": 227480,
+      "closing_balance": 61200,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-07",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-07",
+      "day_name": "SATURDAY",
+      "total_inflows": 177120,
+      "total_outflows": 145600,
+      "payroll_outflow": 0,
+      "supplier_outflow": 72800,
+      "closing_balance": 92720,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-08",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-08",
+      "day_name": "SUNDAY",
+      "total_inflows": 117120,
+      "total_outflows": 83680,
+      "payroll_outflow": 0,
+      "supplier_outflow": 31380,
+      "closing_balance": 126160,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-09",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-09",
+      "day_name": "MONDAY",
+      "total_inflows": 309760,
+      "total_outflows": 441840,
+      "payroll_outflow": 0,
+      "supplier_outflow": 263000,
+      "closing_balance": -5920,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-10",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-10",
+      "day_name": "TUESDAY",
+      "total_inflows": 639840,
+      "total_outflows": 522080,
+      "payroll_outflow": 0,
+      "supplier_outflow": 331320,
+      "closing_balance": 111840,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-11",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-11",
+      "day_name": "WEDNESDAY",
+      "total_inflows": 665600,
+      "total_outflows": 606000,
+      "payroll_outflow": 0,
+      "supplier_outflow": 383800,
+      "closing_balance": 171440,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-12",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-12",
+      "day_name": "THURSDAY",
+      "total_inflows": 640080,
+      "total_outflows": 568960,
+      "payroll_outflow": 0,
+      "supplier_outflow": 355600,
+      "closing_balance": 242560,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-13",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-13",
+      "day_name": "FRIDAY",
+      "total_inflows": 383040,
+      "total_outflows": 1686300,
+      "payroll_outflow": 1450000,
+      "supplier_outflow": 224840,
+      "closing_balance": -1060700,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-14",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-14",
+      "day_name": "SATURDAY",
+      "total_inflows": 180000,
+      "total_outflows": 143920,
+      "payroll_outflow": 0,
+      "supplier_outflow": 71960,
+      "closing_balance": -1024620,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-15",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-15",
+      "day_name": "SUNDAY",
+      "total_inflows": 119040,
+      "total_outflows": 82720,
+      "payroll_outflow": 0,
+      "supplier_outflow": 31020,
+      "closing_balance": -988300,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-16",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-16",
+      "day_name": "MONDAY",
+      "total_inflows": 314880,
+      "total_outflows": 436800,
+      "payroll_outflow": 0,
+      "supplier_outflow": 260000,
+      "closing_balance": -1110220,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-17",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-17",
+      "day_name": "TUESDAY",
+      "total_inflows": 605120,
+      "total_outflows": 543920,
+      "payroll_outflow": 0,
+      "supplier_outflow": 345180,
+      "closing_balance": -1049020,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-18",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-18",
+      "day_name": "WEDNESDAY",
+      "total_inflows": 629200,
+      "total_outflows": 631200,
+      "payroll_outflow": 0,
+      "supplier_outflow": 399760,
+      "closing_balance": -1051020,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-19",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-19",
+      "day_name": "THURSDAY",
+      "total_inflows": 650160,
+      "total_outflows": 562240,
+      "payroll_outflow": 0,
+      "supplier_outflow": 351400,
+      "closing_balance": -963100,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-20",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-20",
+      "day_name": "FRIDAY",
+      "total_inflows": 389120,
+      "total_outflows": 1666500,
+      "payroll_outflow": 1450000,
+      "supplier_outflow": 222200,
+      "closing_balance": -2240480,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-21",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-21",
+      "day_name": "SATURDAY",
+      "total_inflows": 182880,
+      "total_outflows": 142240,
+      "payroll_outflow": 0,
+      "supplier_outflow": 71120,
+      "closing_balance": -2199840,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-22",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-22",
+      "day_name": "SUNDAY",
+      "total_inflows": 120960,
+      "total_outflows": 81760,
+      "payroll_outflow": 0,
+      "supplier_outflow": 30660,
+      "closing_balance": -2160640,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-23",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-23",
+      "day_name": "MONDAY",
+      "total_inflows": 320000,
+      "total_outflows": 431760,
+      "payroll_outflow": 0,
+      "supplier_outflow": 257000,
+      "closing_balance": -2272400,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-24",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-24",
+      "day_name": "TUESDAY",
+      "total_inflows": 615040,
+      "total_outflows": 537680,
+      "payroll_outflow": 0,
+      "supplier_outflow": 341220,
+      "closing_balance": -2195040,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-25",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-25",
+      "day_name": "WEDNESDAY",
+      "total_inflows": 639600,
+      "total_outflows": 624000,
+      "payroll_outflow": 0,
+      "supplier_outflow": 395200,
+      "closing_balance": -2179440,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-26",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-26",
+      "day_name": "THURSDAY",
+      "total_inflows": 614880,
+      "total_outflows": 585760,
+      "payroll_outflow": 0,
+      "supplier_outflow": 366100,
+      "closing_balance": -2150320,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-27",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-27",
+      "day_name": "FRIDAY",
+      "total_inflows": 367840,
+      "total_outflows": 1735800,
+      "payroll_outflow": 1450000,
+      "supplier_outflow": 231440,
+      "closing_balance": -3518280,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-02-28",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-02-28",
+      "day_name": "SATURDAY",
+      "total_inflows": 185760,
+      "total_outflows": 140560,
+      "payroll_outflow": 0,
+      "supplier_outflow": 70280,
+      "closing_balance": -3473080,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-01",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-01",
+      "day_name": "SUNDAY",
+      "total_inflows": 122880,
+      "total_outflows": 80800,
+      "payroll_outflow": 0,
+      "supplier_outflow": 30300,
+      "closing_balance": -3431000,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-02",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-02",
+      "day_name": "MONDAY",
+      "total_inflows": 325120,
+      "total_outflows": 426720,
+      "payroll_outflow": 0,
+      "supplier_outflow": 254000,
+      "closing_balance": -3532600,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-03",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-03",
+      "day_name": "TUESDAY",
+      "total_inflows": 624960,
+      "total_outflows": 531440,
+      "payroll_outflow": 0,
+      "supplier_outflow": 337260,
+      "closing_balance": -3439080,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-04",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-04",
+      "day_name": "WEDNESDAY",
+      "total_inflows": 650000,
+      "total_outflows": 616800,
+      "payroll_outflow": 0,
+      "supplier_outflow": 390640,
+      "closing_balance": -3405880,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-05",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-05",
+      "day_name": "THURSDAY",
+      "total_inflows": 624960,
+      "total_outflows": 579040,
+      "payroll_outflow": 0,
+      "supplier_outflow": 361900,
+      "closing_balance": -3359960,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-06",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-06",
+      "day_name": "FRIDAY",
+      "total_inflows": 373920,
+      "total_outflows": 1716000,
+      "payroll_outflow": 1450000,
+      "supplier_outflow": 228800,
+      "closing_balance": -4702040,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-07",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-07",
+      "day_name": "SATURDAY",
+      "total_inflows": 175680,
+      "total_outflows": 146440,
+      "payroll_outflow": 0,
+      "supplier_outflow": 73220,
+      "closing_balance": -4672800,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-08",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-08",
+      "day_name": "SUNDAY",
+      "total_inflows": 116160,
+      "total_outflows": 84160,
+      "payroll_outflow": 0,
+      "supplier_outflow": 31560,
+      "closing_balance": -4640800,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-09",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-09",
+      "day_name": "MONDAY",
+      "total_inflows": 330240,
+      "total_outflows": 421680,
+      "payroll_outflow": 0,
+      "supplier_outflow": 251000,
+      "closing_balance": -4732240,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-10",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-10",
+      "day_name": "TUESDAY",
+      "total_inflows": 634880,
+      "total_outflows": 525200,
+      "payroll_outflow": 0,
+      "supplier_outflow": 333300,
+      "closing_balance": -4622560,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-11",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-11",
+      "day_name": "WEDNESDAY",
+      "total_inflows": 660400,
+      "total_outflows": 609600,
+      "payroll_outflow": 0,
+      "supplier_outflow": 386080,
+      "closing_balance": -4571760,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-12",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-12",
+      "day_name": "THURSDAY",
+      "total_inflows": 635040,
+      "total_outflows": 572320,
+      "payroll_outflow": 0,
+      "supplier_outflow": 357700,
+      "closing_balance": -4509040,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-13",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-13",
+      "day_name": "FRIDAY",
+      "total_inflows": 380000,
+      "total_outflows": 1696200,
+      "payroll_outflow": 1450000,
+      "supplier_outflow": 226160,
+      "closing_balance": -5825240,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-14",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-14",
+      "day_name": "SATURDAY",
+      "total_inflows": 178560,
+      "total_outflows": 144760,
+      "payroll_outflow": 0,
+      "supplier_outflow": 72380,
+      "closing_balance": -5791440,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-15",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-15",
+      "day_name": "SUNDAY",
+      "total_inflows": 118080,
+      "total_outflows": 83200,
+      "payroll_outflow": 0,
+      "supplier_outflow": 31200,
+      "closing_balance": -5756560,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-16",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-16",
+      "day_name": "MONDAY",
+      "total_inflows": 312320,
+      "total_outflows": 439320,
+      "payroll_outflow": 0,
+      "supplier_outflow": 261500,
+      "closing_balance": -5883560,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-17",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-17",
+      "day_name": "TUESDAY",
+      "total_inflows": 600160,
+      "total_outflows": 547040,
+      "payroll_outflow": 0,
+      "supplier_outflow": 347160,
+      "closing_balance": -5830440,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-18",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-18",
+      "day_name": "WEDNESDAY",
+      "total_inflows": 670800,
+      "total_outflows": 602400,
+      "payroll_outflow": 0,
+      "supplier_outflow": 381520,
+      "closing_balance": -5762040,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-19",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-19",
+      "day_name": "THURSDAY",
+      "total_inflows": 645120,
+      "total_outflows": 565600,
+      "payroll_outflow": 0,
+      "supplier_outflow": 353500,
+      "closing_balance": -5682520,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-20",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-20",
+      "day_name": "FRIDAY",
+      "total_inflows": 386080,
+      "total_outflows": 1676400,
+      "payroll_outflow": 1450000,
+      "supplier_outflow": 223520,
+      "closing_balance": -6972840,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-21",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-21",
+      "day_name": "SATURDAY",
+      "total_inflows": 181440,
+      "total_outflows": 143080,
+      "payroll_outflow": 0,
+      "supplier_outflow": 71540,
+      "closing_balance": -6934480,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-22",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-22",
+      "day_name": "SUNDAY",
+      "total_inflows": 120000,
+      "total_outflows": 82240,
+      "payroll_outflow": 0,
+      "supplier_outflow": 30840,
+      "closing_balance": -6896720,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-23",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-23",
+      "day_name": "MONDAY",
+      "total_inflows": 317440,
+      "total_outflows": 434280,
+      "payroll_outflow": 0,
+      "supplier_outflow": 258500,
+      "closing_balance": -7013560,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-24",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-24",
+      "day_name": "TUESDAY",
+      "total_inflows": 414854,
+      "total_outflows": 540800,
+      "payroll_outflow": 0,
+      "supplier_outflow": 343200,
+      "closing_balance": -7139506,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "LATE",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-25",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-25",
+      "day_name": "WEDNESDAY",
+      "total_inflows": 634400,
+      "total_outflows": 627600,
+      "payroll_outflow": 0,
+      "supplier_outflow": 397480,
+      "closing_balance": -7132706,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-26",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-26",
+      "day_name": "THURSDAY",
+      "total_inflows": 609840,
+      "total_outflows": 589120,
+      "payroll_outflow": 0,
+      "supplier_outflow": 368200,
+      "closing_balance": -7111986,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-27",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-27",
+      "day_name": "FRIDAY",
+      "total_inflows": 392160,
+      "total_outflows": 1656600,
+      "payroll_outflow": 1450000,
+      "supplier_outflow": 220880,
+      "closing_balance": -8376426,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-28",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-28",
+      "day_name": "SATURDAY",
+      "total_inflows": 184320,
+      "total_outflows": 141400,
+      "payroll_outflow": 0,
+      "supplier_outflow": 70700,
+      "closing_balance": -8333506,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-29",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-29",
+      "day_name": "SUNDAY",
+      "total_inflows": 121920,
+      "total_outflows": 81280,
+      "payroll_outflow": 0,
+      "supplier_outflow": 30480,
+      "closing_balance": -8292866,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-30",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-30",
+      "day_name": "MONDAY",
+      "total_inflows": 322560,
+      "total_outflows": 429240,
+      "payroll_outflow": 0,
+      "supplier_outflow": 255500,
+      "closing_balance": -8399546,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-03-31",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-03-31",
+      "day_name": "TUESDAY",
+      "total_inflows": 620000,
+      "total_outflows": 534560,
+      "payroll_outflow": 0,
+      "supplier_outflow": 339240,
+      "closing_balance": -8314106,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-04-01",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-04-01",
+      "day_name": "WEDNESDAY",
+      "total_inflows": 644800,
+      "total_outflows": 620400,
+      "payroll_outflow": 0,
+      "supplier_outflow": 392920,
+      "closing_balance": -8289706,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-04-02",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-04-02",
+      "day_name": "THURSDAY",
+      "total_inflows": 421546,
+      "total_outflows": 582400,
+      "payroll_outflow": 0,
+      "supplier_outflow": 364000,
+      "closing_balance": -8450560,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "LATE",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-04-03",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-04-03",
+      "day_name": "FRIDAY",
+      "total_inflows": 370880,
+      "total_outflows": 1725900,
+      "payroll_outflow": 1450000,
+      "supplier_outflow": 230120,
+      "closing_balance": -9805580,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-04-04",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-04-04",
+      "day_name": "SATURDAY",
+      "total_inflows": 174240,
+      "total_outflows": 147280,
+      "payroll_outflow": 0,
+      "supplier_outflow": 73640,
+      "closing_balance": -9778620,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-04-05",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-04-05",
+      "day_name": "SUNDAY",
+      "total_inflows": 123840,
+      "total_outflows": 80320,
+      "payroll_outflow": 0,
+      "supplier_outflow": 30120,
+      "closing_balance": -9735100,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-04-06",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-04-06",
+      "day_name": "MONDAY",
+      "total_inflows": 327680,
+      "total_outflows": 424200,
+      "payroll_outflow": 0,
+      "supplier_outflow": 252500,
+      "closing_balance": -9831620,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-04-07",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-04-07",
+      "day_name": "TUESDAY",
+      "total_inflows": 629920,
+      "total_outflows": 528320,
+      "payroll_outflow": 0,
+      "supplier_outflow": 335280,
+      "closing_balance": -9730020,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-04-08",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-04-08",
+      "day_name": "WEDNESDAY",
+      "total_inflows": 655200,
+      "total_outflows": 613200,
+      "payroll_outflow": 0,
+      "supplier_outflow": 388360,
+      "closing_balance": -9688020,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-04-09",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-04-09",
+      "day_name": "THURSDAY",
+      "total_inflows": 630000,
+      "total_outflows": 575680,
+      "payroll_outflow": 0,
+      "supplier_outflow": 359800,
+      "closing_balance": -9633700,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-04-10",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-04-10",
+      "day_name": "FRIDAY",
+      "total_inflows": 376960,
+      "total_outflows": 1706100,
+      "payroll_outflow": 1450000,
+      "supplier_outflow": 227480,
+      "closing_balance": -10962840,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-04-11",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-04-11",
+      "day_name": "SATURDAY",
+      "total_inflows": 177120,
+      "total_outflows": 145600,
+      "payroll_outflow": 0,
+      "supplier_outflow": 72800,
+      "closing_balance": -10931320,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-04-12",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-04-12",
+      "day_name": "SUNDAY",
+      "total_inflows": 117120,
+      "total_outflows": 83680,
+      "payroll_outflow": 0,
+      "supplier_outflow": 31380,
+      "closing_balance": -10897880,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-04-13",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-04-13",
+      "day_name": "MONDAY",
+      "total_inflows": 309760,
+      "total_outflows": 441840,
+      "payroll_outflow": 0,
+      "supplier_outflow": 263000,
+      "closing_balance": -11029960,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    }
+  ]
+}

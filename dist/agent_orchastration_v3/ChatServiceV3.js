@@ -10,16 +10,18 @@
  *   Set PIPELINE_VERSION=v3 in your .env / Railway environment variables.
  *   The DI container reads this flag and wires the correct service automatically.
  */
-import { OpenAIClient } from "../agent_orchastration/llm/openAIClient.js";
+import { OpenAIClient } from "./llm/openAIClient.js";
 import { V3LlmClient } from "./llm/v3LlmClient.js";
 import { PipelineV3 } from "./PipelineV3.js";
+import { TreasuryAnalysisService } from "./services/treasury.analysis.service.js";
 export class ChatServiceV3 {
     pipeline;
-    constructor({ apiKey, vectorQueryService, chatRepo, sessionRepo, db, }) {
+    constructor({ apiKey, vectorQueryService, chatRepo, sessionRepo, structuredFinanceRepo, db, }) {
         const v3LlmClient = new V3LlmClient(apiKey);
         // OpenAIClient is only used by FinancialLoader's tertiary vector-DB fallback path
         const baseLlmClient = new OpenAIClient({ apiKey });
-        this.pipeline = new PipelineV3(v3LlmClient, baseLlmClient, vectorQueryService, chatRepo, sessionRepo, db);
+        const treasuryAnalysisService = new TreasuryAnalysisService(structuredFinanceRepo);
+        this.pipeline = new PipelineV3(v3LlmClient, baseLlmClient, vectorQueryService, treasuryAnalysisService, chatRepo, sessionRepo, db);
         console.log("✅ ChatServiceV3 (agentic tool-calling pipeline) initialised");
     }
     /**

@@ -13,6 +13,7 @@ export const FinancialGraphState = Annotation.Root({
     userId: (Annotation),
     sessionId: (Annotation),
     userMessage: (Annotation),
+    knownFacts: (Annotation),
     // ── Conversation history (loaded before graph, passed in) ───────────────────
     conversationHistory: (Annotation),
     // ── User profile (loaded by loadProfileNode) ────────────────────────────────
@@ -25,6 +26,8 @@ export const FinancialGraphState = Annotation.Root({
     newsInfo: (Annotation),
     // ── Affordability analysis (set by affordabilityNode) ──────────────────────
     affordabilityInfo: (Annotation),
+    // ── Treasury analysis (optional, set before graph invoke) ───────────────────
+    treasuryAnalysis: (Annotation),
     // ── Final response (set by synthesisNode) ───────────────────────────────────
     finalResponse: (Annotation),
 });

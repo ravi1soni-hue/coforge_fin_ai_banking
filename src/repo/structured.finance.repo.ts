@@ -72,6 +72,7 @@ export interface FinancialSummaryMonthlyDTO {
   totalInvestments: number | null;
   netCashflow: number | null;
   currency: string;
+  metadata?: unknown;
 }
 
 export interface LoanAccountDTO {
@@ -208,9 +209,18 @@ export class StructuredFinancialRepository {
   async getMonthlySummary(userId: string, month: string): Promise<FinancialSummaryMonthlyDTO | undefined> {
     return this.db
       .selectFrom("financial_summary_monthly")
-      .select(["month", "total_income", "total_expenses", "total_savings", "total_investments", "net_cashflow", "currency"])
+      .select(["month", "total_income", "total_expenses", "total_savings", "total_investments", "net_cashflow", "currency", "metadata"])
       .where("user_id", "=", userId)
       .where("month", "=", month)
+      .executeTakeFirst() as unknown as FinancialSummaryMonthlyDTO | undefined;
+  }
+
+  async getLatestMonthlySummary(userId: string): Promise<FinancialSummaryMonthlyDTO | undefined> {
+    return this.db
+      .selectFrom("financial_summary_monthly")
+      .select(["month", "total_income", "total_expenses", "total_savings", "total_investments", "net_cashflow", "currency", "metadata"])
+      .where("user_id", "=", userId)
+      .orderBy("month", "desc")
       .executeTakeFirst() as unknown as FinancialSummaryMonthlyDTO | undefined;
   }
 

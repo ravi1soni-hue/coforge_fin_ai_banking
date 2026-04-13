@@ -23,6 +23,7 @@ import type { V3LlmClient }        from "../llm/v3LlmClient.js";
 import type { SessionRepository }  from "../../repo/session.repo.js";
 import type { VectorQueryService } from "../services/vector.query.service.js";
 import type { LlmClient }          from "../llm/llmClient.js";
+import type { TreasuryAnalysisService } from "../services/treasury.analysis.service.js";
 import { UserProfile } from "../types.js";
 
 // ─── Dependency injection ─────────────────────────────────────────────────────
@@ -31,6 +32,7 @@ export interface GraphDeps {
   v3LlmClient:   V3LlmClient;
   baseLlmClient: LlmClient;          // used by FinancialLoader's vector-DB fallback
   vectorQuery:   VectorQueryService;
+  treasuryAnalysisService: TreasuryAnalysisService;
   sessionRepo:   SessionRepository;
   db?:           Kysely<unknown>;
 }
@@ -43,7 +45,7 @@ export type CompiledFinancialGraph = CompiledStateGraph<FinancialState, Partial<
 function makeLoadProfileNode(loader: FinancialLoader) {
   return async function loadProfileNode(state: FinancialState): Promise<Partial<FinancialState>> {
     console.log("[loadProfile] userId=" + state.userId);
-    const profile = await loader.loadProfile(state.userId, {});
+    const profile = await loader.loadProfile(state.userId, state.knownFacts ?? {});
     console.log("[loadProfile] name=" + (profile.userName ?? "unknown") + " savings=" + profile.availableSavings + " " + profile.homeCurrency);
     return { userProfile: profile as UserProfile };
   };
@@ -146,19 +148,28 @@ export function createFinancialGraph(deps: GraphDeps) {
 
 export async function runGraphTurn(
   graph: CompiledFinancialGraph,
-  input: { userId: string; sessionId: string; userMessage: string; conversationHistory?: ConversationTurn[] },
+  input: {
+    userId: string;
+    sessionId: string;
+    userMessage: string;
+    conversationHistory?: ConversationTurn[];
+    knownFacts?: Record<string, unknown>;
+    treasuryAnalysis?: FinancialState["treasuryAnalysis"];
+  },
 ): Promise<string> {
   const result = await graph.invoke({
     userId:              input.userId,
     sessionId:           input.sessionId,
     userMessage:         input.userMessage,
     conversationHistory: input.conversationHistory ?? [],
+    knownFacts:          input.knownFacts ?? {},
     userProfile:         null,
     plan:                null,
     priceInfo:           null,
     fxInfo:              null,
     newsInfo:            null,
     affordabilityInfo:   null,
+    treasuryAnalysis:    input.treasuryAnalysis ?? null,
     finalResponse:       null,
   } as FinancialState);
 

@@ -61,6 +61,12 @@ Conversation rules:
 - Keep it under 180 words unless more detail is clearly needed.
 - Don't say "I don't have that information".
 - Ask at most one follow‑up question, only if it genuinely helps — do NOT ask a question if the user has already stated their intent clearly.
+
+Treasury payment-run rules:
+- If TREASURY ANALYSIS is present, anchor your answer on those numbers and use them explicitly.
+- If riskLevel is CAUTION or HIGH_RISK, suggest a two-batch release using the suggested amounts.
+- If the user asks to execute/schedule, do not claim execution is complete unless EXECUTION_STATUS is explicitly provided in financial data.
+- Prefer wording like "I can prepare this plan" or "ready to submit" when execution status is not provided.
 `;
 
 function buildDataContext(state: FinancialState): string {
@@ -177,6 +183,24 @@ function buildDataContext(state: FinancialState): string {
         )} ${homeCurrency} per month`
       );
     }
+  }
+
+  // --- Treasury payment-run analysis ---
+  if (state.treasuryAnalysis) {
+    const t = state.treasuryAnalysis;
+    parts.push(
+      `TREASURY ANALYSIS:`,
+      `- Available liquidity: ${t.availableLiquidity.toLocaleString("en-GB")} ${t.currency}`,
+      `- Weekly outflow baseline: ${t.weeklyOutflow.toLocaleString("en-GB")} ${t.currency}`,
+      `- Expected midweek inflow: ${t.expectedMidweekInflow.toLocaleString("en-GB")} ${t.currency}`,
+      `- Late inflow events (last 4 weeks): ${t.lateInflowEventsLast4Weeks}`,
+      `- Comfort threshold: ${t.comfortThreshold.toLocaleString("en-GB")} ${t.currency}`,
+      `- Proposed payment: ${t.paymentAmount.toLocaleString("en-GB")} ${t.currency}`,
+      `- Projected low balance: ${t.projectedLowBalance.toLocaleString("en-GB")} ${t.currency}`,
+      `- Risk level: ${t.riskLevel}`,
+      `- Suggested split now/later: ${t.suggestedNowAmount.toLocaleString("en-GB")} / ${t.suggestedLaterAmount.toLocaleString("en-GB")} ${t.currency}`,
+      `- Analysis rationale: ${t.rationale}`,
+    );
   }
 
   return parts.join("\n");

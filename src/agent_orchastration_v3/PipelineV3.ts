@@ -16,6 +16,7 @@ import type { ChatRepository }    from "../repo/chat.repo.js";
 import type { SessionRepository } from "../repo/session.repo.js";
 import type { VectorQueryService } from "./services/vector.query.service.js";
 import type { LlmClient }         from "./llm/llmClient.js";
+import type { TreasuryAnalysisService } from "./services/treasury.analysis.service.js";
 
 import { V3LlmClient } from "./llm/v3LlmClient.js";
 import type { ChatRequestV3, ChatResponseV3 } from "./types.js";
@@ -24,21 +25,27 @@ import { CompiledFinancialGraph, createFinancialGraph, runGraphTurn } from "./gr
 export class PipelineV3 {
   private readonly graph: CompiledFinancialGraph;
   private readonly chatRepo: ChatRepository;
+  private readonly sessionRepo: SessionRepository;
+  private readonly treasuryAnalysisService: TreasuryAnalysisService;
 
   constructor(
     llmClient: V3LlmClient,
     /** Used by FinancialLoader's vector-DB fallback path only */
     baseLlmClient: LlmClient,
     vectorQuery: VectorQueryService,
+    treasuryAnalysisService: TreasuryAnalysisService,
     chatRepo: ChatRepository,
     sessionRepo: SessionRepository,
     db?: Kysely<unknown>,
   ) {
     this.chatRepo = chatRepo;
+    this.sessionRepo = sessionRepo;
+    this.treasuryAnalysisService = treasuryAnalysisService;
     this.graph = createFinancialGraph({
       v3LlmClient:   llmClient,
       baseLlmClient,
       vectorQuery,
+      treasuryAnalysisService,
       sessionRepo,
       db,
     });
@@ -51,11 +58,26 @@ export class PipelineV3 {
     // Load last 6 messages (3 turns) so agents have follow-up context
     const history = await this.chatRepo.getHistory(req.userId, sessionId, 6);
 
+    const sessionFacts = await this.sessionRepo.getKnownFacts(req.userId, sessionId);
+    const mergedKnownFacts = {
+      ...sessionFacts,
+      ...(req.knownFacts ?? {}),
+    };
+    await this.sessionRepo.setKnownFacts(req.userId, sessionId, mergedKnownFacts);
+
+    const treasuryAnalysis = await this.treasuryAnalysisService.analyze(
+      req.userId,
+      req.message,
+      mergedKnownFacts,
+    );
+
     const answer = await runGraphTurn(this.graph, {
       userId:              req.userId,
       sessionId,
       userMessage:         req.message,
       conversationHistory: history,
+      knownFacts:          mergedKnownFacts,
+      treasuryAnalysis,
     });
 
     // Persist this turn so the next message has context
