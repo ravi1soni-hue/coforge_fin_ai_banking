@@ -33,7 +33,7 @@ async function start() {
     });
 
     // 🔄 Run bootstrap in background - non-blocking
-    //bootstrapAndSync();
+    bootstrapAndSync();
   } catch (err) {
     console.error("❌ Server startup failed");
     console.error(err);
