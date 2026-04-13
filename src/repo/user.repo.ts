@@ -33,16 +33,23 @@ export class UserRepository {
     const normalized = identity.trim();
     if (!normalized) return undefined;
 
-    return this.db
-      .selectFrom("users")
-      .selectAll()
-      .where((eb) =>
-        eb.or([
-          eb("id", "=", normalized),
-          eb("external_user_id", "=", normalized),
-        ])
-      )
-      .executeTakeFirst();
+    // Simple UUID v4 regex (accepts with/without dashes)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(normalized)) {
+      // Looks like a UUID, search by id
+      return this.db
+        .selectFrom("users")
+        .selectAll()
+        .where("id", "=", normalized)
+        .executeTakeFirst();
+    } else {
+      // Otherwise, search by external_user_id
+      return this.db
+        .selectFrom("users")
+        .selectAll()
+        .where("external_user_id", "=", normalized)
+        .executeTakeFirst();
+    }
   }
 
   async create(user: NewUser): Promise<User> {
