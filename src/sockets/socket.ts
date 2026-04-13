@@ -236,6 +236,19 @@ export const initWebSocket = (server: any): void => {
           : undefined;
       const requestedUserIdentity = queryUserId?.trim() || headerUserId?.trim();
 
+      // Log the actual database URL being used (mask password for security)
+      const dbUrl = process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/(\w+):([^@]+)@/, '$1:****@') : 'undefined';
+      console.log("[SOCKET][DEBUG] Using DATABASE_URL:", dbUrl);
+
+      // Query and log all users in the table for debugging
+      let allUsers = [];
+      try {
+        allUsers = await require("../db.js").db.selectFrom("users").selectAll().execute();
+        console.log("[SOCKET][DEBUG] All users in DB:", allUsers.map((u: { id: any; external_user_id: any; status: any; }) => ({ id: u.id, external_user_id: u.external_user_id, status: u.status })));
+      } catch (err) {
+        console.error("[SOCKET][DEBUG] Error querying all users:", err);
+      }
+
       console.log("[SOCKET][CONNECT] Incoming connection", {
         url: req.url,
         queryUserId,
@@ -249,6 +262,12 @@ export const initWebSocket = (server: any): void => {
           url: req.url,
           headers: req.headers,
         });
+        ws.send(JSON.stringify({
+          type: "ERROR",
+          reason: "Missing userId",
+          dbUrl,
+          allUsers: allUsers.map((u: { id: any; external_user_id: any; status: any; }) => ({ id: u.id, external_user_id: u.external_user_id, status: u.status })),
+        }));
         ws.close(1008, "Missing userId");
         return;
       }
@@ -267,11 +286,27 @@ export const initWebSocket = (server: any): void => {
           requestedUserIdentity,
           error: err,
         });
+        ws.send(JSON.stringify({
+          type: "ERROR",
+          reason: "DB lookup error",
+          error: (err && typeof err === "object" && "message" in err) ? (err as any).message : String(err),
+          dbUrl,
+          allUsers: allUsers.map((u: { id: any; external_user_id: any; status: any; }) => ({ id: u.id, external_user_id: u.external_user_id, status: u.status })),
+        }));
+        ws.close(1011, "DB lookup error");
+        return;
       }
       if (!resolvedUser) {
         console.error("[SOCKET][CONNECT] Unknown userId. Closing connection.", {
           requestedUserIdentity,
         });
+        ws.send(JSON.stringify({
+          type: "ERROR",
+          reason: "Unknown userId",
+          requestedUserIdentity,
+          dbUrl,
+          allUsers: allUsers.map((u: { id: any; external_user_id: any; status: any; }) => ({ id: u.id, external_user_id: u.external_user_id, status: u.status })),
+        }));
         ws.close(1008, "Unknown userId");
         return;
       }
