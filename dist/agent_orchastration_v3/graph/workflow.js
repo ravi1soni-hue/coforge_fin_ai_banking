@@ -27,12 +27,15 @@ function makeLoadProfileNode(loader) {
 function makeSupervisorNode(llmClient) {
     return async function supervisorNode(state) {
         console.log("[supervisor] Analysing query: " + state.userMessage.slice(0, 80));
+        console.log("[supervisor] Conversation history:", JSON.stringify(state.conversationHistory, null, 2));
         // Run intent classification first
         const intentResult = await financeDecisionAgent(state.userMessage, {
             userProfile: state.userProfile,
             conversationHistory: state.conversationHistory ?? []
         });
+        console.log("[supervisor] Intent classification result:", intentResult);
         const plan = await runSupervisorAgent(llmClient, state.userMessage, state.userProfile, state.conversationHistory ?? []);
+        console.log("[supervisor] LLM plan:", JSON.stringify(plan, null, 2));
         return { plan, intentType: intentResult.type };
     };
 }

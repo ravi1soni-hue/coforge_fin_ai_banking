@@ -57,6 +57,7 @@ export class PipelineV3 {
 
     // Load last 6 messages (3 turns) so agents have follow-up context
     const history = await this.chatRepo.getHistory(req.userId, sessionId, 6);
+    console.log("[PipelineV3] Loaded conversation history:", JSON.stringify(history, null, 2));
 
     const sessionFacts = await this.sessionRepo.getKnownFacts(req.userId, sessionId);
     const mergedKnownFacts = {
