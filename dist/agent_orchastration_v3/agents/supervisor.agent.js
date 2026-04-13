@@ -164,6 +164,48 @@ export async function runSupervisorAgent(llmClient, userMessage, userProfile, co
     if (!parsed || typeof parsed !== "object") {
         return { ...DEFAULT_PLAN, userHomeCurrency: homeCurrency };
     }
+    // --- Intent type detection for product override ---
+    // If the query is corporate/treasury, do NOT inherit product from history or LLM hallucination.
+    // Instead, set a clear product label for treasury flows.
+    let intentType = undefined;
+    // Try to infer from parsed or fallback to unknown
+    if (typeof parsed.intentType === "string") {
+        intentType = parsed.intentType;
+    }
+    // If intentType is not present, try to classify from message (fallback)
+    if (!intentType) {
+        const q = userMessage.toLowerCase();
+        if (q.includes('supplier payment') || q.includes('treasury') || q.includes('payment run') || q.includes('release') || q.includes('corporate')) {
+            intentType = 'corporate_treasury';
+        }
+        else if (q.includes('salary') || q.includes('personal') || q.includes('spending') || q.includes('savings') || q.includes('retail')) {
+            intentType = 'retail_personal';
+        }
+        else {
+            intentType = 'unknown';
+        }
+    }
+    let product = parsed.product || undefined;
+    // Override product for treasury/corporate queries
+    if (intentType === 'corporate_treasury') {
+        // Try to extract a subject from the message, fallback to generic
+        if (/supplier payment|payment run|release/i.test(userMessage)) {
+            product = 'supplier payment run';
+        }
+        else if (/payroll/i.test(userMessage)) {
+            product = 'payroll run';
+        }
+        else {
+            product = 'corporate treasury action';
+        }
+    }
+    else {
+        // For retail/other, use trip inference as before
+        const inferredTrip = inferTripProductFromUserHistory(userMessage, conversationHistory);
+        if (inferredTrip) {
+            product = inferredTrip;
+        }
+    }
     const plan = {
         needsWebSearch: Boolean(parsed.needsWebSearch),
         needsFxConversion: Boolean(parsed.needsFxConversion),
@@ -171,7 +213,7 @@ export async function runSupervisorAgent(llmClient, userMessage, userProfile, co
         needsAffordability: Boolean(parsed.needsAffordability),
         needsEmi: Boolean(parsed.needsEmi),
         conversationalOnly: Boolean(parsed.conversationalOnly),
-        product: parsed.product || undefined,
+        product,
         searchQuery: parsed.searchQuery || undefined,
         priceCurrency: parsed.priceCurrency || undefined,
         targetCurrency: parsed.targetCurrency || undefined,
@@ -191,17 +233,6 @@ export async function runSupervisorAgent(llmClient, userMessage, userProfile, co
                 plan.userStatedPrice = prevPrice;
             }
         }
-    }
-    const inferredTrip = inferTripProductFromUserHistory(userMessage, conversationHistory);
-    // If ANY user turn in history mentioned a trip/travel, ALWAYS lock product to that trip.
-    // This prevents stale assistant "iPhone" hallucinations in history from contaminating later turns.
-    if (inferredTrip) {
-        plan.product = inferredTrip;
-        // Travel/trip costs are not googleable as a shopping price — Serper returns travel
-        // articles with no extractable price. Always skip web search for trips; if no price
-        // is stated yet, synthesis will ask the user for the cost directly.
-        plan.needsWebSearch = false;
-        plan.searchQuery = undefined;
     }
     // Safety guard: if user stated a price, never search (prevents hallucinating products)
     if ((plan.userStatedPrice ?? 0) > 0) {
