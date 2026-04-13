@@ -79,6 +79,7 @@ Treasury payment-run rules:
 
 function buildDataContext(state: FinancialState): string {
   const parts: string[] = [];
+  const isTreasuryFlow = Boolean(state.treasuryAnalysis);
   const homeCurrency =
     state.userProfile?.homeCurrency ??
     state.plan?.userHomeCurrency ??
@@ -90,7 +91,7 @@ function buildDataContext(state: FinancialState): string {
   ).length;
 
   // --- User financial profile ---
-  if (state.userProfile) {
+  if (state.userProfile && !isTreasuryFlow) {
     const up = state.userProfile;
 
     parts.push(
@@ -165,7 +166,7 @@ function buildDataContext(state: FinancialState): string {
   }
 
   // --- Affordability ---
-  if (state.affordabilityInfo) {
+  if (state.affordabilityInfo && !isTreasuryFlow) {
     const af = state.affordabilityInfo;
     parts.push(
       `AFFORDABILITY NOTES:`,
