@@ -24,8 +24,10 @@ CLIENT CONTEXT:
 
 Analyze the user's current message AND the conversation history, then decide what work the downstream agents need to do.
 
-Return ONLY a JSON object — no explanation, no markdown:
+
+Return ONLY a JSON object — no explanation, no markdown. The object MUST include:
 {
+  "intentType": "retail_personal" | "corporate_treasury" | "unknown", // REQUIRED: classify the user's intent for this message
   "needsWebSearch": <true|false>,
   "needsFxConversion": <true|false>,
   "needsNews": <true|false>,
@@ -86,6 +88,7 @@ IMPORTANT: Follow-ups like "spread it over 6 months", "run the numbers", "what a
 If this is a greeting or general question with NO product or financial intent, set all booleans to false and userStatedPrice=0.`;
 
 const DEFAULT_PLAN: AgentPlan = {
+  intentType: "unknown",
   needsWebSearch: false,
   needsFxConversion: false,
   needsNews: false,
@@ -185,45 +188,23 @@ export async function runSupervisorAgent(
     return { ...DEFAULT_PLAN, userHomeCurrency: homeCurrency };
   }
 
-  // --- Intent type detection for product override ---
-  // If the query is corporate/treasury, do NOT inherit product from history or LLM hallucination.
-  // Instead, set a clear product label for treasury flows.
-  let intentType: string | undefined = undefined;
-  // Try to infer from parsed or fallback to unknown
-  if (typeof parsed.intentType === "string") {
-    intentType = parsed.intentType;
-  }
+  // --- LLM-based intent and product extraction only ---
+  // Always use LLM for intent and product, never regex or keyword fallback.
+  // If LLM does not return intentType or product, treat as unknown/new topic.
+  let intentType: string | undefined = typeof parsed.intentType === "string" ? parsed.intentType : undefined;
+  let product: string | undefined = typeof parsed.product === "string" ? parsed.product : undefined;
 
-  // If intentType is not present, try to classify from message (fallback)
-  if (!intentType) {
-    const q = userMessage.toLowerCase();
-    if (q.includes('supplier payment') || q.includes('treasury') || q.includes('payment run') || q.includes('release') || q.includes('corporate')) {
-      intentType = 'corporate_treasury';
-    } else if (q.includes('salary') || q.includes('personal') || q.includes('spending') || q.includes('savings') || q.includes('retail')) {
-      intentType = 'retail_personal';
-    } else {
-      intentType = 'unknown';
-    }
-  }
-
-  let product: string | undefined = (parsed.product as string) || undefined;
-
-  // Override product for treasury/corporate queries
-  if (intentType === 'corporate_treasury') {
-    // Try to extract a subject from the message, fallback to generic
-    if (/supplier payment|payment run|release/i.test(userMessage)) {
-      product = 'supplier payment run';
-    } else if (/payroll/i.test(userMessage)) {
-      product = 'payroll run';
-    } else {
-      product = 'corporate treasury action';
-    }
-  } else {
-    // For retail/other, use trip inference as before
+  // If LLM did not return a product, try to infer from context (e.g., trip) for retail only
+  if (!product && intentType !== 'corporate_treasury') {
     const inferredTrip = inferTripProductFromUserHistory(userMessage, conversationHistory);
     if (inferredTrip) {
       product = inferredTrip;
     }
+  }
+
+  // If LLM did not return intentType, treat as unknown
+  if (!intentType) {
+    intentType = 'unknown';
   }
 
   const plan: AgentPlan = {
@@ -239,6 +220,7 @@ export async function runSupervisorAgent(
     targetCurrency:     (parsed.targetCurrency as string) || undefined,
     userHomeCurrency:   (parsed.userHomeCurrency as string) || homeCurrency,
     userStatedPrice:    Number(parsed.userStatedPrice)    || 0,
+    intentType: intentType as "retail_personal" | "corporate_treasury" | "unknown"
   };
 
   // Deterministic price fallback (GBP/£) from current or immediately previous user turn.

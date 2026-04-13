@@ -14,7 +14,6 @@ import type { Kysely } from "kysely";
 
 import { FinancialGraphState, type FinancialState, type ConversationTurn } from "./state.js";
 import { runSupervisorAgent }    from "../agents/supervisor.agent.js";
-import { financeDecisionAgent }  from "../finance-decision-agent.js";
 import { runResearchAgent }      from "../agents/research.agent.js";
 import { runAffordabilityAgent } from "../agents/affordability.agent.js";
 import { runSynthesisAgent }     from "../agents/synthesis.agent.js";
@@ -56,12 +55,7 @@ function makeSupervisorNode(llmClient: V3LlmClient) {
   return async function supervisorNode(state: FinancialState): Promise<Partial<FinancialState>> {
     console.log("[supervisor] Analysing query: " + state.userMessage.slice(0, 80));
     console.log("[supervisor] Conversation history:", JSON.stringify(state.conversationHistory, null, 2));
-    // Run intent classification first
-    const intentResult = await financeDecisionAgent(state.userMessage, {
-      userProfile: state.userProfile,
-      conversationHistory: state.conversationHistory ?? []
-    });
-    console.log("[supervisor] Intent classification result:", intentResult);
+    // LLM is the only source of intent and plan extraction
     const plan = await runSupervisorAgent(
       llmClient,
       state.userMessage,
@@ -69,7 +63,7 @@ function makeSupervisorNode(llmClient: V3LlmClient) {
       state.conversationHistory ?? [],
     );
     console.log("[supervisor] LLM plan:", JSON.stringify(plan, null, 2));
-    return { plan, intentType: intentResult.type };
+    return { plan, intentType: plan.intentType };
   };
 }
 
