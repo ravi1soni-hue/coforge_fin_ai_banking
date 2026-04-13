@@ -30,7 +30,9 @@ let alreadyBootstrapped = false;
 let lastBootstrapSignature: string | undefined;
 
 export const bootstrapBankingUserVectors = async (): Promise<void> => {
-  const filePath = path.resolve(process.cwd(), "banking_user_data.json");
+
+  // Use unified seed file
+  const filePath = path.resolve(process.cwd(), "seed/unified_fin_user_seed.json");
   const rawData = await readFile(filePath, "utf8");
   const signature = crypto
     .createHash("sha256")
@@ -41,7 +43,23 @@ export const bootstrapBankingUserVectors = async (): Promise<void> => {
     return;
   }
 
-  const parsed = parseJsonWithComments(rawData) as BankingUserData;
+  // Parse unified seed and map to expected structure
+  const unifiedSeed = JSON.parse(rawData);
+  const user = unifiedSeed.user || {};
+  const parsed: BankingUserData = {
+    userProfile: {
+      userId: user.external_user_id || user.id || "unknown_user",
+      name: user.full_name,
+      currency: user.base_currency,
+      employment: user.metadata?.employment || {},
+    },
+    accounts: unifiedSeed.accounts,
+    loans: unifiedSeed.loans,
+    subscriptions: unifiedSeed.subscriptions,
+    investments: unifiedSeed.investments,
+    transactions: unifiedSeed.transactions,
+    savingsGoals: unifiedSeed.savingsGoals,
+  };
 
   const externalUserId = parsed.userProfile?.userId ?? "unknown_user";
 
@@ -63,7 +81,7 @@ export const bootstrapBankingUserVectors = async (): Promise<void> => {
 
   for (const doc of docs) {
     await processString(doc.text, {
-      source: "banking_user_data.json",
+      source: "unified_fin_user_seed.json",
       sourceType: "banking_profile",
       userId,
       section: doc.section,
