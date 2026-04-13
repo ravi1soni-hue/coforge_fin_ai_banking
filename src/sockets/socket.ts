@@ -296,7 +296,7 @@ export const initWebSocket = (server: any): void => {
         }
       }
 
-      let linkedRetailUser;
+      let linkedRetailUser: User | undefined;
       if (activeUser.external_user_id === CANONICAL_EXTERNAL_USER_ID) {
         try {
           linkedRetailUser = await userRepo.findByExternalId(LINKED_RETAIL_EXTERNAL_USER_ID);
