@@ -170,14 +170,86 @@ export const initWebSocket = (server) => {
             ? req.headers["x-user-id"]
             : undefined;
         const requestedUserIdentity = queryUserId?.trim() || headerUserId?.trim();
+        // Log the actual database URL being used (mask password for security)
+        const dbUrl = process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/(\w+):([^@]+)@/, '$1:****@') : 'undefined';
+        console.log("[SOCKET][DEBUG] Using DATABASE_URL:", dbUrl);
+        // Query and log all users in the table for debugging
+        let allUsers = [];
+        try {
+            allUsers = await require("../db.js").db.selectFrom("users").selectAll().execute();
+            console.log("[SOCKET][DEBUG] All users in DB:", allUsers.map((u) => ({ id: u.id, external_user_id: u.external_user_id, status: u.status })));
+        }
+        catch (err) {
+            console.error("[SOCKET][DEBUG] Error querying all users:", err);
+        }
+        console.log("[SOCKET][CONNECT] Incoming connection", {
+            url: req.url,
+            queryUserId,
+            headerUserId,
+            requestedUserIdentity,
+            headers: req.headers,
+        });
         if (!requestedUserIdentity) {
+            console.error("[SOCKET][CONNECT] Missing userId. Closing connection.", {
+                url: req.url,
+                headers: req.headers,
+            });
+            const errorPayload = {
+                code: "1008",
+                message: "Missing userId",
+                retriable: false,
+                dbUrl,
+                allUsers: allUsers.map((u) => ({ id: u.id, external_user_id: u.external_user_id, status: u.status })),
+                requestedUserIdentity: null
+            };
+            console.log("[SOCKET][SEND][ERROR_PAYLOAD]", errorPayload);
+            ws.send(JSON.stringify(errorPayload));
             ws.close(1008, "Missing userId");
             return;
         }
         // Single source of truth for identity: always resolve to canonical users.id,
         // whether client passes internal UUID or external_user_id.
-        const resolvedUser = await userRepo.findByIdentity(requestedUserIdentity).catch(() => undefined);
+        let resolvedUser;
+        try {
+            resolvedUser = await userRepo.findByIdentity(requestedUserIdentity);
+            console.log("[SOCKET][CONNECT] userRepo.findByIdentity result", {
+                requestedUserIdentity,
+                resolvedUser,
+            });
+        }
+        catch (err) {
+            console.error("[SOCKET][CONNECT] Error in userRepo.findByIdentity", {
+                requestedUserIdentity,
+                error: err,
+            });
+            const errorPayload = {
+                code: "1011",
+                message: "DB lookup error",
+                retriable: false,
+                error: (err && typeof err === "object" && "message" in err) ? err.message : String(err),
+                dbUrl,
+                allUsers: allUsers.map((u) => ({ id: u.id, external_user_id: u.external_user_id, status: u.status })),
+                requestedUserIdentity
+            };
+            console.log("[SOCKET][SEND][ERROR_PAYLOAD]", errorPayload);
+            ws.send(JSON.stringify(errorPayload));
+            ws.close(1011, "DB lookup error");
+            return;
+        }
         if (!resolvedUser) {
+            console.error("[SOCKET][CONNECT] Unknown userId. Closing connection.", {
+                requestedUserIdentity,
+            });
+            const errorPayload = {
+                code: "1008",
+                message: "Unknown userId",
+                retriable: true,
+                requestedUserIdentity,
+                dbUrl,
+                allUsers: allUsers.map((u) => ({ id: u.id, external_user_id: u.external_user_id, status: u.status })),
+            };
+            console.log("[SOCKET][SEND][ERROR_PAYLOAD]", errorPayload);
+            ws.send(JSON.stringify(errorPayload));
             ws.close(1008, "Unknown userId");
             return;
         }
@@ -185,14 +257,36 @@ export const initWebSocket = (server) => {
         // route the session through the canonical corporate identity.
         let activeUser = resolvedUser;
         if (resolvedUser.external_user_id === LINKED_RETAIL_EXTERNAL_USER_ID) {
-            const canonicalUser = await userRepo.findByExternalId(CANONICAL_EXTERNAL_USER_ID).catch(() => undefined);
-            if (canonicalUser) {
-                activeUser = canonicalUser;
+            try {
+                const canonicalUser = await userRepo.findByExternalId(CANONICAL_EXTERNAL_USER_ID);
+                console.log("[SOCKET][CONNECT] Swapping to canonical corporate user", {
+                    originalUser: resolvedUser,
+                    canonicalUser,
+                });
+                if (canonicalUser) {
+                    activeUser = canonicalUser;
+                }
+            }
+            catch (err) {
+                console.error("[SOCKET][CONNECT] Error in userRepo.findByExternalId (canonical)", {
+                    error: err,
+                });
             }
         }
-        const linkedRetailUser = activeUser.external_user_id === CANONICAL_EXTERNAL_USER_ID
-            ? await userRepo.findByExternalId(LINKED_RETAIL_EXTERNAL_USER_ID).catch(() => undefined)
-            : undefined;
+        let linkedRetailUser;
+        if (activeUser.external_user_id === CANONICAL_EXTERNAL_USER_ID) {
+            try {
+                linkedRetailUser = await userRepo.findByExternalId(LINKED_RETAIL_EXTERNAL_USER_ID);
+                console.log("[SOCKET][CONNECT] Found linked retail user", {
+                    linkedRetailUser,
+                });
+            }
+            catch (err) {
+                console.error("[SOCKET][CONNECT] Error in userRepo.findByExternalId (linked retail)", {
+                    error: err,
+                });
+            }
+        }
         const userId = activeUser.id;
         ws.userId = userId;
         ws.isAlive = true;
@@ -205,6 +299,12 @@ export const initWebSocket = (server) => {
         if (!userConnections.has(userId)) {
             userConnections.set(userId, new Set());
         }
+        console.log("[SOCKET][CONNECT] Connection established", {
+            userId,
+            activeUser,
+            linkedRetailUser,
+            totalClients: wss.clients.size,
+        });
         userConnections.get(userId).add(ws);
         console.log(`✅ User connected: ${userId} (requested=${requestedUserIdentity}, external=${activeUser.external_user_id}, total=${wss.clients.size})`);
         // ✅ Proactively send diagnostic so Flutter preflight health check passes

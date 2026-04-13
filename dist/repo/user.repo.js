@@ -33,9 +33,19 @@ export class UserRepository {
             .executeTakeFirst();
     }
     async create(user) {
+        // Ensure only valid fields for NewUser are passed
+        const validUser = {
+            external_user_id: user.external_user_id,
+            full_name: user.full_name ?? null,
+            country_code: user.country_code ?? null,
+            base_currency: user.base_currency ?? null,
+            timezone: user.timezone ?? null,
+            status: user.status,
+            metadata: user.metadata,
+        };
         return this.db
             .insertInto("users")
-            .values(user)
+            .values(validUser)
             .returningAll()
             .executeTakeFirstOrThrow();
     }
