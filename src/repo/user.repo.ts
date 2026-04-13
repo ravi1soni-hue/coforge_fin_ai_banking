@@ -1,5 +1,5 @@
 import { Kysely, sql, Insertable, Selectable, Updateable } from "kysely";
-import { UserStatus, UserStatusType, UsersTable } from "../db/schema/user.js";
+import { UserStatus, UserStatusType, UsersTable } from "../db/schema/user";
 import { Database } from "../db/schema/index.js";
 
 export type User = Selectable<UsersTable>;
