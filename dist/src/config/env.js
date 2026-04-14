@@ -34,4 +34,5 @@ export const ENV = {
      */
     PIPELINE_VERSION: optionalEnv("PIPELINE_VERSION", "v3"),
     SERPER_API_KEY: optionalEnv("SERPER_API_KEY", "58955909affd1968515ddf0c7a4376c0ae63021a"),
+    RAILWAY_PUBLIC_URL: optionalEnv("RAILWAY_PUBLIC_URL", "coforgefinaibanking-testingv3.up.railway.app"),
 };

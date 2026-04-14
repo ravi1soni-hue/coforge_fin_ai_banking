@@ -243,7 +243,9 @@ export const initWebSocket = (server: any): void => {
       // Query and log all users in the table for debugging
       let allUsers = [];
       try {
-        allUsers = await require("../db.js").db.selectFrom("users").selectAll().execute();
+        // Use dynamic import for ESM compatibility
+        const dbModule = await import("../db.js");
+        allUsers = await dbModule.db.selectFrom("users").selectAll().execute();
         console.log("[SOCKET][DEBUG] All users in DB:", allUsers.map((u: { id: any; external_user_id: any; status: any; }) => ({ id: u.id, external_user_id: u.external_user_id, status: u.status })));
       } catch (err) {
         console.error("[SOCKET][DEBUG] Error querying all users:", err);

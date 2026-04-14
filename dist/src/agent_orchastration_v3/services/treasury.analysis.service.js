@@ -129,7 +129,9 @@ export class TreasuryAnalysisService {
             suggestedNowAmount: Math.round(suggestedNowAmount),
             suggestedLaterAmount: Math.round(suggestedLaterAmount),
             minInflowForMidweekRelease: Math.round(minInflowForMidweekRelease),
-            releaseConditionHitRate10Weeks: Number(releaseConditionHitRate10Weeks.toFixed(2)),
+            releaseConditionHitRate10Weeks: typeof releaseConditionHitRate10Weeks === 'number' && isFinite(releaseConditionHitRate10Weeks)
+                ? Number(releaseConditionHitRate10Weeks.toFixed(2))
+                : 0,
             currency,
             rationale,
         };
