@@ -80,20 +80,41 @@ function buildDataContext(state: FinancialState): string {
   // --- Treasury/corporate conversational context ---
   if (state.treasuryAnalysis) {
     const t = state.treasuryAnalysis;
-    // Compose a concise, conversational summary (≤120 words)
-    let summary = `You have £${t.availableLiquidity.toLocaleString("en-GB")} available and your comfort threshold is £${t.comfortThreshold.toLocaleString("en-GB")}. The £${t.paymentAmount.toLocaleString("en-GB")} supplier run is well within safe limits.`;
-    if (t.lateInflowEventsLast4Weeks > 0) {
-      summary += ` There have been some late inflows recently, but even if midweek receipts are delayed, your lowest balance stays above £${typeof t.projectedLowIfLateInflow === 'number' ? t.projectedLowIfLateInflow.toLocaleString("en-GB") : t.projectedLowBalance.toLocaleString("en-GB")}.`;
-    } else {
-      summary += ` Even if midweek inflows are late, your lowest balance would be about £${typeof t.projectedLowIfLateInflow === 'number' ? t.projectedLowIfLateInflow.toLocaleString("en-GB") : t.projectedLowBalance.toLocaleString("en-GB")}.`;
-    }
-    if (t.urgentSupplierTotal && t.deferableSupplierTotal) {
-      summary += ` If you want extra headroom, you could split: release £${t.urgentSupplierTotal.toLocaleString("en-GB")} now, defer £${t.deferableSupplierTotal.toLocaleString("en-GB")} until midweek.`;
-    }
-    summary += `
+    // Check last 2 assistant messages for repeated facts
+    const history = (state.conversationHistory ?? []).filter(m => m.role === "assistant").slice(-2).map(m => m.content.toLowerCase());
+    const alreadyMentioned = (str: string) => history.some(msg => msg.includes(str.toLowerCase()));
 
-Want to proceed with the full release, or set up a split for treasury approval?`;
+    let summaryParts: string[] = [];
+    // Only mention liquidity if not just stated
+    if (!alreadyMentioned(t.availableLiquidity.toLocaleString("en-GB"))) {
+      summaryParts.push(`You have £${t.availableLiquidity.toLocaleString("en-GB")} available.`);
+    }
+    // Only mention comfort threshold if not just stated
+    if (!alreadyMentioned(t.comfortThreshold.toLocaleString("en-GB"))) {
+      summaryParts.push(`Your comfort threshold is £${t.comfortThreshold.toLocaleString("en-GB")}.`);
+    }
+    // Only mention payment amount if not just stated
+    if (!alreadyMentioned(t.paymentAmount.toLocaleString("en-GB"))) {
+      summaryParts.push(`The £${t.paymentAmount.toLocaleString("en-GB")} supplier run is well within safe limits.`);
+    }
+    // Only mention inflow reliability if not just stated
+    if (t.lateInflowEventsLast4Weeks > 0) {
+      if (!alreadyMentioned("late inflows")) {
+        summaryParts.push(`There have been some late inflows recently, but even if midweek receipts are delayed, your lowest balance stays above £${typeof t.projectedLowIfLateInflow === 'number' ? t.projectedLowIfLateInflow.toLocaleString("en-GB") : t.projectedLowBalance.toLocaleString("en-GB")}.`);
+      }
+    } else {
+      if (!alreadyMentioned("midweek inflows")) {
+        summaryParts.push(`Even if midweek inflows are late, your lowest balance would be about £${typeof t.projectedLowIfLateInflow === 'number' ? t.projectedLowIfLateInflow.toLocaleString("en-GB") : t.projectedLowBalance.toLocaleString("en-GB")}.`);
+      }
+    }
+    // Only mention split option if not just stated
+    if (t.urgentSupplierTotal && t.deferableSupplierTotal && !alreadyMentioned("split")) {
+      summaryParts.push(`If you want extra headroom, you could split: release £${t.urgentSupplierTotal.toLocaleString("en-GB")} now, defer £${t.deferableSupplierTotal.toLocaleString("en-GB")} until midweek.`);
+    }
+    // Always end with an actionable next step
+    summaryParts.push(`Want to proceed with the full release, or set up a split for treasury approval?`);
     // Truncate to ~120 words
+    let summary = summaryParts.join(' ');
     const words = summary.split(/\s+/);
     if (words.length > 120) summary = words.slice(0, 120).join(' ') + '...';
     parts.push(summary);
