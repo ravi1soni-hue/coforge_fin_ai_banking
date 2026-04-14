@@ -57,19 +57,14 @@ Conversation rules:
 - Don't say "I don't have that information".
 - Ask at most one follow‑up question, only if it genuinely helps — do NOT ask a question if the user has already stated their intent clearly.
 
-Treasury payment-run rules:
-- If TREASURY ANALYSIS is present, anchor your answer on those numbers and use them explicitly.
-- If riskLevel is CAUTION or HIGH_RISK, suggest a two-batch release using the suggested amounts.
-- If the user asks to execute/schedule, do not claim execution is complete unless EXECUTION_STATUS is explicitly provided in financial data.
-- Prefer wording like "I can prepare this plan" or "ready to submit" when execution status is not provided.
-- For treasury flows, use this response shape:
-  1) "Current position" with liquidity, weekly outflow, payroll and inflow reliability context.
-  2) "Scenario" comparing full release vs split with projected low balances.
-  3) "Recommendation" with concrete now/later amounts and why.
-  4) "Next step" asking one concrete decision question OR confirming plan details.
-- If the user confirms a split plan, include an "Action plan" block with: today's batch, midweek conditional batch, trigger condition, and alert behaviour.
-- Mention explicitly that the analysis is based on bank-side transaction behaviour (cashflow + supplier + snapshot data).
+Treasury/corporate payment-run rules:
+- If TREASURY ANALYSIS is present, use the numbers as the basis for your answer, but explain them in plain, conversational language—just like you would for a retail user.
+- Avoid rigid sections or report-style formatting. Instead, weave the numbers into a natural, context-aware explanation.
+- If riskLevel is CAUTION or HIGH_RISK, suggest a two-batch release using the suggested amounts, but explain why in simple terms (e.g., "to be on the safe side, it might make sense to split the payment...").
+- If the user asks to execute or schedule, do not claim execution is complete unless EXECUTION_STATUS is explicitly provided in the financial data. Prefer phrases like "I can prepare this plan" or "ready to submit" if status is unclear.
+- Always mention that the analysis is based on real bank transaction behaviour (cashflow, supplier, and snapshot data), but do so conversationally (e.g., "This is based on how money has actually moved through your accounts recently...").
 - If EXECUTION_STATUS is not provided, never say "Done" or "Scheduled" as completed actions.
+- Keep the tone friendly, clear, and neutral—no bullet points or rigid blocks unless laying out options or a step-by-step plan is genuinely helpful.
 `;
 function buildDataContext(state) {
     const parts = [];
@@ -129,10 +124,25 @@ function buildDataContext(state) {
             parts.push(`EMI OPTIONS (${homeCurrency}):`, `- 3 months: ${Math.round(price / 3).toLocaleString("en-GB")} ${homeCurrency} per month`, `- 6 months: ${Math.round(price / 6).toLocaleString("en-GB")} ${homeCurrency} per month`, `- 12 months: ${Math.round(price / 12).toLocaleString("en-GB")} ${homeCurrency} per month`);
         }
     }
-    // --- Treasury payment-run analysis ---
+    // --- Treasury/corporate conversational context ---
     if (state.treasuryAnalysis) {
         const t = state.treasuryAnalysis;
-        parts.push(`TREASURY ANALYSIS:`, `- Available liquidity: ${t.availableLiquidity.toLocaleString("en-GB")} ${t.currency}`, `- Weekly outflow baseline: ${t.weeklyOutflow.toLocaleString("en-GB")} ${t.currency}`, `- Expected midweek inflow: ${t.expectedMidweekInflow.toLocaleString("en-GB")} ${t.currency}`, `- Late inflow events (last 4 weeks): ${t.lateInflowEventsLast4Weeks}`, `- Comfort threshold: ${t.comfortThreshold.toLocaleString("en-GB")} ${t.currency}`, `- Proposed payment: ${t.paymentAmount.toLocaleString("en-GB")} ${t.currency}`, `- Urgent supplier amount: ${t.urgentSupplierTotal.toLocaleString("en-GB")} ${t.currency}`, `- Deferable supplier amount: ${t.deferableSupplierTotal.toLocaleString("en-GB")} ${t.currency}`, `- Projected low balance: ${t.projectedLowBalance.toLocaleString("en-GB")} ${t.currency}`, `- Projected low (full release): ${t.projectedLowBalanceIfFullRelease.toLocaleString("en-GB")} ${t.currency}`, `- Projected low (split): ${t.projectedLowBalanceIfSplit.toLocaleString("en-GB")} ${t.currency}`, `- Risk level: ${t.riskLevel}`, `- Suggested split now/later: ${t.suggestedNowAmount.toLocaleString("en-GB")} / ${t.suggestedLaterAmount.toLocaleString("en-GB")} ${t.currency}`, `- Min inflow needed for midweek release: ${t.minInflowForMidweekRelease.toLocaleString("en-GB")} ${t.currency}`, `- Release-condition hit rate (10 weeks): ${(t.releaseConditionHitRate10Weeks * 100).toFixed(0)}%`, `- Analysis rationale: ${t.rationale}`);
+        // Conversational summary for treasury/corporate flows
+        let treasurySummary = `Here's where things stand for your upcoming payments. Right now, you have about ${t.availableLiquidity.toLocaleString("en-GB")} ${t.currency} available. On a typical week, you see about ${t.weeklyOutflow.toLocaleString("en-GB")} ${t.currency} going out, and you usually expect around ${t.expectedMidweekInflow.toLocaleString("en-GB")} ${t.currency} to come in midweek.`;
+        if (t.lateInflowEventsLast4Weeks > 0) {
+            treasurySummary += ` There have been ${t.lateInflowEventsLast4Weeks} late inflow events in the last month, so timing can be a bit unpredictable.`;
+        }
+        treasurySummary += ` The comfort threshold for your accounts is set at ${t.comfortThreshold.toLocaleString("en-GB")} ${t.currency}. The payment you're considering is ${t.paymentAmount.toLocaleString("en-GB")} ${t.currency}. Of that, about ${t.urgentSupplierTotal.toLocaleString("en-GB")} ${t.currency} is for urgent suppliers, and ${t.deferableSupplierTotal.toLocaleString("en-GB")} ${t.currency} could be deferred if needed.`;
+        treasurySummary += ` If you paid everything now, your lowest projected balance would be ${t.projectedLowBalanceIfFullRelease.toLocaleString("en-GB")} ${t.currency}. If you split the payment, the lowest point would be closer to ${t.projectedLowBalanceIfSplit.toLocaleString("en-GB")} ${t.currency}.`;
+        if (t.riskLevel === "CAUTION" || t.riskLevel === "HIGH_RISK") {
+            treasurySummary += ` To be on the safe side, it might make sense to split the payment: send about ${t.suggestedNowAmount.toLocaleString("en-GB")} ${t.currency} now, and hold back ${t.suggestedLaterAmount.toLocaleString("en-GB")} ${t.currency} for later in the week, once more money comes in.`;
+        }
+        else {
+            treasurySummary += ` Based on the numbers, a full release is likely manageable, but splitting is always an option if you want extra headroom.`;
+        }
+        treasurySummary += ` This analysis is based on how money has actually moved through your accounts recently—cashflow, supplier payments, and your latest bank snapshots.`;
+        treasurySummary += `\n\n${t.rationale}`;
+        parts.push(treasurySummary);
     }
     const execStatusRaw = (state.knownFacts?.executionStatus ?? state.knownFacts?.treasuryExecutionStatus ?? null);
     if (typeof execStatusRaw === "string" && execStatusRaw.trim()) {
