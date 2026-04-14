@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { db } from '../dist/src/db.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 async function main() {
     // Inline UUID checker for use below
     function isUUID(str) {
@@ -14,6 +15,13 @@ async function main() {
     const seed = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
     // User
     const user = seed.user;
+        // Truncate treasury_account_transactions before seeding
+        async function truncateTreasuryAccountTransactions(db) {
+            await db.deleteFrom('treasury_account_transactions').execute();
+            // Optionally, reset identity if using serial/incrementing PKs (not needed for UUID)
+        }
+    
+        await truncateTreasuryAccountTransactions(db);
     await db
         .insertInto('users')
         .values({
@@ -150,6 +158,31 @@ async function main() {
                 created_at: String(Date.now()),
                 updated_at: String(Date.now()),
             })
+                .onConflict((oc) => oc.column('id').doNothing())
+                .execute();
+        }
+    }
+
+    // Treasury Account Transactions (90 days)
+    if (seed.treasury_account_transactions) {
+        for (const txn of seed.treasury_account_transactions) {
+            await db
+                .insertInto('treasury_account_transactions')
+                .values({
+                    id: txn.id,
+                    txn_ref: txn.txn_ref,
+                    user_id: txn.user_id,
+                    txn_date: txn.txn_date,
+                    amount: txn.amount,
+                    direction: txn.direction,
+                    category: txn.category,
+                    currency: txn.currency,
+                    counterparty: txn.counterparty,
+                    account_ref: txn.account_ref,
+                    metadata: txn.metadata || {},
+                    created_at: String(Date.now()),
+                    updated_at: String(Date.now()),
+                })
                 .onConflict((oc) => oc.column('id').doNothing())
                 .execute();
         }

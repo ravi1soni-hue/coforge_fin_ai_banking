@@ -157,15 +157,27 @@ const handleParsedJson = (
   }
 };
 
-const processJsonItem = (
-  item: unknown,
+const processJsonItem = async (
+  item: any,
   meta: IngestionMeta
-): void => {
-  // Hook for:
-  // - data normalization
-  // - field extraction
-  // - re-routing to processString
-  console.log("Processed JSON item:", item, meta);
+): Promise<void> => {
+  // Extract transaction description/content for embedding
+  // Adjust field names as needed for your schema
+  let text = '';
+  if (typeof item === 'string') {
+    text = item;
+  } else if (item && typeof item === 'object') {
+    // Try common transaction fields
+    text = item.description || item.narrative || item.reference || item.details || '';
+    // Fallback: stringify the whole object if no field found
+    if (!text) text = JSON.stringify(item);
+  }
+
+  if (text && text.trim()) {
+    await processString(text, { ...meta, ...item });
+  } else {
+    console.warn('No suitable text found for embedding in item:', item);
+  }
 };
 
 const isRecoverableJsonError = (error: unknown): boolean => {

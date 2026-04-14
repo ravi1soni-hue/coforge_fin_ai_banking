@@ -1,0 +1,12 @@
+[
+{"business_date": "2026-01-14", "day_name": "WEDNESDAY", "total_inflows": 670800, "total_outflows": 602400, "payroll_outflow": 0, "supplier_outflow": 381520, "closing_balance": 4868400, "currency": "GBP"},
+{"business_date": "2026-01-15", "day_name": "THURSDAY", "total_inflows": 645120, "total_outflows": 565600, "payroll_outflow": 0, "supplier_outflow": 353500, "closing_balance": 4947920, "currency": "GBP"},
+{"business_date": "2026-01-16", "day_name": "FRIDAY", "total_inflows": 386080, "total_outflows": 1676400, "payroll_outflow": 1450000, "supplier_outflow": 223520, "closing_balance": 3657600, "currency": "GBP"},
+{"business_date": "2026-01-17", "day_name": "SATURDAY", "total_inflows": 181440, "total_outflows": 143080, "payroll_outflow": 0, "supplier_outflow": 71540, "closing_balance": 3695960, "currency": "GBP"},
+{"business_date": "2026-01-18", "day_name": "SUNDAY", "total_inflows": 120000, "total_outflows": 82240, "payroll_outflow": 0, "supplier_outflow": 30840, "closing_balance": 3733720, "currency": "GBP"},
+{"business_date": "2026-01-19", "day_name": "MONDAY", "total_inflows": 317440, "total_outflows": 434280, "payroll_outflow": 0, "supplier_outflow": 258500, "closing_balance": 3616880, "currency": "GBP"},
+{"business_date": "2026-01-20", "day_name": "TUESDAY", "total_inflows": 610080, "total_outflows": 540800, "payroll_outflow": 0, "supplier_outflow": 343200, "closing_balance": 3686160, "currency": "GBP"},
+{"business_date": "2026-01-21", "day_name": "WEDNESDAY", "total_inflows": 634400, "total_outflows": 627600, "payroll_outflow": 0, "supplier_outflow": 397480, "closing_balance": 3692960, "currency": "GBP"},
+{"business_date": "2026-01-22", "day_name": "THURSDAY", "total_inflows": 609840, "total_outflows": 589120, "payroll_outflow": 0, "supplier_outflow": 368200, "closing_balance": 3713680, "currency": "GBP"},
+{"business_date": "2026-01-23", "day_name": "FRIDAY", "total_inflows": 392160, "total_outflows": 1656600, "payroll_outflow": 1450000, "supplier_outflow": 220880, "closing_balance": 2449240, "currency": "GBP"}
+]

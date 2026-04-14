@@ -47,1367 +47,587 @@
   "treasury_cashflow_daily": [
     {
       "business_date": "2026-01-14",
-      "day_name": "Thursday",
-      "total_inflows": 174767,
-      "total_outflows": 225529,
+      "day_name": "WEDNESDAY",
+      "total_inflows": 670800,
+      "total_outflows": 602400,
       "payroll_outflow": 0,
-      "supplier_outflow": 52064,
-      "closing_balance": 4749238,
+      "supplier_outflow": 381520,
+      "closing_balance": 4868400,
       "currency": "GBP"
     },
     {
       "business_date": "2026-01-15",
-      "day_name": "Friday",
-      "total_inflows": 215124,
-      "total_outflows": 399788,
-      "payroll_outflow": 193507,
-      "supplier_outflow": 51128,
-      "closing_balance": 4564574,
+      "day_name": "THURSDAY",
+      "total_inflows": 645120,
+      "total_outflows": 565600,
+      "payroll_outflow": 0,
+      "supplier_outflow": 353500,
+      "closing_balance": 4947920,
       "currency": "GBP"
     },
     {
       "business_date": "2026-01-16",
-      "day_name": "Saturday",
-      "total_inflows": 202219,
-      "total_outflows": 243365,
-      "payroll_outflow": 0,
-      "supplier_outflow": 84559,
-      "closing_balance": 4523428,
+      "day_name": "FRIDAY",
+      "total_inflows": 386080,
+      "total_outflows": 1676400,
+      "payroll_outflow": 1450000,
+      "supplier_outflow": 223520,
+      "closing_balance": 3657600,
       "currency": "GBP"
     },
     {
       "business_date": "2026-01-17",
-      "day_name": "Sunday",
-      "total_inflows": 174110,
-      "total_outflows": 232000,
+      "day_name": "SATURDAY",
+      "total_inflows": 181440,
+      "total_outflows": 143080,
       "payroll_outflow": 0,
-      "supplier_outflow": 103393,
-      "closing_balance": 4465538,
+      "supplier_outflow": 71540,
+      "closing_balance": 3695960,
       "currency": "GBP"
     },
     {
       "business_date": "2026-01-18",
-      "day_name": "Monday",
-      "total_inflows": 128434,
-      "total_outflows": 209375,
+      "day_name": "SUNDAY",
+      "total_inflows": 120000,
+      "total_outflows": 82240,
       "payroll_outflow": 0,
-      "supplier_outflow": 107579,
-      "closing_balance": 4384597,
+      "supplier_outflow": 30840,
+      "closing_balance": 3733720,
       "currency": "GBP"
     },
     {
       "business_date": "2026-01-19",
-      "day_name": "Tuesday",
-      "total_inflows": 129166,
-      "total_outflows": 242986,
+      "day_name": "MONDAY",
+      "total_inflows": 317440,
+      "total_outflows": 434280,
       "payroll_outflow": 0,
-      "supplier_outflow": 73304,
-      "closing_balance": 4270777,
+      "supplier_outflow": 258500,
+      "closing_balance": 3616880,
       "currency": "GBP"
     },
     {
       "business_date": "2026-01-20",
-      "day_name": "Wednesday",
-      "total_inflows": 209623,
-      "total_outflows": 232262,
+      "day_name": "TUESDAY",
+      "total_inflows": 610080,
+      "total_outflows": 540800,
       "payroll_outflow": 0,
-      "supplier_outflow": 91001,
-      "closing_balance": 4248138,
+      "supplier_outflow": 343200,
+      "closing_balance": 3686160,
       "currency": "GBP"
     },
     {
       "business_date": "2026-01-21",
-      "day_name": "Thursday",
-      "total_inflows": 124392,
-      "total_outflows": 230736,
+      "day_name": "WEDNESDAY",
+      "total_inflows": 634400,
+      "total_outflows": 627600,
       "payroll_outflow": 0,
-      "supplier_outflow": 95966,
-      "closing_balance": 4141794,
+      "supplier_outflow": 397480,
+      "closing_balance": 3692960,
       "currency": "GBP"
     },
     {
       "business_date": "2026-01-22",
-      "day_name": "Friday",
-      "total_inflows": 184532,
-      "total_outflows": 378445,
-      "payroll_outflow": 189858,
-      "supplier_outflow": 89249,
-      "closing_balance": 3947881,
+      "day_name": "THURSDAY",
+      "total_inflows": 609840,
+      "total_outflows": 589120,
+      "payroll_outflow": 0,
+      "supplier_outflow": 368200,
+      "closing_balance": 3713680,
       "currency": "GBP"
     },
     {
       "business_date": "2026-01-23",
-      "day_name": "Saturday",
-      "total_inflows": 206247,
-      "total_outflows": 208464,
-      "payroll_outflow": 0,
-      "supplier_outflow": 68031,
-      "closing_balance": 3945664,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-01-24",
-      "day_name": "Sunday",
-      "total_inflows": 146647,
-      "total_outflows": 223193,
-      "payroll_outflow": 0,
-      "supplier_outflow": 94409,
-      "closing_balance": 3869118,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-01-25",
-      "day_name": "Monday",
-      "total_inflows": 185180,
-      "total_outflows": 214949,
-      "payroll_outflow": 0,
-      "supplier_outflow": 66817,
-      "closing_balance": 3839349,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-01-26",
-      "day_name": "Tuesday",
-      "total_inflows": 205918,
-      "total_outflows": 249493,
-      "payroll_outflow": 0,
-      "supplier_outflow": 70961,
-      "closing_balance": 3795774,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-01-27",
-      "day_name": "Wednesday",
-      "total_inflows": 190695,
-      "total_outflows": 186068,
-      "payroll_outflow": 0,
-      "supplier_outflow": 119650,
-      "closing_balance": 3800401,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-01-28",
-      "day_name": "Thursday",
-      "total_inflows": 138004,
-      "total_outflows": 224222,
-      "payroll_outflow": 0,
-      "supplier_outflow": 83368,
-      "closing_balance": 3714183,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-01-29",
-      "day_name": "Friday",
-      "total_inflows": 199346,
-      "total_outflows": 443160,
-      "payroll_outflow": 183230,
-      "supplier_outflow": 108103,
-      "closing_balance": 3470369,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-01-30",
-      "day_name": "Saturday",
-      "total_inflows": 150433,
-      "total_outflows": 256144,
-      "payroll_outflow": 0,
-      "supplier_outflow": 64925,
-      "closing_balance": 3364658,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-01-31",
-      "day_name": "Sunday",
-      "total_inflows": 132302,
-      "total_outflows": 194490,
-      "payroll_outflow": 0,
-      "supplier_outflow": 81472,
-      "closing_balance": 3302470,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-01",
-      "day_name": "Monday",
-      "total_inflows": 195163,
-      "total_outflows": 194699,
-      "payroll_outflow": 0,
-      "supplier_outflow": 81092,
-      "closing_balance": 3302934,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-02",
-      "day_name": "Tuesday",
-      "total_inflows": 198098,
-      "total_outflows": 253294,
-      "payroll_outflow": 0,
-      "supplier_outflow": 95436,
-      "closing_balance": 3247738,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-03",
-      "day_name": "Wednesday",
-      "total_inflows": 194273,
-      "total_outflows": 204581,
-      "payroll_outflow": 0,
-      "supplier_outflow": 56095,
-      "closing_balance": 3237430,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-04",
-      "day_name": "Thursday",
-      "total_inflows": 152712,
-      "total_outflows": 253494,
-      "payroll_outflow": 0,
-      "supplier_outflow": 110521,
-      "closing_balance": 3136648,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-05",
-      "day_name": "Friday",
-      "total_inflows": 158494,
-      "total_outflows": 426751,
-      "payroll_outflow": 200303,
-      "supplier_outflow": 84815,
-      "closing_balance": 2868391,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-06",
-      "day_name": "Saturday",
-      "total_inflows": 129098,
-      "total_outflows": 234023,
-      "payroll_outflow": 0,
-      "supplier_outflow": 70171,
-      "closing_balance": 2763466,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-07",
-      "day_name": "Sunday",
-      "total_inflows": 157487,
-      "total_outflows": 247140,
-      "payroll_outflow": 0,
-      "supplier_outflow": 57988,
-      "closing_balance": 2673813,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-08",
-      "day_name": "Monday",
-      "total_inflows": 210627,
-      "total_outflows": 228760,
-      "payroll_outflow": 0,
-      "supplier_outflow": 77900,
-      "closing_balance": 2655680,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-09",
-      "day_name": "Tuesday",
-      "total_inflows": 143487,
-      "total_outflows": 194105,
-      "payroll_outflow": 0,
-      "supplier_outflow": 90425,
-      "closing_balance": 2605062,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-10",
-      "day_name": "Wednesday",
-      "total_inflows": 169114,
-      "total_outflows": 241256,
-      "payroll_outflow": 0,
-      "supplier_outflow": 114932,
-      "closing_balance": 2532920,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-11",
-      "day_name": "Thursday",
-      "total_inflows": 135999,
-      "total_outflows": 214449,
-      "payroll_outflow": 0,
-      "supplier_outflow": 100192,
-      "closing_balance": 2454470,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-12",
-      "day_name": "Friday",
-      "total_inflows": 126446,
-      "total_outflows": 396738,
-      "payroll_outflow": 206760,
-      "supplier_outflow": 52012,
-      "closing_balance": 2184178,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-13",
-      "day_name": "Saturday",
-      "total_inflows": 199646,
-      "total_outflows": 189232,
-      "payroll_outflow": 0,
-      "supplier_outflow": 96351,
-      "closing_balance": 2194592,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-14",
-      "day_name": "Sunday",
-      "total_inflows": 188636,
-      "total_outflows": 209995,
-      "payroll_outflow": 0,
-      "supplier_outflow": 107103,
-      "closing_balance": 2173233,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-15",
-      "day_name": "Monday",
-      "total_inflows": 214934,
-      "total_outflows": 241873,
-      "payroll_outflow": 0,
-      "supplier_outflow": 94894,
-      "closing_balance": 2146294,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-16",
-      "day_name": "Tuesday",
-      "total_inflows": 178627,
-      "total_outflows": 191276,
-      "payroll_outflow": 0,
-      "supplier_outflow": 89162,
-      "closing_balance": 2133645,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-17",
-      "day_name": "Wednesday",
-      "total_inflows": 208375,
-      "total_outflows": 231046,
-      "payroll_outflow": 0,
-      "supplier_outflow": 84162,
-      "closing_balance": 2110974,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-18",
-      "day_name": "Thursday",
-      "total_inflows": 176764,
-      "total_outflows": 195371,
-      "payroll_outflow": 0,
-      "supplier_outflow": 58270,
-      "closing_balance": 2092367,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-19",
-      "day_name": "Friday",
-      "total_inflows": 200423,
-      "total_outflows": 401350,
-      "payroll_outflow": 208795,
-      "supplier_outflow": 118075,
-      "closing_balance": 1891440,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-20",
-      "day_name": "Saturday",
-      "total_inflows": 203980,
-      "total_outflows": 208625,
-      "payroll_outflow": 0,
-      "supplier_outflow": 71460,
-      "closing_balance": 1886795,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-21",
-      "day_name": "Sunday",
-      "total_inflows": 160400,
-      "total_outflows": 184989,
-      "payroll_outflow": 0,
-      "supplier_outflow": 51501,
-      "closing_balance": 1862206,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-22",
-      "day_name": "Monday",
-      "total_inflows": 171759,
-      "total_outflows": 251856,
-      "payroll_outflow": 0,
-      "supplier_outflow": 104046,
-      "closing_balance": 1782109,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-23",
-      "day_name": "Tuesday",
-      "total_inflows": 155003,
-      "total_outflows": 229946,
-      "payroll_outflow": 0,
-      "supplier_outflow": 106702,
-      "closing_balance": 1707166,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-24",
-      "day_name": "Wednesday",
-      "total_inflows": 200309,
-      "total_outflows": 246920,
-      "payroll_outflow": 0,
-      "supplier_outflow": 89778,
-      "closing_balance": 1660555,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-25",
-      "day_name": "Thursday",
-      "total_inflows": 215756,
-      "total_outflows": 223537,
-      "payroll_outflow": 0,
-      "supplier_outflow": 58572,
-      "closing_balance": 1652774,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-26",
-      "day_name": "Friday",
-      "total_inflows": 203685,
-      "total_outflows": 383618,
-      "payroll_outflow": 200587,
-      "supplier_outflow": 63897,
-      "closing_balance": 1472841,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-27",
-      "day_name": "Saturday",
-      "total_inflows": 192492,
-      "total_outflows": 206518,
-      "payroll_outflow": 0,
-      "supplier_outflow": 87585,
-      "closing_balance": 1458815,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-02-28",
-      "day_name": "Sunday",
-      "total_inflows": 131155,
-      "total_outflows": 237553,
-      "payroll_outflow": 0,
-      "supplier_outflow": 103882,
-      "closing_balance": 1352417,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-01",
-      "day_name": "Monday",
-      "total_inflows": 132029,
-      "total_outflows": 184164,
-      "payroll_outflow": 0,
-      "supplier_outflow": 104750,
-      "closing_balance": 1300282,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-02",
-      "day_name": "Tuesday",
-      "total_inflows": 166514,
-      "total_outflows": 224209,
-      "payroll_outflow": 0,
-      "supplier_outflow": 52319,
-      "closing_balance": 1242587,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-03",
-      "day_name": "Wednesday",
-      "total_inflows": 172647,
-      "total_outflows": 189758,
-      "payroll_outflow": 0,
-      "supplier_outflow": 93828,
-      "closing_balance": 1225476,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-04",
-      "day_name": "Thursday",
-      "total_inflows": 139810,
-      "total_outflows": 200560,
-      "payroll_outflow": 0,
-      "supplier_outflow": 117874,
-      "closing_balance": 1164726,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-05",
-      "day_name": "Friday",
-      "total_inflows": 198728,
-      "total_outflows": 443443,
-      "payroll_outflow": 202819,
-      "supplier_outflow": 53684,
-      "closing_balance": 920011,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-06",
-      "day_name": "Saturday",
-      "total_inflows": 211511,
-      "total_outflows": 202043,
-      "payroll_outflow": 0,
-      "supplier_outflow": 84555,
-      "closing_balance": 929479,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-07",
-      "day_name": "Sunday",
-      "total_inflows": 158956,
-      "total_outflows": 231557,
-      "payroll_outflow": 0,
-      "supplier_outflow": 89101,
-      "closing_balance": 856878,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-08",
-      "day_name": "Monday",
-      "total_inflows": 154222,
-      "total_outflows": 247969,
-      "payroll_outflow": 0,
-      "supplier_outflow": 112942,
-      "closing_balance": 763131,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-09",
-      "day_name": "Tuesday",
-      "total_inflows": 144699,
-      "total_outflows": 197629,
-      "payroll_outflow": 0,
-      "supplier_outflow": 57675,
-      "closing_balance": 710201,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-10",
-      "day_name": "Wednesday",
-      "total_inflows": 158761,
-      "total_outflows": 180101,
-      "payroll_outflow": 0,
-      "supplier_outflow": 112801,
-      "closing_balance": 688861,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-11",
-      "day_name": "Thursday",
-      "total_inflows": 164266,
-      "total_outflows": 232500,
-      "payroll_outflow": 0,
-      "supplier_outflow": 100784,
-      "closing_balance": 620627,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-12",
-      "day_name": "Friday",
-      "total_inflows": 197677,
-      "total_outflows": 400470,
-      "payroll_outflow": 196360,
-      "supplier_outflow": 82949,
-      "closing_balance": 417834,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-13",
-      "day_name": "Saturday",
-      "total_inflows": 191411,
-      "total_outflows": 220231,
-      "payroll_outflow": 0,
-      "supplier_outflow": 78418,
-      "closing_balance": 389014,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-14",
-      "day_name": "Sunday",
-      "total_inflows": 140737,
-      "total_outflows": 243691,
-      "payroll_outflow": 0,
-      "supplier_outflow": 102791,
-      "closing_balance": 286060,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-15",
-      "day_name": "Monday",
-      "total_inflows": 192388,
-      "total_outflows": 243616,
-      "payroll_outflow": 0,
-      "supplier_outflow": 109627,
-      "closing_balance": 234832,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-16",
-      "day_name": "Tuesday",
-      "total_inflows": 211790,
-      "total_outflows": 248349,
-      "payroll_outflow": 0,
-      "supplier_outflow": 86591,
-      "closing_balance": 198273,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-17",
-      "day_name": "Wednesday",
-      "total_inflows": 198514,
-      "total_outflows": 250690,
-      "payroll_outflow": 0,
-      "supplier_outflow": 86826,
-      "closing_balance": 146097,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-18",
-      "day_name": "Thursday",
-      "total_inflows": 190310,
-      "total_outflows": 211364,
-      "payroll_outflow": 0,
-      "supplier_outflow": 107735,
-      "closing_balance": 125043,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-19",
-      "day_name": "Friday",
-      "total_inflows": 197731,
-      "total_outflows": 450167,
-      "payroll_outflow": 195285,
-      "supplier_outflow": 111448,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-20",
-      "day_name": "Saturday",
-      "total_inflows": 192749,
-      "total_outflows": 212855,
-      "payroll_outflow": 0,
-      "supplier_outflow": 74882,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-21",
-      "day_name": "Sunday",
-      "total_inflows": 144595,
-      "total_outflows": 196438,
-      "payroll_outflow": 0,
-      "supplier_outflow": 118026,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-22",
-      "day_name": "Monday",
-      "total_inflows": 190287,
-      "total_outflows": 257637,
-      "payroll_outflow": 0,
-      "supplier_outflow": 81718,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-23",
-      "day_name": "Tuesday",
-      "total_inflows": 135422,
-      "total_outflows": 253824,
-      "payroll_outflow": 0,
-      "supplier_outflow": 88966,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-24",
-      "day_name": "Wednesday",
-      "total_inflows": 162594,
-      "total_outflows": 188132,
-      "payroll_outflow": 0,
-      "supplier_outflow": 59988,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-25",
-      "day_name": "Thursday",
-      "total_inflows": 211683,
-      "total_outflows": 211325,
-      "payroll_outflow": 0,
-      "supplier_outflow": 105225,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-26",
-      "day_name": "Friday",
-      "total_inflows": 140800,
-      "total_outflows": 435684,
-      "payroll_outflow": 201327,
-      "supplier_outflow": 50633,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-27",
-      "day_name": "Saturday",
-      "total_inflows": 179175,
-      "total_outflows": 194196,
-      "payroll_outflow": 0,
-      "supplier_outflow": 71130,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-28",
-      "day_name": "Sunday",
-      "total_inflows": 215317,
-      "total_outflows": 231025,
-      "payroll_outflow": 0,
-      "supplier_outflow": 88610,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-29",
-      "day_name": "Monday",
-      "total_inflows": 126083,
-      "total_outflows": 241231,
-      "payroll_outflow": 0,
-      "supplier_outflow": 77808,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-30",
-      "day_name": "Tuesday",
-      "total_inflows": 190678,
-      "total_outflows": 252442,
-      "payroll_outflow": 0,
-      "supplier_outflow": 96880,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-03-31",
-      "day_name": "Wednesday",
-      "total_inflows": 137576,
-      "total_outflows": 213603,
-      "payroll_outflow": 0,
-      "supplier_outflow": 98245,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-04-01",
-      "day_name": "Thursday",
-      "total_inflows": 178670,
-      "total_outflows": 247140,
-      "payroll_outflow": 0,
-      "supplier_outflow": 75622,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-04-02",
-      "day_name": "Friday",
-      "total_inflows": 205393,
-      "total_outflows": 436826,
-      "payroll_outflow": 203384,
-      "supplier_outflow": 117054,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-04-03",
-      "day_name": "Saturday",
-      "total_inflows": 174945,
-      "total_outflows": 211132,
-      "payroll_outflow": 0,
-      "supplier_outflow": 93734,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-04-04",
-      "day_name": "Sunday",
-      "total_inflows": 135161,
-      "total_outflows": 181049,
-      "payroll_outflow": 0,
-      "supplier_outflow": 113233,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-04-05",
-      "day_name": "Monday",
-      "total_inflows": 197857,
-      "total_outflows": 186672,
-      "payroll_outflow": 0,
-      "supplier_outflow": 117868,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-04-06",
-      "day_name": "Tuesday",
-      "total_inflows": 194611,
-      "total_outflows": 230582,
-      "payroll_outflow": 0,
-      "supplier_outflow": 76395,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-04-07",
-      "day_name": "Wednesday",
-      "total_inflows": 174003,
-      "total_outflows": 188510,
-      "payroll_outflow": 0,
-      "supplier_outflow": 113333,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-04-08",
-      "day_name": "Thursday",
-      "total_inflows": 131775,
-      "total_outflows": 187852,
-      "payroll_outflow": 0,
-      "supplier_outflow": 119961,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-04-09",
-      "day_name": "Friday",
-      "total_inflows": 152902,
-      "total_outflows": 431658,
-      "payroll_outflow": 209678,
-      "supplier_outflow": 69184,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-04-10",
-      "day_name": "Saturday",
-      "total_inflows": 185503,
-      "total_outflows": 200741,
-      "payroll_outflow": 0,
-      "supplier_outflow": 82421,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-04-11",
-      "day_name": "Sunday",
-      "total_inflows": 155539,
-      "total_outflows": 229790,
-      "payroll_outflow": 0,
-      "supplier_outflow": 56819,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-04-12",
-      "day_name": "Monday",
-      "total_inflows": 205050,
-      "total_outflows": 200728,
-      "payroll_outflow": 0,
-      "supplier_outflow": 57347,
-      "closing_balance": 0,
-      "currency": "GBP"
-    },
-    {
-      "business_date": "2026-04-13",
-      "day_name": "Tuesday",
-      "total_inflows": 199625,
-      "total_outflows": 259057,
-      "payroll_outflow": 0,
-      "supplier_outflow": 64500,
-      "closing_balance": 0,
+      "day_name": "FRIDAY",
+      "total_inflows": 392160,
+      "total_outflows": 1656600,
+      "payroll_outflow": 1450000,
+      "supplier_outflow": 220880,
+      "closing_balance": 2449240,
       "currency": "GBP"
     }
   ],
-  "treasury_decision_snapshots": [
+  "treasury_account_transactions": [
     {
-      "snapshot_date": "2026-01-14",
-      "weekly_outflow_baseline": 1785305,
-      "midweek_inflow_baseline": 616722,
-      "late_inflow_count_last_4_weeks": 1,
-      "comfort_threshold": 1194350,
-      "min_inflow_for_midweek_release": 102072,
-      "release_condition_hit_rate_10_weeks": "0.73",
-      "currency": "GBP"
+      "id": "7e4ff518-5a39-4b23-b89d-74e6aee90328",
+      "txn_ref": "7e4ff518-5a39-4b23-b89d-74e6aee90328",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-14",
+      "amount": 670800,
+      "direction": "CREDIT",
+      "category": "INCOME",
+      "currency": "GBP",
+      "counterparty": "Corporate Client",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
     },
     {
-      "snapshot_date": "2026-01-21",
-      "weekly_outflow_baseline": 1691348,
-      "midweek_inflow_baseline": 621806,
-      "late_inflow_count_last_4_weeks": 2,
-      "comfort_threshold": 986405,
-      "min_inflow_for_midweek_release": 104616,
-      "release_condition_hit_rate_10_weeks": "0.07",
-      "currency": "GBP"
+      "id": "a48be5b6-51ac-4477-9221-b14b7ff8edd1",
+      "txn_ref": "a48be5b6-51ac-4477-9221-b14b7ff8edd1",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-14",
+      "amount": 602400,
+      "direction": "DEBIT",
+      "category": "OUTFLOW",
+      "currency": "GBP",
+      "counterparty": "Various",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
     },
     {
-      "snapshot_date": "2026-01-28",
-      "weekly_outflow_baseline": 1770590,
-      "midweek_inflow_baseline": 603810,
-      "late_inflow_count_last_4_weeks": 0,
-      "comfort_threshold": 1058204,
-      "min_inflow_for_midweek_release": 88902,
-      "release_condition_hit_rate_10_weeks": "0.40",
-      "currency": "GBP"
+      "id": "4f2dda8d-d9e0-4b5c-b39b-2d6ac31cf529",
+      "txn_ref": "4f2dda8d-d9e0-4b5c-b39b-2d6ac31cf529",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-14",
+      "amount": 381520,
+      "direction": "DEBIT",
+      "category": "SUPPLIER",
+      "currency": "GBP",
+      "counterparty": "Supplier Ltd",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
     },
     {
-      "snapshot_date": "2026-02-04",
-      "weekly_outflow_baseline": 1825529,
-      "midweek_inflow_baseline": 560510,
-      "late_inflow_count_last_4_weeks": 1,
-      "comfort_threshold": 1107579,
-      "min_inflow_for_midweek_release": 92491,
-      "release_condition_hit_rate_10_weeks": "0.17",
-      "currency": "GBP"
+      "id": "cca538ad-32b1-4087-8cc2-bd9e9be7ff74",
+      "txn_ref": "cca538ad-32b1-4087-8cc2-bd9e9be7ff74",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-15",
+      "amount": 645120,
+      "direction": "CREDIT",
+      "category": "INCOME",
+      "currency": "GBP",
+      "counterparty": "Corporate Client",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
     },
     {
-      "snapshot_date": "2026-02-11",
-      "weekly_outflow_baseline": 1674609,
-      "midweek_inflow_baseline": 626332,
-      "late_inflow_count_last_4_weeks": 2,
-      "comfort_threshold": 962724,
-      "min_inflow_for_midweek_release": 50937,
-      "release_condition_hit_rate_10_weeks": "0.47",
-      "currency": "GBP"
+      "id": "a452ec2b-86ab-4f83-a3b8-3a160c0ab226",
+      "txn_ref": "a452ec2b-86ab-4f83-a3b8-3a160c0ab226",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-15",
+      "amount": 565600,
+      "direction": "DEBIT",
+      "category": "OUTFLOW",
+      "currency": "GBP",
+      "counterparty": "Various",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
     },
     {
-      "snapshot_date": "2026-02-18",
-      "weekly_outflow_baseline": 1719057,
-      "midweek_inflow_baseline": 634319,
-      "late_inflow_count_last_4_weeks": 2,
-      "comfort_threshold": 1070009,
-      "min_inflow_for_midweek_release": 80414,
-      "release_condition_hit_rate_10_weeks": "0.31",
-      "currency": "GBP"
+      "id": "6f0438f5-8dce-4ab1-8ce6-2bdbdc438c78",
+      "txn_ref": "6f0438f5-8dce-4ab1-8ce6-2bdbdc438c78",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-15",
+      "amount": 353500,
+      "direction": "DEBIT",
+      "category": "SUPPLIER",
+      "currency": "GBP",
+      "counterparty": "Supplier Ltd",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
     },
     {
-      "snapshot_date": "2026-02-25",
-      "weekly_outflow_baseline": 1649357,
-      "midweek_inflow_baseline": 607139,
-      "late_inflow_count_last_4_weeks": 0,
-      "comfort_threshold": 1073436,
-      "min_inflow_for_midweek_release": 94701,
-      "release_condition_hit_rate_10_weeks": "0.62",
-      "currency": "GBP"
+      "id": "4edd15a2-4f7b-4e52-a4cd-b46b56b0dda1",
+      "txn_ref": "4edd15a2-4f7b-4e52-a4cd-b46b56b0dda1",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-16",
+      "amount": 386080,
+      "direction": "CREDIT",
+      "category": "INCOME",
+      "currency": "GBP",
+      "counterparty": "Corporate Client",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
     },
     {
-      "snapshot_date": "2026-03-04",
-      "weekly_outflow_baseline": 1703302,
-      "midweek_inflow_baseline": 583344,
-      "late_inflow_count_last_4_weeks": 1,
-      "comfort_threshold": 1131140,
-      "min_inflow_for_midweek_release": 110543,
-      "release_condition_hit_rate_10_weeks": "0.54",
-      "currency": "GBP"
+      "id": "05de425a-feef-46d4-85f1-da8b161491b3",
+      "txn_ref": "05de425a-feef-46d4-85f1-da8b161491b3",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-16",
+      "amount": 1676400,
+      "direction": "DEBIT",
+      "category": "OUTFLOW",
+      "currency": "GBP",
+      "counterparty": "Various",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
     },
     {
-      "snapshot_date": "2026-03-11",
-      "weekly_outflow_baseline": 1839547,
-      "midweek_inflow_baseline": 648392,
-      "late_inflow_count_last_4_weeks": 2,
-      "comfort_threshold": 961163,
-      "min_inflow_for_midweek_release": 118962,
-      "release_condition_hit_rate_10_weeks": "0.24",
-      "currency": "GBP"
+      "id": "024208a4-8d7e-481e-b3d3-af46726466ad",
+      "txn_ref": "024208a4-8d7e-481e-b3d3-af46726466ad",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-16",
+      "amount": 1450000,
+      "direction": "DEBIT",
+      "category": "PAYROLL",
+      "currency": "GBP",
+      "counterparty": "Payroll",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
     },
     {
-      "snapshot_date": "2026-03-18",
-      "weekly_outflow_baseline": 1770417,
-      "midweek_inflow_baseline": 606844,
-      "late_inflow_count_last_4_weeks": 1,
-      "comfort_threshold": 1065498,
-      "min_inflow_for_midweek_release": 115775,
-      "release_condition_hit_rate_10_weeks": "0.37",
-      "currency": "GBP"
+      "id": "05424efe-0f11-4bd6-9713-44f4b1f8ba6e",
+      "txn_ref": "05424efe-0f11-4bd6-9713-44f4b1f8ba6e",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-16",
+      "amount": 223520,
+      "direction": "DEBIT",
+      "category": "SUPPLIER",
+      "currency": "GBP",
+      "counterparty": "Supplier Ltd",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
     },
     {
-      "snapshot_date": "2026-03-25",
-      "weekly_outflow_baseline": 1779506,
-      "midweek_inflow_baseline": 600656,
-      "late_inflow_count_last_4_weeks": 0,
-      "comfort_threshold": 1165771,
-      "min_inflow_for_midweek_release": 75019,
-      "release_condition_hit_rate_10_weeks": "0.67",
-      "currency": "GBP"
+      "id": "8789fe11-7119-4f1c-bccc-f9987e28546e",
+      "txn_ref": "8789fe11-7119-4f1c-bccc-f9987e28546e",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-17",
+      "amount": 181440,
+      "direction": "CREDIT",
+      "category": "INCOME",
+      "currency": "GBP",
+      "counterparty": "Corporate Client",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
     },
     {
-      "snapshot_date": "2026-04-01",
-      "weekly_outflow_baseline": 1681911,
-      "midweek_inflow_baseline": 630320,
-      "late_inflow_count_last_4_weeks": 0,
-      "comfort_threshold": 1061078,
-      "min_inflow_for_midweek_release": 94501,
-      "release_condition_hit_rate_10_weeks": "0.44",
-      "currency": "GBP"
+      "id": "06e8d520-18de-4ac3-9f8a-681cbd7861ab",
+      "txn_ref": "06e8d520-18de-4ac3-9f8a-681cbd7861ab",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-17",
+      "amount": 143080,
+      "direction": "DEBIT",
+      "category": "OUTFLOW",
+      "currency": "GBP",
+      "counterparty": "Various",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "438ea0b6-ac94-4b6e-95d2-6a125d17065d",
+      "txn_ref": "438ea0b6-ac94-4b6e-95d2-6a125d17065d",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-17",
+      "amount": 71540,
+      "direction": "DEBIT",
+      "category": "SUPPLIER",
+      "currency": "GBP",
+      "counterparty": "Supplier Ltd",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "98fa6507-aadc-40bf-8d9c-1295faea1ee2",
+      "txn_ref": "98fa6507-aadc-40bf-8d9c-1295faea1ee2",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-18",
+      "amount": 120000,
+      "direction": "CREDIT",
+      "category": "INCOME",
+      "currency": "GBP",
+      "counterparty": "Corporate Client",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "4ca693db-39e3-430a-9b5d-a8ebd4021934",
+      "txn_ref": "4ca693db-39e3-430a-9b5d-a8ebd4021934",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-18",
+      "amount": 82240,
+      "direction": "DEBIT",
+      "category": "OUTFLOW",
+      "currency": "GBP",
+      "counterparty": "Various",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "efe9f23b-e044-4e31-8acc-064c175804ab",
+      "txn_ref": "efe9f23b-e044-4e31-8acc-064c175804ab",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-18",
+      "amount": 30840,
+      "direction": "DEBIT",
+      "category": "SUPPLIER",
+      "currency": "GBP",
+      "counterparty": "Supplier Ltd",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "886a6776-1a37-42cd-8843-48b388f0b03d",
+      "txn_ref": "886a6776-1a37-42cd-8843-48b388f0b03d",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-19",
+      "amount": 317440,
+      "direction": "CREDIT",
+      "category": "INCOME",
+      "currency": "GBP",
+      "counterparty": "Corporate Client",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "9dc5c076-465f-4af2-9b3f-8d7f213c36e2",
+      "txn_ref": "9dc5c076-465f-4af2-9b3f-8d7f213c36e2",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-19",
+      "amount": 434280,
+      "direction": "DEBIT",
+      "category": "OUTFLOW",
+      "currency": "GBP",
+      "counterparty": "Various",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "d7f73c7a-73ab-4dc8-a995-e141ebb0753d",
+      "txn_ref": "d7f73c7a-73ab-4dc8-a995-e141ebb0753d",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-19",
+      "amount": 258500,
+      "direction": "DEBIT",
+      "category": "SUPPLIER",
+      "currency": "GBP",
+      "counterparty": "Supplier Ltd",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "ee30b22e-15d3-46fe-ac00-001360dcee9f",
+      "txn_ref": "ee30b22e-15d3-46fe-ac00-001360dcee9f",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-20",
+      "amount": 610080,
+      "direction": "CREDIT",
+      "category": "INCOME",
+      "currency": "GBP",
+      "counterparty": "Corporate Client",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "77308e70-46fc-4a05-9514-5688f20895dc",
+      "txn_ref": "77308e70-46fc-4a05-9514-5688f20895dc",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-20",
+      "amount": 540800,
+      "direction": "DEBIT",
+      "category": "OUTFLOW",
+      "currency": "GBP",
+      "counterparty": "Various",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "fd48072a-eb86-497d-8a37-57bf4c2adab4",
+      "txn_ref": "fd48072a-eb86-497d-8a37-57bf4c2adab4",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-20",
+      "amount": 343200,
+      "direction": "DEBIT",
+      "category": "SUPPLIER",
+      "currency": "GBP",
+      "counterparty": "Supplier Ltd",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "60e0cc17-598e-405a-80f8-45d9738a7408",
+      "txn_ref": "60e0cc17-598e-405a-80f8-45d9738a7408",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-21",
+      "amount": 634400,
+      "direction": "CREDIT",
+      "category": "INCOME",
+      "currency": "GBP",
+      "counterparty": "Corporate Client",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "ac478d65-af69-4bb6-b204-3fae08f281c3",
+      "txn_ref": "ac478d65-af69-4bb6-b204-3fae08f281c3",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-21",
+      "amount": 627600,
+      "direction": "DEBIT",
+      "category": "OUTFLOW",
+      "currency": "GBP",
+      "counterparty": "Various",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "196ac4f2-f33f-452f-847b-230840fbde8e",
+      "txn_ref": "196ac4f2-f33f-452f-847b-230840fbde8e",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-21",
+      "amount": 397480,
+      "direction": "DEBIT",
+      "category": "SUPPLIER",
+      "currency": "GBP",
+      "counterparty": "Supplier Ltd",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "9467a472-8011-4b3f-ba67-36a676719f37",
+      "txn_ref": "9467a472-8011-4b3f-ba67-36a676719f37",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-22",
+      "amount": 609840,
+      "direction": "CREDIT",
+      "category": "INCOME",
+      "currency": "GBP",
+      "counterparty": "Corporate Client",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "45028d93-47c3-4403-9b9f-a98845f77d43",
+      "txn_ref": "45028d93-47c3-4403-9b9f-a98845f77d43",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-22",
+      "amount": 589120,
+      "direction": "DEBIT",
+      "category": "OUTFLOW",
+      "currency": "GBP",
+      "counterparty": "Various",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "2a50b0e0-c5c1-4486-a25d-84bca385d880",
+      "txn_ref": "2a50b0e0-c5c1-4486-a25d-84bca385d880",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-22",
+      "amount": 368200,
+      "direction": "DEBIT",
+      "category": "SUPPLIER",
+      "currency": "GBP",
+      "counterparty": "Supplier Ltd",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "9c241094-20a4-4f2b-9015-644039b76401",
+      "txn_ref": "9c241094-20a4-4f2b-9015-644039b76401",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-23",
+      "amount": 392160,
+      "direction": "CREDIT",
+      "category": "INCOME",
+      "currency": "GBP",
+      "counterparty": "Corporate Client",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "ae392a45-6a0d-4cc6-a336-37fccf42634e",
+      "txn_ref": "ae392a45-6a0d-4cc6-a336-37fccf42634e",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-23",
+      "amount": 1656600,
+      "direction": "DEBIT",
+      "category": "OUTFLOW",
+      "currency": "GBP",
+      "counterparty": "Various",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "09c652b2-265e-4b9c-81a0-c36239511675",
+      "txn_ref": "09c652b2-265e-4b9c-81a0-c36239511675",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-23",
+      "amount": 1450000,
+      "direction": "DEBIT",
+      "category": "PAYROLL",
+      "currency": "GBP",
+      "counterparty": "Payroll",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
+    },
+    {
+      "id": "96a4bc11-5538-44df-80d6-b6b89977ae06",
+      "txn_ref": "96a4bc11-5538-44df-80d6-b6b89977ae06",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "txn_date": "2026-01-23",
+      "amount": 220880,
+      "direction": "DEBIT",
+      "category": "SUPPLIER",
+      "currency": "GBP",
+      "counterparty": "Supplier Ltd",
+      "account_ref": "GB89BARC20060512345678A",
+      "metadata": {
+        "source": "synthetic_uk_treasury_90d"
+      }
     }
   ],
-  "treasury_supplier_payment_candidates": [
-    {
-      "supplier_ref": "SUPP-0-0",
-      "supplier_name": "LogiTrans",
-      "amount": 148737,
-      "currency": "GBP",
-      "urgency": "DEFERABLE",
-      "due_date": "2026-01-19",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-0-1",
-      "supplier_name": "EuroChem",
-      "amount": 227982,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-01-17",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-7-0",
-      "supplier_name": "TechSource",
-      "amount": 75786,
-      "currency": "GBP",
-      "urgency": "DEFERABLE",
-      "due_date": "2026-01-22",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-7-1",
-      "supplier_name": "EuroChem",
-      "amount": 186099,
-      "currency": "GBP",
-      "urgency": "DEFERABLE",
-      "due_date": "2026-01-25",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-14-0",
-      "supplier_name": "Global Plastics",
-      "amount": 129724,
-      "currency": "GBP",
-      "urgency": "DEFERABLE",
-      "due_date": "2026-02-03",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-14-1",
-      "supplier_name": "OfficePro",
-      "amount": 188658,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-01-30",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-14-2",
-      "supplier_name": "OfficePro",
-      "amount": 218169,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-02-02",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-21-0",
-      "supplier_name": "UK Freight",
-      "amount": 124665,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-02-09",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-21-1",
-      "supplier_name": "EuroChem",
-      "amount": 166636,
-      "currency": "GBP",
-      "urgency": "DEFERABLE",
-      "due_date": "2026-02-08",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-21-2",
-      "supplier_name": "Global Plastics",
-      "amount": 220616,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-02-10",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-28-0",
-      "supplier_name": "EuroChem",
-      "amount": 149165,
-      "currency": "GBP",
-      "urgency": "DEFERABLE",
-      "due_date": "2026-02-17",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-28-1",
-      "supplier_name": "LogiTrans",
-      "amount": 230702,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-02-12",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-28-2",
-      "supplier_name": "OfficePro",
-      "amount": 203568,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-02-14",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-35-0",
-      "supplier_name": "LogiTrans",
-      "amount": 234029,
-      "currency": "GBP",
-      "urgency": "DEFERABLE",
-      "due_date": "2026-02-23",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-35-1",
-      "supplier_name": "LogiTrans",
-      "amount": 206611,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-02-19",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-42-0",
-      "supplier_name": "LogiTrans",
-      "amount": 106642,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-02-27",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-42-1",
-      "supplier_name": "EuroChem",
-      "amount": 193646,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-02-26",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-49-0",
-      "supplier_name": "TechSource",
-      "amount": 229080,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-03-09",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-49-1",
-      "supplier_name": "EuroChem",
-      "amount": 227219,
-      "currency": "GBP",
-      "urgency": "DEFERABLE",
-      "due_date": "2026-03-09",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-49-2",
-      "supplier_name": "EuroChem",
-      "amount": 60988,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-03-09",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-56-0",
-      "supplier_name": "Acme Steel",
-      "amount": 146621,
-      "currency": "GBP",
-      "urgency": "DEFERABLE",
-      "due_date": "2026-03-13",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-56-1",
-      "supplier_name": "OfficePro",
-      "amount": 226309,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-03-14",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-63-0",
-      "supplier_name": "EuroChem",
-      "amount": 144693,
-      "currency": "GBP",
-      "urgency": "DEFERABLE",
-      "due_date": "2026-03-20",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-63-1",
-      "supplier_name": "Global Plastics",
-      "amount": 66175,
-      "currency": "GBP",
-      "urgency": "DEFERABLE",
-      "due_date": "2026-03-19",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-63-2",
-      "supplier_name": "UK Freight",
-      "amount": 159635,
-      "currency": "GBP",
-      "urgency": "DEFERABLE",
-      "due_date": "2026-03-21",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-63-3",
-      "supplier_name": "Global Plastics",
-      "amount": 210699,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-03-22",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-70-0",
-      "supplier_name": "UK Freight",
-      "amount": 150135,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-03-30",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-70-1",
-      "supplier_name": "Global Plastics",
-      "amount": 76796,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-03-26",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-70-2",
-      "supplier_name": "TechSource",
-      "amount": 63157,
-      "currency": "GBP",
-      "urgency": "DEFERABLE",
-      "due_date": "2026-03-30",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-77-0",
-      "supplier_name": "TechSource",
-      "amount": 224451,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-04-04",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-77-1",
-      "supplier_name": "Global Plastics",
-      "amount": 218337,
-      "currency": "GBP",
-      "urgency": "DEFERABLE",
-      "due_date": "2026-04-04",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-84-0",
-      "supplier_name": "LogiTrans",
-      "amount": 199791,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-04-12",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-84-1",
-      "supplier_name": "TechSource",
-      "amount": 67776,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-04-11",
-      "batch_hint": null,
-      "metadata": {}
-    },
-    {
-      "supplier_ref": "SUPP-84-2",
-      "supplier_name": "BritEnergy",
-      "amount": 123048,
-      "currency": "GBP",
-      "urgency": "URGENT",
-      "due_date": "2026-04-11",
-      "batch_hint": null,
-      "metadata": {}
-    }
-  ]
+  "treasury_decision_snapshots": [],
+  "treasury_supplier_payment_candidates": []
 }
