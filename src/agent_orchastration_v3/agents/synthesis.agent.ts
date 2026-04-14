@@ -80,7 +80,6 @@ function buildDataContext(state: FinancialState): string {
   // --- Treasury/corporate conversational context ---
   if (state.treasuryAnalysis) {
     const t = state.treasuryAnalysis;
-    // Conversational summary for treasury/corporate flows
     let treasurySummary = `Here's where things stand for your upcoming payments. Right now, you have about ${t.availableLiquidity.toLocaleString("en-GB")} ${t.currency} available. On a typical week, you see about ${t.weeklyOutflow.toLocaleString("en-GB")} ${t.currency} going out, and you usually expect around ${t.expectedMidweekInflow.toLocaleString("en-GB")} ${t.currency} to come in midweek.`;
 
     if (t.lateInflowEventsLast4Weeks > 0) {
@@ -91,13 +90,21 @@ function buildDataContext(state: FinancialState): string {
 
     treasurySummary += ` If you paid everything now, your lowest projected balance would be ${t.projectedLowBalanceIfFullRelease.toLocaleString("en-GB")} ${t.currency}. If you split the payment, the lowest point would be closer to ${t.projectedLowBalanceIfSplit.toLocaleString("en-GB")} ${t.currency}.`;
 
+    // Add scenario/simulation options
+    const projectedLowIfLate = typeof t.projectedLowIfLateInflow === 'number' ? t.projectedLowIfLateInflow.toLocaleString("en-GB") : "N/A";
+    const projectedLowIfEarly = typeof t.projectedLowIfEarlyInflow === 'number' ? t.projectedLowIfEarlyInflow.toLocaleString("en-GB") : "N/A";
+    treasurySummary += `\n\nSimulation: If midweek inflows are late, your lowest projected balance could drop to ${projectedLowIfLate} ${t.currency}. If inflows arrive early, it could be as high as ${projectedLowIfEarly} ${t.currency}.`;
+
     if (t.riskLevel === "CAUTION" || t.riskLevel === "HIGH_RISK") {
-      treasurySummary += ` To be on the safe side, it might make sense to split the payment: send about ${t.suggestedNowAmount.toLocaleString("en-GB")} ${t.currency} now, and hold back ${t.suggestedLaterAmount.toLocaleString("en-GB")} ${t.currency} for later in the week, once more money comes in.`;
+      treasurySummary += `\n\nOptions:\n- Split the payment: send about ${t.suggestedNowAmount.toLocaleString("en-GB")} ${t.currency} now, and hold back ${t.suggestedLaterAmount.toLocaleString("en-GB")} ${t.currency} for later in the week, once more money comes in.\n- Simulate what happens if inflows are delayed or early.\n- Set up auto-release for the second batch if cash arrives as expected.`;
     } else {
-      treasurySummary += ` Based on the numbers, a full release is likely manageable, but splitting is always an option if you want extra headroom.`;
+      treasurySummary += `\n\nOptions:\n- Proceed with a full release (likely manageable).\n- Split the payment for extra headroom.\n- Simulate what happens if inflows are delayed or early.\n- Set up auto-release for the second batch if cash arrives as expected.`;
     }
 
-    treasurySummary += ` This analysis is based on how money has actually moved through your accounts recently—cashflow, supplier payments, and your latest bank snapshots.`;
+    treasurySummary += `\n\nThis analysis is based on how money has actually moved through your accounts recently—cashflow, supplier payments, and your latest bank snapshots.`;
+
+    // Surface audit trail and approval flow
+    treasurySummary += `\n\nAll actions are logged for audit and treasury approval. You will receive alerts for any scheduled or conditional releases, and approval is always required for final execution.`;
 
     treasurySummary += `\n\n${t.rationale}`;
 

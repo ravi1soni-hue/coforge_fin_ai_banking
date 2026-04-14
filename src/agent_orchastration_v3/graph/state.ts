@@ -84,6 +84,14 @@ export interface TreasuryAnalysis {
   releaseConditionHitRate10Weeks: number;
   currency: string;
   rationale: string;
+  // Scenario-aware fields
+  payrollOutflow?: number;
+  payrollDay?: string;
+  historicalBuffer?: number;
+  observedLateInflows?: number;
+  projectedLowIfLateInflow?: number;
+  projectedLowIfEarlyInflow?: number;
+  inflowVariance?: number;
 }
 
 // ─── Conversation turn (for history) ─────────────────────────────────────────
