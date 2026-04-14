@@ -66,14 +66,16 @@ export class TreasuryAnalysisService {
     let payrollDay = "";
     if (recentCashflow.length > 0) {
       // Find the most common payroll outflow and its day
-      const payrolls = recentCashflow.filter(r => r.payroll_outflow && r.payroll_outflow > 0);
+      const payrolls = recentCashflow.filter(r => r.payroll_outflow && r.payroll_outflow > 0 && typeof r.day_name === "string" && r.day_name);
       if (payrolls.length > 0) {
         // Use median payroll outflow
         const sortedPayrolls = payrolls.map(r => r.payroll_outflow).sort((a, b) => a - b);
         payrollOutflow = sortedPayrolls[Math.floor(sortedPayrolls.length / 2)];
         // Find most common payroll weekday
         const dayCounts = payrolls.reduce((acc, r) => {
-          acc[r.day_name] = (acc[r.day_name] || 0) + 1;
+          if (typeof r.day_name === "string" && r.day_name) {
+            acc[r.day_name] = (acc[r.day_name] || 0) + 1;
+          }
           return acc;
         }, {} as Record<string, number>);
         payrollDay = Object.entries(dayCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
