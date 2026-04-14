@@ -19,7 +19,7 @@ function makeLoadProfileNode(loader) {
     return async function loadProfileNode(state) {
         console.log("[loadProfile] userId=" + state.userId);
         const profile = await loader.loadProfile(state.userId, state.knownFacts ?? {});
-        console.log("[loadProfile] name=" + (profile.userName ?? "unknown") + " savings=" + profile.availableSavings + " " + profile.homeCurrency);
+        console.log("[loadProfile] name=" + (profile.userName ?? "unknown") + " liquidity=" + profile.availableLiquidity + " " + profile.homeCurrency);
         return { userProfile: profile };
     };
 }

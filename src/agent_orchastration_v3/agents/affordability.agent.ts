@@ -43,7 +43,7 @@ export async function runAffordabilityAgent(
   const price   = state.priceInfo;
   const fx      = state.fxInfo;
 
-  const savings   = Number(profile?.availableSavings ?? 0);
+  const savings   = Number(profile?.availableLiquidity ?? 0);
   const income    = Number(profile?.monthlyIncome    ?? 0);
   const expenses  = Number(profile?.monthlyExpenses  ?? 0);
   const surplus   = Number(profile?.netMonthlySurplus ?? (income - expenses));

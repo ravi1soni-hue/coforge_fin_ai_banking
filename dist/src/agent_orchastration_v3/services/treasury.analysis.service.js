@@ -35,25 +35,24 @@ export class TreasuryAnalysisService {
         if (!isTreasuryQuestion(message))
             return null;
         const balances = await this.structuredRepo.getBalances(userId);
-        const latestMonthly = await this.structuredRepo.getLatestMonthlySummary(userId);
+        // Removed: getLatestMonthlySummary (table and method do not exist)
         const latestSnapshot = await this.structuredRepo.getLatestTreasuryDecisionSnapshot(userId);
         const supplierCandidates = await this.structuredRepo.getTreasurySupplierCandidates(userId);
         const recentCashflow = await this.structuredRepo.getRecentTreasuryCashflow(userId, 90);
         const currency = String(knownFacts.currency ??
             knownFacts.profileCurrency ??
             latestSnapshot?.currency ??
-            latestMonthly?.currency ??
             balances[0]?.currency ??
             "GBP").toUpperCase();
         const availableLiquidity = balances.reduce((sum, b) => sum + Number(b.balance ?? 0), 0);
-        const monthlyExpenses = parseNum(knownFacts.monthlyExpenses) ?? latestMonthly?.totalExpenses ?? 0;
+        const monthlyExpenses = parseNum(knownFacts.monthlyExpenses) ?? 0;
         const weeklyOutflow = parseNum(knownFacts.weeklyOutflowAvg) ??
             parseNum(knownFacts.weeklyOutflow) ??
-            latestSnapshot?.weeklyOutflowBaseline ??
+            latestSnapshot?.weekly_outflow_baseline ??
             (monthlyExpenses > 0 ? monthlyExpenses / 4 : 0);
         const expectedMidweekInflow = parseNum(knownFacts.expectedMidweekInflow) ??
             parseNum(knownFacts.inflowTueThuAvg) ??
-            latestSnapshot?.midweekInflowBaseline ??
+            latestSnapshot?.midweek_inflow_baseline ??
             0;
         const lateInflowEventsLast4Weeks = Math.max(0, Math.round(parseNum(knownFacts.lateInflowsLast4Weeks) ?? parseNum(knownFacts.lateReceiptCount4Weeks) ?? 0));
         const observedLateInflows = recentCashflow
@@ -62,10 +61,10 @@ export class TreasuryAnalysisService {
             const m = (r.metadata ?? {});
             return String(m.receiptPunctuality ?? "").toUpperCase() === "LATE";
         }).length;
-        const effectiveLateInflowCount = Math.max(lateInflowEventsLast4Weeks, latestSnapshot?.lateInflowCountLast4Weeks ?? 0, observedLateInflows);
+        const effectiveLateInflowCount = Math.max(lateInflowEventsLast4Weeks, latestSnapshot?.late_inflow_count_last_4_weeks ?? 0, observedLateInflows);
         const comfortThreshold = parseNum(knownFacts.internalComfortThreshold) ??
             parseNum(knownFacts.minLiquidityThreshold) ??
-            latestSnapshot?.comfortThreshold ??
+            latestSnapshot?.comfort_threshold ??
             Math.max(0, weeklyOutflow * 0.35);
         const paymentAmount = parseNum(knownFacts.paymentAmount) ??
             parseMoneyWithSuffix(message);
@@ -99,10 +98,10 @@ export class TreasuryAnalysisService {
             suggestedLaterAmount = 0;
         }
         const minInflowForMidweekRelease = parseNum(knownFacts.minInflowForMidweekRelease) ??
-            latestSnapshot?.minInflowForMidweekRelease ??
+            latestSnapshot?.min_inflow_for_midweek_release ??
             Math.max(0, Math.round((suggestedLaterAmount || amountToAnalyse * 0.3) * 2.6));
         const releaseConditionHitRate10Weeks = parseNum(knownFacts.releaseConditionHitRate10Weeks) ??
-            latestSnapshot?.releaseConditionHitRate10Weeks ??
+            latestSnapshot?.release_condition_hit_rate_10_weeks ??
             0;
         const projectedLowBalanceIfFullRelease = availableLiquidity - amountToAnalyse - weeklyOutflow + expectedMidweekInflow;
         const projectedLowBalanceIfSplit = availableLiquidity - suggestedNowAmount - weeklyOutflow + expectedMidweekInflow;

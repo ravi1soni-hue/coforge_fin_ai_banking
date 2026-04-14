@@ -196,7 +196,7 @@ export async function runSupervisorAgent(llmClient, userMessage, userProfile, co
         targetCurrency: parsed.targetCurrency || undefined,
         userHomeCurrency: parsed.userHomeCurrency || homeCurrency,
         userStatedPrice: Number(parsed.userStatedPrice) || 0,
-        intentType: intentType
+        intentType: (intentType === "corporate_treasury" ? "corporate_treasury" : "unknown")
     };
     // Deterministic price fallback (GBP/£) from current or immediately previous user turn.
     if ((plan.userStatedPrice ?? 0) === 0) {

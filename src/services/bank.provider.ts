@@ -1,17 +1,9 @@
-import {
-  AccountBalancesTable,
-  CreditProfileTable,
-  FinancialSummaryMonthlyTable,
-  InvestmentSummaryTable,
-  LoanAccountsTable,
-} from "../db/schema/structured_finance_data.js";
+
 
 export interface StructuredFinancialData {
-  balances: Partial<AccountBalancesTable>[];
-  monthlySummaries: Partial<FinancialSummaryMonthlyTable>[];
-  loans: Partial<LoanAccountsTable>[];
-  investments: Partial<InvestmentSummaryTable>[];
-  creditProfile?: Partial<CreditProfileTable>;
+  balances: any[];
+  // Removed missing types: monthlySummaries, loans, investments, creditProfile
+  // Add them back if you define them in structured_finance_data.ts
 }
 
 export type FinancialActivityType = "transaction" | "investment";

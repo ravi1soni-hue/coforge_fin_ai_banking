@@ -15,7 +15,7 @@ import type { Kysely } from "kysely";
 import type { VectorQueryService } from "./services/vector.query.service.js";
 import type { ChatRepository } from "../repo/chat.repo.js";
 import type { SessionRepository } from "../repo/session.repo.js";
-import type { StructuredFinancialRepository } from "../repo/structured.finance.repo.js";
+import type { StructuredFinancialRepository } from "../repo/structured.finance.repo.clean.js";
 
 import { OpenAIClient } from "./llm/openAIClient.js";
 import { V3LlmClient } from "./llm/v3LlmClient.js";

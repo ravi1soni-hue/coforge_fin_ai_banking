@@ -21,14 +21,14 @@ async function main() {
   // 3. Prepare and embed each transaction in batches with retry
   const BATCH_SIZE = 10;
   const docs = [];
-  async function embedWithRetry(content, maxRetries = 5) {
+  async function embedWithRetry(content: string, maxRetries = 5): Promise<number[]> {
     let attempt = 0;
     let delay = 1000;
     while (attempt < maxRetries) {
       try {
         return await getEmbeddingForText(content);
-      } catch (err) {
-        if (err && err.message && err.message.includes('429')) {
+      } catch (err: any) {
+        if (err && err.message && typeof err.message === 'string' && err.message.includes('429')) {
           attempt++;
           console.warn(`Rate limited, retrying in ${delay}ms (attempt ${attempt})...`);
           await new Promise(res => setTimeout(res, delay));

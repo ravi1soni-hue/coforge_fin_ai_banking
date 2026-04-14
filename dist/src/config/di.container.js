@@ -4,7 +4,7 @@ import { VectorRepository } from "../repo/vector.repo.js";
 import { ChatRepository } from "../repo/chat.repo.js";
 import { SessionRepository } from "../repo/session.repo.js";
 import { UserRepository } from "../repo/user.repo.js";
-import { StructuredFinancialRepository } from "../repo/structured.finance.repo.js";
+import { StructuredFinancialRepository } from "../repo/structured.finance.repo.clean.js";
 import { FinancialSyncRepository } from "../repo/finance_data_sync_repo.js";
 import { VectorQueryService } from "../agent_orchastration_v3/services/vector.query.service.js";
 import { ChatServiceV3 } from "../agent_orchastration_v3/ChatServiceV3.js";
