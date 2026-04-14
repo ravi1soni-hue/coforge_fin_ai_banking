@@ -80,35 +80,23 @@ function buildDataContext(state: FinancialState): string {
   // --- Treasury/corporate conversational context ---
   if (state.treasuryAnalysis) {
     const t = state.treasuryAnalysis;
-    let treasurySummary = `Here's where things stand for your upcoming payments. Right now, you have about ${t.availableLiquidity.toLocaleString("en-GB")} ${t.currency} available. On a typical week, you see about ${t.weeklyOutflow.toLocaleString("en-GB")} ${t.currency} going out, and you usually expect around ${t.expectedMidweekInflow.toLocaleString("en-GB")} ${t.currency} to come in midweek.`;
-
+    // Compose a concise, conversational summary (≤120 words)
+    let summary = `You have £${t.availableLiquidity.toLocaleString("en-GB")} available and your comfort threshold is £${t.comfortThreshold.toLocaleString("en-GB")}. The £${t.paymentAmount.toLocaleString("en-GB")} supplier run is well within safe limits.`;
     if (t.lateInflowEventsLast4Weeks > 0) {
-      treasurySummary += ` There have been ${t.lateInflowEventsLast4Weeks} late inflow events in the last month, so timing can be a bit unpredictable.`;
-    }
-
-    treasurySummary += ` The comfort threshold for your accounts is set at ${t.comfortThreshold.toLocaleString("en-GB")} ${t.currency}. The payment you're considering is ${t.paymentAmount.toLocaleString("en-GB")} ${t.currency}. Of that, about ${t.urgentSupplierTotal.toLocaleString("en-GB")} ${t.currency} is for urgent suppliers, and ${t.deferableSupplierTotal.toLocaleString("en-GB")} ${t.currency} could be deferred if needed.`;
-
-    treasurySummary += ` If you paid everything now, your lowest projected balance would be ${t.projectedLowBalanceIfFullRelease.toLocaleString("en-GB")} ${t.currency}. If you split the payment, the lowest point would be closer to ${t.projectedLowBalanceIfSplit.toLocaleString("en-GB")} ${t.currency}.`;
-
-    // Add scenario/simulation options
-    const projectedLowIfLate = typeof t.projectedLowIfLateInflow === 'number' ? t.projectedLowIfLateInflow.toLocaleString("en-GB") : "N/A";
-    const projectedLowIfEarly = typeof t.projectedLowIfEarlyInflow === 'number' ? t.projectedLowIfEarlyInflow.toLocaleString("en-GB") : "N/A";
-    treasurySummary += `\n\nSimulation: If midweek inflows are late, your lowest projected balance could drop to ${projectedLowIfLate} ${t.currency}. If inflows arrive early, it could be as high as ${projectedLowIfEarly} ${t.currency}.`;
-
-    if (t.riskLevel === "CAUTION" || t.riskLevel === "HIGH_RISK") {
-      treasurySummary += `\n\nOptions:\n- Split the payment: send about ${t.suggestedNowAmount.toLocaleString("en-GB")} ${t.currency} now, and hold back ${t.suggestedLaterAmount.toLocaleString("en-GB")} ${t.currency} for later in the week, once more money comes in.\n- Simulate what happens if inflows are delayed or early.\n- Set up auto-release for the second batch if cash arrives as expected.`;
+      summary += ` There have been some late inflows recently, but even if midweek receipts are delayed, your lowest balance stays above £${typeof t.projectedLowIfLateInflow === 'number' ? t.projectedLowIfLateInflow.toLocaleString("en-GB") : t.projectedLowBalance.toLocaleString("en-GB")}.`;
     } else {
-      treasurySummary += `\n\nOptions:\n- Proceed with a full release (likely manageable).\n- Split the payment for extra headroom.\n- Simulate what happens if inflows are delayed or early.\n- Set up auto-release for the second batch if cash arrives as expected.`;
+      summary += ` Even if midweek inflows are late, your lowest balance would be about £${typeof t.projectedLowIfLateInflow === 'number' ? t.projectedLowIfLateInflow.toLocaleString("en-GB") : t.projectedLowBalance.toLocaleString("en-GB")}.`;
     }
+    if (t.urgentSupplierTotal && t.deferableSupplierTotal) {
+      summary += ` If you want extra headroom, you could split: release £${t.urgentSupplierTotal.toLocaleString("en-GB")} now, defer £${t.deferableSupplierTotal.toLocaleString("en-GB")} until midweek.`;
+    }
+    summary += `
 
-    treasurySummary += `\n\nThis analysis is based on how money has actually moved through your accounts recently—cashflow, supplier payments, and your latest bank snapshots.`;
-
-    // Surface audit trail and approval flow
-    treasurySummary += `\n\nAll actions are logged for audit and treasury approval. You will receive alerts for any scheduled or conditional releases, and approval is always required for final execution.`;
-
-    treasurySummary += `\n\n${t.rationale}`;
-
-    parts.push(treasurySummary);
+Want to proceed with the full release, or set up a split for treasury approval?`;
+    // Truncate to ~120 words
+    const words = summary.split(/\s+/);
+    if (words.length > 120) summary = words.slice(0, 120).join(' ') + '...';
+    parts.push(summary);
   }
 
   const execStatusRaw = (state.knownFacts?.executionStatus ?? state.knownFacts?.treasuryExecutionStatus ?? null) as unknown;
