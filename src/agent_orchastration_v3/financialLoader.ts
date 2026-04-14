@@ -58,8 +58,11 @@ export class FinancialLoader {
       }
     }
     // Fallbacks for legacy/seeded facts
-    if (savings === undefined) savings = parseNum(knownFacts.availableSavings) ?? parseNum(knownFacts.spendable_savings);
-    if (liquidity === undefined) liquidity = parseNum(knownFacts.currentBalance);
+    // Only use legacy fields if accounts array is missing or not an array
+    if (!Array.isArray(knownFacts.accounts)) {
+      if (savings === undefined) savings = parseNum(knownFacts.availableSavings) ?? parseNum(knownFacts.spendable_savings);
+      if (liquidity === undefined) liquidity = parseNum(knownFacts.currentBalance);
+    }
 
     const income = parseNum(knownFacts.monthlyIncome);
     const expenses = parseNum(knownFacts.monthlyExpenses);
