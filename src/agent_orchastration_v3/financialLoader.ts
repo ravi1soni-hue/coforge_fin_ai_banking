@@ -40,10 +40,26 @@ export class FinancialLoader {
     console.log(`[FinancialLoader][DEBUG] profileLookupUserId:`, profileLookupUserId);
 
     // Primary: use already-normalised facts from the profile seed
-    const savings =
-      parseNum(knownFacts.availableSavings) ??
-      parseNum(knownFacts.spendable_savings) ??
-      parseNum(knownFacts.currentBalance);
+    // If intent is corporate/treasury, only sum current/operating/reserve accounts for liquidity
+    let savings: number | undefined = undefined;
+    let liquidity: number | undefined = undefined;
+    const intentType = typeof knownFacts.intentType === "string" ? knownFacts.intentType : undefined;
+    if (Array.isArray(knownFacts.accounts)) {
+      if (intentType === "corporate_treasury") {
+        // Only sum current/operating/reserve accounts
+        liquidity = knownFacts.accounts
+          .filter((a: any) => typeof a.type === "string" && ["current", "operating", "reserve"].includes(a.type.toLowerCase()))
+          .reduce((sum: number, a: any) => sum + (parseNum(a.balance) ?? 0), 0);
+      } else {
+        // Only sum savings/investment accounts
+        savings = knownFacts.accounts
+          .filter((a: any) => typeof a.type === "string" && ["savings", "isa", "deposit", "investment"].includes(a.type.toLowerCase()))
+          .reduce((sum: number, a: any) => sum + (parseNum(a.balance) ?? 0), 0);
+      }
+    }
+    // Fallbacks for legacy/seeded facts
+    if (savings === undefined) savings = parseNum(knownFacts.availableSavings) ?? parseNum(knownFacts.spendable_savings);
+    if (liquidity === undefined) liquidity = parseNum(knownFacts.currentBalance);
 
     const income = parseNum(knownFacts.monthlyIncome);
     const expenses = parseNum(knownFacts.monthlyExpenses);
@@ -58,7 +74,17 @@ export class FinancialLoader {
     const userName =
       typeof knownFacts.userName === "string" ? knownFacts.userName : undefined;
 
-    if (savings !== undefined && savings > 0) {
+    if (intentType === "corporate_treasury" && liquidity !== undefined && liquidity >= 0) {
+      return {
+        availableSavings: liquidity, // For treasury, this is actually liquidity
+        monthlyIncome: income,
+        monthlyExpenses: expenses,
+        netMonthlySurplus: surplus,
+        homeCurrency: currency,
+        userName,
+      };
+    }
+    if ((intentType !== "corporate_treasury" || !intentType) && savings !== undefined && savings >= 0) {
       return {
         availableSavings: savings,
         monthlyIncome: income,
