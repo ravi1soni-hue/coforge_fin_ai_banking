@@ -1,3 +1,5 @@
+import dotenv from "dotenv";
+dotenv.config();
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { Kysely, PostgresDialect } from "kysely";
@@ -5,29 +7,25 @@ import pkg from "pg";
 
 const { Pool } = pkg;
 
-interface BankingUserData {
-  userProfile?: {
-    userId?: string;
-    currency?: string;
-    employment?: {
-      monthlyIncome?: number;
-    };
-  };
-  transactions?: Array<{ date?: string; type?: string; amount?: number }>;
-  loans?: Array<{ emi?: number }>;
-  subscriptions?: Array<{ amount?: number }>;
-}
+// Removed unused interfaces
+
+// Minimal DB interface for Kysely
+interface Database {}
 
 interface UserFinancialProfile {
   user_id: string;
   monthly_income?: number | null;
   monthly_expenses?: number | null;
-  net_monthly_savings?: number | null;
+  current_balance?: number | null;
   currency?: string | null;
 }
 
+import { AccountBalancesTable, TreasuryDecisionSnapshotsTable } from "../db/schema/structured_finance_data.js";
+
 interface Database {
   user_financial_profiles: UserFinancialProfile;
+  account_balances: AccountBalancesTable;
+  treasury_decision_snapshots: TreasuryDecisionSnapshotsTable;
 }
 
 const parseNumeric = (value: unknown): number | undefined => {
@@ -43,61 +41,89 @@ const parseNumeric = (value: unknown): number | undefined => {
   return undefined;
 };
 
-const deriveTransactionStats = (
-  transactions: Record<string, unknown>[] | undefined
-): { averageMonthlyCredit?: number; averageMonthlyDebit?: number } => {
-  if (!transactions || transactions.length === 0) return {};
-
-  const monthlyCredits = new Map<string, number>();
-  const monthlyDebits = new Map<string, number>();
-
-  for (const tx of transactions) {
-    const date = typeof tx.date === "string" ? tx.date : undefined;
-    if (!date || date.length < 7) continue;
-
-    const monthKey = date.slice(0, 7);
-    const type = typeof tx.type === "string" ? tx.type.toUpperCase() : "";
-    const amount = parseNumeric(tx.amount) ?? 0;
-
-    if (amount <= 0) continue;
-
-    if (type === "CREDIT") {
-      monthlyCredits.set(monthKey, (monthlyCredits.get(monthKey) ?? 0) + amount);
-    } else if (type === "DEBIT") {
-      monthlyDebits.set(monthKey, (monthlyDebits.get(monthKey) ?? 0) + amount);
-    }
-  }
-
-  return {
-    averageMonthlyCredit:
-      monthlyCredits.size > 0
-        ? Array.from(monthlyCredits.values()).reduce((a, b) => a + b, 0) / monthlyCredits.size
-        : undefined,
-    averageMonthlyDebit:
-      monthlyDebits.size > 0
-        ? Array.from(monthlyDebits.values()).reduce((a, b) => a + b, 0) / monthlyDebits.size
-        : undefined,
-  };
-};
-
-export const seedFinancialProfiles = async (): Promise<void> => {
-  console.log("🌱 Starting financial profiles seed...");
-
+async function seedFinancialProfiles(): Promise<void> {
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
   });
-
   const db = new Kysely<Database>({
     dialect: new PostgresDialect({ pool }),
   });
-
   try {
-    // No retail/personal logic remains. Implement corporate/treasury seed logic if required.
-    console.log("No retail/personal logic remains in seed-financial-profiles.ts. Implement corporate/treasury logic if needed.");
+    // --- CORPORATE/TREASURY SEED LOGIC ---
+    // Use the actual UUID for user_id (from Neon DB)
+    const userId = '9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1';
+    const now = new Date().toISOString();
+
+    // 1. Upsert user_financial_profiles
+    await db
+      .insertInto('user_financial_profiles')
+      .values({
+        user_id: userId,
+        monthly_income: 50000,
+        monthly_expenses: 30000,
+        current_balance: 250000,
+        currency: 'GBP',
+      })
+      .onConflict((oc) => oc.column('user_id').doUpdateSet({
+        monthly_income: 50000,
+        monthly_expenses: 30000,
+        current_balance: 250000,
+        currency: 'GBP',
+      }))
+      .execute();
+
+    // 2. Upsert account_balances (current account)
+    await db
+      .insertInto('account_balances')
+      .values({
+        user_id: userId,
+        account_type: 'current',
+        provider: 'HSBC',
+        account_ref: 'HSBC-001',
+        balance: 250000,
+        currency: 'GBP',
+        metadata: { seeded: true },
+        updated_at: now,
+      })
+      .onConflict((oc) => oc.columns(['user_id', 'account_ref']).doUpdateSet({
+        balance: 250000,
+        updated_at: now,
+      }))
+      .execute();
+
+    // 3. Upsert treasury_decision_snapshots
+    await db
+      .insertInto('treasury_decision_snapshots')
+      .values({
+        user_id: userId,
+        snapshot_date: now.slice(0, 10),
+        weekly_outflow_baseline: 7000,
+        midweek_inflow_baseline: 12000,
+        late_inflow_count_last_4_weeks: 1,
+        comfort_threshold: 100000,
+        min_inflow_for_midweek_release: 5000,
+        release_condition_hit_rate_10_weeks: 0.8,
+        currency: 'GBP',
+        metadata: { seeded: true },
+        created_at: now,
+        updated_at: now,
+      })
+      .onConflict((oc) => oc.columns(['user_id', 'snapshot_date']).doUpdateSet({
+        weekly_outflow_baseline: 7000,
+        midweek_inflow_baseline: 12000,
+        late_inflow_count_last_4_weeks: 1,
+        comfort_threshold: 100000,
+        min_inflow_for_midweek_release: 5000,
+        release_condition_hit_rate_10_weeks: 0.8,
+        updated_at: now,
+      }))
+      .execute();
+
+    console.log(`✅ Seeded corporate/treasury profile for user: ${userId}`);
   } finally {
     await pool.end();
   }
-};
+}
 
 seedFinancialProfiles().catch((err) => {
   console.error("❌ Seed failed:", err);
