@@ -72,8 +72,9 @@ export class FinancialLoader {
         JSON.stringify(knownFacts.accounts, null, 2),
         '',
         'Rules:',
-        '- For retail/personal, savings should include any account that can be used for personal spending, excluding loans/credit/debt.',
-        '- For corporate/treasury, liquidity should include any account that can be used for payments, excluding loans/credit/debt.',
+        '- For retail/personal, savings should ONLY include accounts with type savings, isa, deposit, or investment (case-insensitive).',
+        '- For corporate/treasury, liquidity should ONLY include accounts with type current, operating, or reserve (case-insensitive).',
+        '- Exclude all loan, credit, overdraft, or debt accounts.',
         '- If unsure, err on the side of including more, but never include negative balances or debts.',
         '- Return the sum as availableSavings (retail) or liquidity (corporate/treasury).',
         '- Also extract monthlyIncome, monthlyExpenses, netMonthlySurplus, and currency if present in the data.',
@@ -88,6 +89,7 @@ export class FinancialLoader {
         '  "currency": string | null',
         '}'
       ].join('\n');
+      debugLog('llmPrompt', llmPrompt);
       const llmProfile = await this.llm.generateJSON<{
         availableSavings: number | null;
         liquidity: number | null;
