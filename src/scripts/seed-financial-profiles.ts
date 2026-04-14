@@ -92,72 +92,8 @@ export const seedFinancialProfiles = async (): Promise<void> => {
   });
 
   try {
-    const filePath = path.resolve(process.cwd(), "banking_user_data.json");
-    const rawData = await readFile(filePath, "utf8");
-    const parsed = JSON.parse(rawData) as BankingUserData;
-
-    const userId = parsed.userProfile?.userId ?? "unknown_user";
-    const currency = parsed.userProfile?.currency ?? "GBP";
-    const monthlyIncomeFromEmployment = parseNumeric(parsed.userProfile?.employment?.monthlyIncome);
-
-    const txStats = deriveTransactionStats(
-      parsed.transactions as Record<string, unknown>[] | undefined
-    );
-    const monthlyIncome = monthlyIncomeFromEmployment ?? txStats.averageMonthlyCredit;
-    const baseMonthlyExpenses = txStats.averageMonthlyDebit;
-
-    const loans = parsed.loans || [];
-    const monthlyLoanEmi = loans.reduce((sum, loan) => sum + (parseNumeric(loan.emi) ?? 0), 0);
-
-    const subscriptions = parsed.subscriptions || [];
-    const monthlySubscriptionSpend = subscriptions.reduce(
-      (sum, sub) => sum + (parseNumeric(sub.amount) ?? 0),
-      0
-    );
-
-    const monthlyExpenses = (baseMonthlyExpenses ?? 0) + monthlyLoanEmi + (monthlySubscriptionSpend ?? 0);
-    const netMonthlySavings = (monthlyIncome ?? 0) - monthlyExpenses;
-
-    console.log(`📊 Calculated financial profile for ${userId}:`);
-    console.log(`   Monthly Income: ${monthlyIncome}`);
-    console.log(`   Monthly Expenses: ${monthlyExpenses}`);
-    console.log(`   Net Monthly Savings: ${netMonthlySavings}`);
-    console.log(`   Currency: ${currency}`);
-
-    // Check if row exists
-    const existing = await db
-      .selectFrom("user_financial_profiles")
-      .selectAll()
-      .where("user_id", "=", userId)
-      .executeTakeFirst();
-
-    if (existing) {
-      console.log(`📝 Updating existing profile for ${userId}...`);
-      await db
-        .updateTable("user_financial_profiles")
-        .set({
-          monthly_income: monthlyIncome,
-          monthly_expenses: monthlyExpenses,
-          net_monthly_savings: netMonthlySavings,
-          currency,
-        })
-        .where("user_id", "=", userId)
-        .execute();
-    } else {
-      console.log(`➕ Inserting new profile for ${userId}...`);
-      await db
-        .insertInto("user_financial_profiles")
-        .values({
-          user_id: userId,
-          monthly_income: monthlyIncome,
-          monthly_expenses: monthlyExpenses,
-          net_monthly_savings: netMonthlySavings,
-          currency,
-        })
-        .execute();
-    }
-
-    console.log(`✅ Financial profile for ${userId} seeded successfully!`);
+    // No retail/personal logic remains. Implement corporate/treasury seed logic if required.
+    console.log("No retail/personal logic remains in seed-financial-profiles.ts. Implement corporate/treasury logic if needed.");
   } finally {
     await pool.end();
   }

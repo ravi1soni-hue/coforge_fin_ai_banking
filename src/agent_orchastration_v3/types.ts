@@ -13,7 +13,7 @@ export type IntentType =
 
 // ─── Domain taxonomy ─────────────────────────────────────────────────────────
 
-// Removed DomainType (retail/personal)
+// DomainType now only supports corporate/treasury
 
 // ─── Reasoning level ─────────────────────────────────────────────────────────
 
@@ -33,7 +33,7 @@ export type SuggestionReason =
 
 // ─── Financial goal context ───────────────────────────────────────────────────
 
-// Removed FinancialGoalContext (retail/personal)
+// FinancialGoalContext now only supports corporate/treasury
 
 // ─── User profile ─────────────────────────────────────────────────────────────
 

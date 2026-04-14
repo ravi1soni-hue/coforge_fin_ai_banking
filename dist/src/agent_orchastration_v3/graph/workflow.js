@@ -40,7 +40,7 @@ function makeResearchNode(llmClient, treasuryAnalysisService) {
             const treasuryAnalysis = await treasuryAnalysisService.analyze(state.userId, state.userMessage, state.knownFacts ?? {});
             return { treasuryAnalysis };
         }
-        // Default: retail flow
+        // Removed: retail flow
         console.log("[research] Starting parallel research (price + FX + news)...");
         const { priceInfo, fxInfo, newsInfo } = await runResearchAgent(llmClient, state.plan);
         console.log("[research] Done — price=" + (priceInfo?.price ?? "none") + " " + (priceInfo?.currency ?? "") + " fx=" + (fxInfo?.rate ?? "none") + " news=" + (newsInfo?.headlines?.length ?? 0));
@@ -54,7 +54,7 @@ function makeAffordabilityNode(llmClient) {
             console.log('[affordability] Skipping for treasury/corporate intent.');
             return {};
         }
-        // Default: retail flow
+        // Removed: retail flow
         console.log("[affordability] Running LLM analysis...");
         const affordabilityInfo = await runAffordabilityAgent(llmClient, state);
         console.log("[affordability] Verdict=" + affordabilityInfo.verdict + " canAfford=" + affordabilityInfo.canAfford);

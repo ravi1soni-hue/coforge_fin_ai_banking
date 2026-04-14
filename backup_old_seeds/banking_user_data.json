@@ -1,6 +1,6 @@
 {
  
-    "userProfile": {
+    // [REMOVED] userProfile (retail/personal)
     "userId": "uk_user_001",
     "name": "James Walker",
     "currency": "GBP",
@@ -32,8 +32,7 @@
   
   "loans": [
     {
-      "loanId": "loan_personal_01",
-      "type": "Personal Loan",
+      // [REMOVED] Personal Loan
       "provider": "Barclays",
       "emi": 260,
       "remainingTenureMonths": 18
@@ -76,7 +75,7 @@
     { "date": "2025-04-02", "type": "DEBIT",  "category": "Rent",                  "amount": 1350.00 },
     { "date": "2025-04-03", "type": "DEBIT",  "category": "Council Tax",           "amount": 160.00 },
     { "date": "2025-04-04", "type": "DEBIT",  "category": "Groceries",             "amount": 85.00 },
-    { "date": "2025-04-05", "type": "DEBIT",  "category": "Personal Loan EMI",     "amount": 260.00 },
+    // [REMOVED] Personal Loan EMI
     { "date": "2025-04-06", "type": "DEBIT",  "category": "Car Loan EMI",          "amount": 310.00 },
     { "date": "2025-04-07", "type": "DEBIT",  "category": "Transport",             "amount": 44.00 },
     { "date": "2025-04-08", "type": "DEBIT",  "category": "Fuel",                  "amount": 42.00 },
@@ -96,7 +95,7 @@
     { "date": "2025-05-02", "type": "DEBIT",  "category": "Rent",                  "amount": 1350.00 },
     { "date": "2025-05-03", "type": "DEBIT",  "category": "Council Tax",           "amount": 160.00 },
     { "date": "2025-05-04", "type": "DEBIT",  "category": "Groceries",             "amount": 88.00 },
-    { "date": "2025-05-05", "type": "DEBIT",  "category": "Personal Loan EMI",     "amount": 260.00 },
+    // [REMOVED] Personal Loan EMI
     { "date": "2025-05-06", "type": "DEBIT",  "category": "Car Loan EMI",          "amount": 310.00 },
     { "date": "2025-05-07", "type": "DEBIT",  "category": "Transport",             "amount": 46.00 },
     { "date": "2025-05-08", "type": "DEBIT",  "category": "Fuel",                  "amount": 45.00 },
@@ -116,7 +115,7 @@
     { "date": "2025-06-02", "type": "DEBIT",  "category": "Rent",                  "amount": 1350.00 },
     { "date": "2025-06-03", "type": "DEBIT",  "category": "Council Tax",           "amount": 160.00 },
     { "date": "2025-06-04", "type": "DEBIT",  "category": "Groceries",             "amount": 90.00 },
-    { "date": "2025-06-05", "type": "DEBIT",  "category": "Personal Loan EMI",     "amount": 260.00 },
+    // [REMOVED] Personal Loan EMI
     { "date": "2025-06-06", "type": "DEBIT",  "category": "Car Loan EMI",          "amount": 310.00 },
     { "date": "2025-06-07", "type": "DEBIT",  "category": "Transport",             "amount": 44.00 },
     { "date": "2025-06-08", "type": "DEBIT",  "category": "Fuel",                  "amount": 42.00 },
@@ -136,7 +135,7 @@
     { "date": "2025-07-02", "type": "DEBIT",  "category": "Rent",                  "amount": 1350.00 },
     { "date": "2025-07-03", "type": "DEBIT",  "category": "Council Tax",           "amount": 160.00 },
     { "date": "2025-07-04", "type": "DEBIT",  "category": "Groceries",             "amount": 92.00 },
-    { "date": "2025-07-05", "type": "DEBIT",  "category": "Personal Loan EMI",     "amount": 260.00 },
+    // [REMOVED] Personal Loan EMI
     { "date": "2025-07-06", "type": "DEBIT",  "category": "Car Loan EMI",          "amount": 310.00 },
     { "date": "2025-07-07", "type": "DEBIT",  "category": "Transport",             "amount": 48.00 },
     { "date": "2025-07-08", "type": "DEBIT",  "category": "Fuel",                  "amount": 48.00 },
@@ -156,7 +155,7 @@
     { "date": "2025-08-02", "type": "DEBIT",  "category": "Rent",                  "amount": 1350.00 },
     { "date": "2025-08-03", "type": "DEBIT",  "category": "Council Tax",           "amount": 160.00 },
     { "date": "2025-08-04", "type": "DEBIT",  "category": "Groceries",             "amount": 95.00 },
-    { "date": "2025-08-05", "type": "DEBIT",  "category": "Personal Loan EMI",     "amount": 260.00 },
+    // [REMOVED] Personal Loan EMI
     { "date": "2025-08-06", "type": "DEBIT",  "category": "Car Loan EMI",          "amount": 310.00 },
     { "date": "2025-08-07", "type": "DEBIT",  "category": "Transport",             "amount": 50.00 },
     { "date": "2025-08-08", "type": "DEBIT",  "category": "Fuel",                  "amount": 50.00 },
@@ -176,7 +175,7 @@
     { "date": "2025-09-02", "type": "DEBIT",  "category": "Rent",                  "amount": 1350.00 },
     { "date": "2025-09-03", "type": "DEBIT",  "category": "Council Tax",           "amount": 160.00 },
     { "date": "2025-09-04", "type": "DEBIT",  "category": "Groceries",             "amount": 88.00 },
-    { "date": "2025-09-05", "type": "DEBIT",  "category": "Personal Loan EMI",     "amount": 260.00 },
+    // [REMOVED] Personal Loan EMI
     { "date": "2025-09-06", "type": "DEBIT",  "category": "Car Loan EMI",          "amount": 310.00 },
     { "date": "2025-09-07", "type": "DEBIT",  "category": "Transport",             "amount": 48.00 },
     { "date": "2025-09-08", "type": "DEBIT",  "category": "Fuel",                  "amount": 46.00 },
@@ -196,7 +195,7 @@
     { "date": "2025-10-02", "type": "DEBIT",  "category": "Rent",                  "amount": 1350.00 },
     { "date": "2025-10-03", "type": "DEBIT",  "category": "Council Tax",           "amount": 160.00 },
     { "date": "2025-10-04", "type": "DEBIT",  "category": "Groceries",             "amount": 90.00 },
-    { "date": "2025-10-05", "type": "DEBIT",  "category": "Personal Loan EMI",     "amount": 260.00 },
+    // [REMOVED] Personal Loan EMI
     { "date": "2025-10-06", "type": "DEBIT",  "category": "Car Loan EMI",          "amount": 310.00 },
     { "date": "2025-10-07", "type": "DEBIT",  "category": "Transport",             "amount": 50.00 },
     { "date": "2025-10-08", "type": "DEBIT",  "category": "Fuel",                  "amount": 48.00 },
@@ -216,7 +215,7 @@
     { "date": "2025-11-02", "type": "DEBIT",  "category": "Rent",                  "amount": 1350.00 },
     { "date": "2025-11-03", "type": "DEBIT",  "category": "Council Tax",           "amount": 160.00 },
     { "date": "2025-11-04", "type": "DEBIT",  "category": "Groceries",             "amount": 92.00 },
-    { "date": "2025-11-05", "type": "DEBIT",  "category": "Personal Loan EMI",     "amount": 260.00 },
+    // [REMOVED] Personal Loan EMI
     { "date": "2025-11-06", "type": "DEBIT",  "category": "Car Loan EMI",          "amount": 310.00 },
     { "date": "2025-11-07", "type": "DEBIT",  "category": "Transport",             "amount": 48.00 },
     { "date": "2025-11-08", "type": "DEBIT",  "category": "Fuel",                  "amount": 50.00 },
@@ -236,7 +235,7 @@
     { "date": "2025-12-02", "type": "DEBIT",  "category": "Rent",                  "amount": 1350.00 },
     { "date": "2025-12-03", "type": "DEBIT",  "category": "Council Tax",           "amount": 160.00 },
     { "date": "2025-12-04", "type": "DEBIT",  "category": "Groceries",             "amount": 96.00 },
-    { "date": "2025-12-05", "type": "DEBIT",  "category": "Personal Loan EMI",     "amount": 260.00 },
+    // [REMOVED] Personal Loan EMI
     { "date": "2025-12-06", "type": "DEBIT",  "category": "Car Loan EMI",          "amount": 310.00 },
     { "date": "2025-12-07", "type": "DEBIT",  "category": "Transport",             "amount": 50.00 },
     { "date": "2025-12-08", "type": "DEBIT",  "category": "Fuel",                  "amount": 52.00 },
@@ -258,7 +257,7 @@
     { "date": "2026-01-02", "type": "DEBIT",  "category": "Rent",                  "amount": 1350.00 },
     { "date": "2026-01-03", "type": "DEBIT",  "category": "Council Tax",           "amount": 160.00 },
     { "date": "2026-01-04", "type": "DEBIT",  "category": "Groceries",             "amount": 82.00 },
-    { "date": "2026-01-05", "type": "DEBIT",  "category": "Personal Loan EMI",     "amount": 260.00 },
+    // [REMOVED] Personal Loan EMI
     { "date": "2026-01-06", "type": "DEBIT",  "category": "Car Loan EMI",          "amount": 310.00 },
     { "date": "2026-01-07", "type": "DEBIT",  "category": "Transport",             "amount": 40.00 },
     { "date": "2026-01-08", "type": "DEBIT",  "category": "Fuel",                  "amount": 45.00 },

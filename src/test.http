@@ -2,9 +2,9 @@
 POST http://localhost:3000/api/upload/text
 Content-Type: text/plain
 
-Stream Name: uk_personal_financial_statement
+Stream Name: uk_corporate_financial_statement
 
-Consolidated Personal Financial Statement issued for a UK retail banking customer, covering the period 01 January 2025 to 31 December 2025. All amounts are denominated in Pounds Sterling (GBP). This statement summarises account balances, income, expenses, savings, investments, credit facilities, and credit standing.
+Consolidated Corporate Financial Statement issued for a UK treasury/corporate customer, covering the period 01 January 2025 to 31 December 2025. All amounts are denominated in Pounds Sterling (GBP). This statement summarises account balances, income, expenses, investments, credit facilities, and credit standing.
 
 ===== CUSTOMER PROFILE =====
 
@@ -17,7 +17,7 @@ Occupation: IT Project Manager
 Employer: Northbridge Digital Solutions Ltd  
 
 Primary Banking Institution: Barclays Bank UK PLC  
-Account Type: Personal Current Account  
+Account Type: Corporate Current Account  
 Sort Code: 20-15-33  
 Account Number: ********  
 
@@ -25,7 +25,7 @@ Secondary Banking Institution: Nationwide Building Society
 Savings Account Type: Easy Access Savings Account  
 
 Tax Residency: United Kingdom  
-Regulatory Context: FCA-regulated retail banking  
+Regulatory Context: FCA-regulated corporate/treasury banking  
 
 ===== CURRENT ACCOUNT SUMMARY =====
 
@@ -100,7 +100,7 @@ Credit Limit: GBP 8,500.00
 Average Monthly Balance: GBP 1,200.00  
 Repayment Behaviour: Full balance cleared monthly  
 
-Personal Loan:
+Corporate Loan:
 Provider: Barclays Bank UK PLC  
 Original Loan Amount: GBP 12,000.00  
 Purpose: Home furnishings and relocation costs  

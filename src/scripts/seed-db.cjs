@@ -1,11 +1,11 @@
 // One-off seed script — run with: node src/scripts/seed-db.cjs
-// Reads banking_user_data.json and populates all DB tables.
+// Removed retail banking_user_data.json reference
 "use strict";
 
 require("dotenv").config();
 const { Client } = require("pg");
 const { v4: uuidv4 } = require("uuid");
-const d = require("../../banking_user_data.json");
+// Removed retail banking_user_data.json reference
 
 const client = new Client({
   connectionString: process.env.DATABASE_URL,

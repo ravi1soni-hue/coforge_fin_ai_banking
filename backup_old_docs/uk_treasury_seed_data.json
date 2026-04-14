@@ -13,14 +13,14 @@
       {
         "id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
         "external_user_id": "corp-northstar-001",
-        "full_name": "Northstar Retail Ltd Treasury",
+        "full_name": "Northstar Corporate Treasury",
         "country_code": "GB",
         "base_currency": "GBP",
         "timezone": "Europe/London",
         "status": 1,
         "metadata": {
           "segment": "mid_market",
-          "industry": "retail",
+          "industry": "corporate",
           "isCorporate": true
         }
       }

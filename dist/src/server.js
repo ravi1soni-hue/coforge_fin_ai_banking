@@ -1,10 +1,8 @@
 import http from "http";
-import { db } from "./db.js";
 import app from "./app.js";
 import { ENV } from "./config/env.js";
 import { initWebSocket } from "./sockets/socket.js";
 import { bootstrapBankingUserVectors } from "./services/bankingUserVector.bootstrap.js";
-import { syncUserFinancialProfiles } from "./services/financialProfilesSync.js";
 import ingestionRoutes from "./routes/ingestion.route.js";
 //import { configureLangSmith } from "./config/langsmith.config.js";
 //configureLangSmith();
@@ -38,7 +36,6 @@ async function bootstrapAndSync() {
         await bootstrapBankingUserVectors();
         console.log("✅ Banking vectors loaded");
         console.log("⏳ Syncing financial profiles...");
-        await syncUserFinancialProfiles(db);
         console.log("✅ Financial profiles synced");
     }
     catch (err) {

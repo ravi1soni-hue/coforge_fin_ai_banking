@@ -15,7 +15,7 @@ INSERT INTO users (
   metadata
 )
 VALUES
-('9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1', 'corp-northstar-001', 'Northstar Retail Ltd Treasury', 'GB', 'GBP', 'Europe/London', 1, '{"segment":"mid_market","industry":"retail","isCorporate":true}'::jsonb)
+('9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1', 'corp-northstar-001', 'Northstar Corporate Treasury', 'GB', 'GBP', 'Europe/London', 1, '{"segment":"mid_market","industry":"corporate","isCorporate":true}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO account_balances (
@@ -186,10 +186,10 @@ ON CONFLICT (user_id, business_date) DO NOTHING;
 
 COMMIT;
 
--- Retail User Seed Data (James Walker)
+-- [REMOVED] Retail User Seed Data (James Walker)
 BEGIN;
 
--- 1. Insert retail user
+-- [REMOVED] 1. Insert retail user
 INSERT INTO users (
   id,
   external_user_id,
@@ -201,10 +201,10 @@ INSERT INTO users (
   metadata
 )
 VALUES
-('b1e2c3d4-1111-4e22-9f00-000000000001', 'uk_user_001', 'James Walker', 'GB', 'GBP', 'Europe/London', 1, '{"segment":"retail","employment":{"type":"Salaried","monthlyIncome":3800,"salaryCreditDay":1}}'::jsonb)
+-- [REMOVED] Retail user row
 ON CONFLICT (id) DO NOTHING;
 
--- 2. Insert retail user accounts
+-- [REMOVED] 2. Insert retail user accounts
 INSERT INTO account_balances (
   id, user_id, account_type, provider, account_ref, balance, currency, metadata, updated_at
 )
@@ -214,17 +214,16 @@ VALUES
 ('b1e2c3d4-acc2-4e22-9f00-000000000001', 'b1e2c3d4-1111-4e22-9f00-000000000001', 'Current', 'HSBC UK', 'acc_current_01', 1600, 'GBP', '{}'::jsonb, (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT)
 ON CONFLICT (id) DO NOTHING;
 
--- 3. Insert retail user loans
+-- [REMOVED] 3. Insert retail user loans
 INSERT INTO loan_accounts (
   id, user_id, loan_type, provider, principal_amount, outstanding_amount, emi_amount, tenure_months, status, currency, metadata, updated_at
 )
 VALUES
-('loan0001-aaaa-4bbb-cccc-222222222222', '11111111-aaaa-4bbb-cccc-222222222222', 'Personal Loan', 'Barclays', 4680, 4680, 260, 18, 1, 'GBP', '{}'::jsonb, (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT),
-('b1e2c3d4-loa1-4e22-9f00-000000000001', 'b1e2c3d4-1111-4e22-9f00-000000000001', 'Personal Loan', 'Barclays', 4680, 4680, 260, 18, 1, 'GBP', '{}'::jsonb, (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT),
+-- [REMOVED] Retail user loans
 ('b1e2c3d4-loa2-4e22-9f00-000000000001', 'b1e2c3d4-1111-4e22-9f00-000000000001', 'Car Loan', 'Santander UK', 8060, 8060, 310, 26, 1, 'GBP', '{}'::jsonb, (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT)
 ON CONFLICT (id) DO NOTHING;
 
--- 4. Insert retail user investments (summary)
+-- [REMOVED] 4. Insert retail user investments (summary)
 INSERT INTO investment_summary (
   id, user_id, as_of_month, total_invested, total_current_value, total_unrealized_gain, currency, investment_info, metadata, updated_at
 )
@@ -232,7 +231,7 @@ VALUES
 ('b1e2c3d4-inv1-4e22-9f00-000000000001', 'b1e2c3d4-1111-4e22-9f00-000000000001', '2026-03-01', 7400, 7400, 0, 'GBP', '[{"type":"Stocks & Shares ISA","provider":"Vanguard UK","currentValue":5400,"monthlyContribution":300},{"type":"Premium Bonds","provider":"NS&I","currentValue":2000,"monthlyContribution":100}]'::jsonb, '{}'::jsonb, (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT)
 ON CONFLICT (id) DO NOTHING;
 
--- 5. Insert retail user monthly financial summary (example for March 2026)
+-- [REMOVED] 5. Insert retail user monthly financial summary (example for March 2026)
 INSERT INTO financial_summary_monthly (
   id, user_id, month, total_income, total_expenses, total_savings, total_investments, net_cashflow, currency, metadata, created_at
 )
@@ -240,7 +239,7 @@ VALUES
 ('b1e2c3d4-fin1-4e22-9f00-000000000001', 'b1e2c3d4-1111-4e22-9f00-000000000001', '2026-03-01', 3800, 3000, 800, 7000, 800, 'GBP', '{}'::jsonb, (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT)
 ON CONFLICT (id) DO NOTHING;
 
--- 6. Insert retail user transactions (treasury_account_transactions)
+-- [REMOVED] 6. Insert retail user transactions (treasury_account_transactions)
 -- Only a few sample transactions for brevity
 INSERT INTO treasury_account_transactions (
   id, user_id, account_ref, txn_ref, txn_date, direction, category, amount, currency, counterparty, metadata, created_at, updated_at
@@ -251,7 +250,7 @@ VALUES
 ('b1e2c3d4-tx03-4e22-9f00-000000000001', 'b1e2c3d4-1111-4e22-9f00-000000000001', 'acc_current_01', 'GROC20260304', '2026-03-04', 'DEBIT', 'Groceries', 86.00, 'GBP', 'Tesco', '{}'::jsonb, (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT, (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT)
 ON CONFLICT (id) DO NOTHING;
 
--- 7. Insert retail user credit profile (optional demo)
+-- [REMOVED] 7. Insert retail user credit profile (optional demo)
 INSERT INTO credit_profile (
   user_id, credit_score, score_band, bureau, last_reported_at, metadata
 )

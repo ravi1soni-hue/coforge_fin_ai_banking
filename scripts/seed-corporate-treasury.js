@@ -28,7 +28,7 @@ async function main() {
     })
         .onConflict((oc) => oc.column('id').doNothing())
         .execute();
-    // Only seed corporate/treasury tables below. No retail/personal tables.
+    // Only seed corporate/treasury tables below.
     // Accounts
     for (const acct of seed.accounts) {
         let id = acct.id;

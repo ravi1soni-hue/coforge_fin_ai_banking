@@ -12,7 +12,7 @@ import {
 
 const ACTIVE_PIPELINE = ENV.PIPELINE_VERSION.toUpperCase();
 const CANONICAL_EXTERNAL_USER_ID = "corp-northstar-001";
-const LINKED_RETAIL_EXTERNAL_USER_ID = "uk_user_001";
+// Removed LINKED_RETAIL_EXTERNAL_USER_ID (retail logic)
 
 /**
  * userId -> active WebSocket connections
@@ -322,41 +322,8 @@ export const initWebSocket = (server: any): void => {
         return;
       }
 
-      // Keep one canonical identity in runtime. If legacy retail id is used,
-      // route the session through the canonical corporate identity.
-      let activeUser = resolvedUser;
-      if (resolvedUser.external_user_id === LINKED_RETAIL_EXTERNAL_USER_ID) {
-        try {
-          const canonicalUser = await userRepo.findByExternalId(CANONICAL_EXTERNAL_USER_ID);
-          console.log("[SOCKET][CONNECT] Swapping to canonical corporate user", {
-            originalUser: resolvedUser,
-            canonicalUser,
-          });
-          if (canonicalUser) {
-            activeUser = canonicalUser;
-          }
-        } catch (err) {
-          console.error("[SOCKET][CONNECT] Error in userRepo.findByExternalId (canonical)", {
-            error: err,
-          });
-        }
-      }
-
-      let linkedRetailUser: User | undefined;
-      if (activeUser.external_user_id === CANONICAL_EXTERNAL_USER_ID) {
-        try {
-          linkedRetailUser = await userRepo.findByExternalId(LINKED_RETAIL_EXTERNAL_USER_ID);
-          console.log("[SOCKET][CONNECT] Found linked retail user", {
-            linkedRetailUser,
-          });
-        } catch (err) {
-          console.error("[SOCKET][CONNECT] Error in userRepo.findByExternalId (linked retail)", {
-            error: err,
-          });
-        }
-      }
-
-      const userId = activeUser.id;
+      // Only use resolvedUser as activeUser (retail logic removed)
+      const userId = resolvedUser.id;
 
       ws.userId = userId;
       ws.isAlive = true;
@@ -372,13 +339,13 @@ export const initWebSocket = (server: any): void => {
       }
       console.log("[SOCKET][CONNECT] Connection established", {
         userId,
-        activeUser,
-        linkedRetailUser,
+        activeUser: resolvedUser,
+        // linkedRetailUser removed
         totalClients: wss.clients.size,
       });
       userConnections.get(userId)!.add(ws);
 
-      console.log(`✅ User connected: ${userId} (requested=${requestedUserIdentity}, external=${activeUser.external_user_id}, total=${wss.clients.size})`);
+      console.log(`✅ User connected: ${userId} (requested=${requestedUserIdentity}, external=${resolvedUser.external_user_id}, total=${wss.clients.size})`);
 
       // ✅ Proactively send diagnostic so Flutter preflight health check passes
       if (ws.readyState === WebSocket.OPEN) {
@@ -425,10 +392,8 @@ export const initWebSocket = (server: any): void => {
           const knownFacts = {
             ...(parsedMessage.knownFacts ?? {}),
             userId,
-            externalUserId: activeUser.external_user_id,
+            externalUserId: resolvedUser.external_user_id,
             canonicalExternalUserId: CANONICAL_EXTERNAL_USER_ID,
-            linkedRetailExternalUserId: linkedRetailUser?.external_user_id,
-            profileLookupUserId: linkedRetailUser?.id ?? userId,
           };
 
           // ✅ Delegate logic to ChatService

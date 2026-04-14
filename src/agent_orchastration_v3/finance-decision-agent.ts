@@ -1,5 +1,5 @@
 // finance-decision-agent.ts
-// Agent to classify user queries as retail or corporate/treasury and route to the correct analysis logic.
+// Agent to classify user queries as corporate/treasury and route to the correct analysis logic.
 // Usage: Pass user question and context, get back routing decision and next action.
 
 

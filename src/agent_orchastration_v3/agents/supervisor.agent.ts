@@ -17,7 +17,7 @@ const SYSTEM_PROMPT = `You are a financial assistant supervisor serving UK-based
 
 CLIENT CONTEXT:
 - This service operates in the UK only. The user's home currency is ALWAYS GBP.
-- All product prices should be looked up in GBP at UK retail prices.
+// Removed retail price reference
 - priceCurrency defaults to "GBP". Only use a foreign currency if the user is explicitly buying abroad.
 - targetCurrency is always "GBP".
 - userHomeCurrency is always "GBP" unless the user explicitly states otherwise.
@@ -27,7 +27,7 @@ Analyze the user's current message AND the conversation history, then decide wha
 
 Return ONLY a JSON object — no explanation, no markdown. The object MUST include:
 {
-  "intentType": "retail_personal" | "corporate_treasury" | "unknown", // REQUIRED: classify the user's intent for this message
+  "intentType": "corporate_treasury" | "unknown", // Only corporate/treasury intent
   "needsWebSearch": <true|false>,
   "needsFxConversion": <true|false>,
   "needsNews": <true|false>,
@@ -194,7 +194,7 @@ export async function runSupervisorAgent(
   let intentType: string | undefined = typeof parsed.intentType === "string" ? parsed.intentType : undefined;
   let product: string | undefined = typeof parsed.product === "string" ? parsed.product : undefined;
 
-  // If LLM did not return a product, try to infer from context (e.g., trip) for retail only
+  // Removed retail context inference
   if (!product && intentType !== 'corporate_treasury') {
     const inferredTrip = inferTripProductFromUserHistory(userMessage, conversationHistory);
     if (inferredTrip) {

@@ -13,7 +13,7 @@ import type { V3LlmClient } from "../llm/v3LlmClient.js";
 import type { AgenticMessage } from "../types.js";
 import type { FinancialState, AffordabilityInfo } from "../graph/state.js";
 
-const SYSTEM_PROMPT = `You are an expert personal financial advisor in the UK banking sector.
+const SYSTEM_PROMPT = `You are an expert corporate/treasury financial advisor in the UK banking sector.
 Analyse whether the user can afford the described purchase based on their financial profile.
 
 Respond with ONLY this JSON (no explanation, no markdown):
