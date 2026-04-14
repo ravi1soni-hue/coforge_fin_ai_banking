@@ -57,14 +57,12 @@ export class FinancialLoader {
 
     // Primary: use already-normalised facts from the profile seed
     // If intent is corporate/treasury, only sum current/operating/reserve accounts for liquidity
-    let savings: number | undefined = undefined;
     let liquidity: number | undefined = undefined;
     const intentType = typeof knownFacts.intentType === "string" ? knownFacts.intentType : undefined;
     if (Array.isArray(knownFacts.accounts)) {
       debugLog('accounts', knownFacts.accounts);
-      // Build the LLM extraction prompt outside the function call to avoid template literal issues
       const llmPrompt = [
-        'Given the following user accounts and intent, extract the correct available savings (for retail/personal) or liquidity (for corporate/treasury) for affordability analysis.',
+        'Given the following user accounts and intent, extract the correct liquidity (for corporate/treasury) for affordability analysis.',
         '',
         `User intent: ${intentType ?? "unknown"}`,
         '',
@@ -72,16 +70,14 @@ export class FinancialLoader {
         JSON.stringify(knownFacts.accounts, null, 2),
         '',
         'Rules:',
-        '- For retail/personal, savings should ONLY include accounts with type savings, isa, deposit, or investment (case-insensitive).',
         '- For corporate/treasury, liquidity should ONLY include accounts with type current, operating, or reserve (case-insensitive).',
         '- Exclude all loan, credit, overdraft, or debt accounts.',
         '- If unsure, err on the side of including more, but never include negative balances or debts.',
-        '- Return the sum as availableSavings (retail) or liquidity (corporate/treasury).',
+        '- Return the sum as liquidity (corporate/treasury).',
         '- Also extract monthlyIncome, monthlyExpenses, netMonthlySurplus, and currency if present in the data.',
         '',
         'Return ONLY valid JSON (no markdown):',
         '{',
-        '  "availableSavings": number | null, // for retail',
         '  "liquidity": number | null,        // for corporate/treasury',
         '  "monthlyIncome": number | null,',
         '  "monthlyExpenses": number | null,',
@@ -91,7 +87,6 @@ export class FinancialLoader {
       ].join('\n');
       debugLog('llmPrompt', llmPrompt);
       const llmProfile = await this.llm.generateJSON<{
-        availableSavings: number | null;
         liquidity: number | null;
         monthlyIncome?: number | null;
         monthlyExpenses?: number | null;
@@ -99,24 +94,16 @@ export class FinancialLoader {
         currency?: string | null;
       }>(llmPrompt);
       debugLog('llmProfile extraction', llmProfile);
-      if (intentType === "corporate_treasury") {
-        liquidity = parseNum(llmProfile.liquidity);
-      } else {
-        savings = parseNum(llmProfile.availableSavings);
-      }
-      // Optionally override income/expenses/surplus/currency if LLM extracted them
+      liquidity = parseNum(llmProfile.liquidity);
       if (llmProfile.monthlyIncome != null) knownFacts.monthlyIncome = llmProfile.monthlyIncome;
       if (llmProfile.monthlyExpenses != null) knownFacts.monthlyExpenses = llmProfile.monthlyExpenses;
       if (llmProfile.netMonthlySurplus != null) knownFacts.netMonthlySurplus = llmProfile.netMonthlySurplus;
       if (llmProfile.currency != null) knownFacts.profileCurrency = llmProfile.currency;
     }
-    // Fallbacks for legacy/seeded facts
-    // Only use legacy fields if accounts array is missing or not an array
+    // Fallback for legacy/seeded facts (corporate only)
     if (!Array.isArray(knownFacts.accounts)) {
       debugLog('accounts missing, using legacy fields', knownFacts);
-      if (savings === undefined) savings = parseNum(knownFacts.availableSavings) ?? parseNum(knownFacts.spendable_savings);
       if (liquidity === undefined) liquidity = parseNum(knownFacts.currentBalance);
-      debugLog('legacy savings', savings);
       debugLog('legacy liquidity', liquidity);
     }
 
@@ -138,9 +125,9 @@ export class FinancialLoader {
       typeof knownFacts.userName === "string" ? knownFacts.userName : undefined;
     debugLog('userName', userName);
 
-    if (intentType === "corporate_treasury" && liquidity !== undefined && liquidity >= 0) {
+    if (liquidity !== undefined && liquidity >= 0) {
       const profile = {
-        availableSavings: liquidity, // For treasury, this is actually liquidity
+        availableLiquidity: liquidity,
         monthlyIncome: parseNum(knownFacts.monthlyIncome),
         monthlyExpenses: parseNum(knownFacts.monthlyExpenses),
         netMonthlySurplus: parseNum(knownFacts.netMonthlySurplus),
@@ -151,61 +138,61 @@ export class FinancialLoader {
       debugLog('--- LOAD PROFILE END ---', {});
       return profile;
     }
-    if ((intentType !== "corporate_treasury" || !intentType) && savings !== undefined && savings >= 0) {
-      const profile = {
-        availableSavings: savings,
-        monthlyIncome: parseNum(knownFacts.monthlyIncome),
-        monthlyExpenses: parseNum(knownFacts.monthlyExpenses),
-        netMonthlySurplus: parseNum(knownFacts.netMonthlySurplus),
-        homeCurrency: currency,
-        userName,
-      };
-      debugLog('RETURN profile (retail)', profile);
-      debugLog('--- LOAD PROFILE END ---', {});
-      return profile;
-    }
 
     // Tertiary: query vector DB and let LLM extract profile
     debugLog('knownFacts and DB empty — falling back to vector DB', {});
     const context = await this.vectorQuery.getContext(
       profileLookupUserId,
       "savings balance monthly income expenses currency",
-      { topK: 6 },
+      { topK: 10, domain: "financial_profile" },
     );
 
     if (!context) {
-      return { availableSavings: 0, homeCurrency: currency };
+      return {
+        availableLiquidity: 0,
+        monthlyIncome: undefined,
+        monthlyExpenses: undefined,
+        netMonthlySurplus: undefined,
+        homeCurrency: currency,
+        userName: undefined,
+      };
     }
 
     const extracted = await this.llm.generateJSON<{
-      availableSavings: number | null;
+      availableLiquidity: number | null;
       monthlyIncome: number | null;
       monthlyExpenses: number | null;
+      netMonthlySurplus?: number | null;
       currency: string | null;
-    }>(`Extract the user's financial summary from the context below.
+      userName?: string | null;
+    }>(`Extract the user's corporate/treasury financial summary from the context below.
 
 Context:
 ${context}
 
 Return ONLY valid JSON (no markdown):
 {
-  "availableSavings": number | null,
+  "availableLiquidity": number | null,
   "monthlyIncome": number | null,
   "monthlyExpenses": number | null,
-  "currency": "GBP" | null
+  "netMonthlySurplus": number | null,
+  "currency": "GBP" | null,
+  "userName": string | null
 }
 
 Note: This service is UK-only. currency is always "GBP" — only return null if completely absent from context.`);
 
     const profile = {
-      availableSavings: parseNum(extracted.availableSavings) ?? 0,
+      availableLiquidity: parseNum(extracted.availableLiquidity) ?? 0,
       monthlyIncome: parseNum(extracted.monthlyIncome),
       monthlyExpenses: parseNum(extracted.monthlyExpenses),
-      netMonthlySurplus:
-        extracted.monthlyIncome && extracted.monthlyExpenses
-          ? extracted.monthlyIncome - extracted.monthlyExpenses
-          : undefined,
+      netMonthlySurplus: extracted.netMonthlySurplus != null
+        ? parseNum(extracted.netMonthlySurplus)
+        : (extracted.monthlyIncome && extracted.monthlyExpenses
+            ? extracted.monthlyIncome - extracted.monthlyExpenses
+            : undefined),
       homeCurrency: extracted.currency ?? currency,
+      userName: typeof extracted.userName === "string" ? extracted.userName : undefined,
     };
     debugLog('RETURN profile (vector DB)', profile);
     debugLog('--- LOAD PROFILE END ---', {});

@@ -11,17 +11,7 @@ export interface AccountBalanceUpsertDTO {
   metadata?: unknown;
 }
 
-export interface FinancialSummaryMonthlyUpsertDTO {
-  userId: string;
-  month: string; // YYYY-MM-01
-  totalIncome?: number;
-  totalExpenses?: number;
-  totalSavings?: number;
-  totalInvestments?: number;
-  netCashflow?: number;
-  currency: string;
-  metadata?: unknown;
-}
+// Removed FinancialSummaryMonthlyUpsertDTO (retail/personal)
 
 export interface LoanAccountUpsertDTO {
   userId: string;
@@ -64,16 +54,7 @@ export interface AccountBalanceDTO {
   updatedAt: string;
 }
 
-export interface FinancialSummaryMonthlyDTO {
-  month: string;
-  totalIncome: number | null;
-  totalExpenses: number | null;
-  totalSavings: number | null;
-  totalInvestments: number | null;
-  netCashflow: number | null;
-  currency: string;
-  metadata?: unknown;
-}
+// Removed FinancialSummaryMonthlyDTO (retail/personal)
 
 export interface LoanAccountDTO {
   loanType: string | null;
@@ -241,117 +222,11 @@ export class StructuredFinancialRepository {
       .execute() as unknown as AccountBalanceDTO[];
   }
 
-  async getMonthlySummary(userId: string, month: string): Promise<FinancialSummaryMonthlyDTO | undefined> {
-    return this.db
-      .selectFrom("financial_summary_monthly")
-      .select(["month", "total_income", "total_expenses", "total_savings", "total_investments", "net_cashflow", "currency", "metadata"])
-      .where("user_id", "=", userId)
-      .where("month", "=", month)
-      .executeTakeFirst() as unknown as FinancialSummaryMonthlyDTO | undefined;
-  }
-
-  async getLatestMonthlySummary(userId: string): Promise<FinancialSummaryMonthlyDTO | undefined> {
-    return this.db
-      .selectFrom("financial_summary_monthly")
-      .select(["month", "total_income", "total_expenses", "total_savings", "total_investments", "net_cashflow", "currency", "metadata"])
-      .where("user_id", "=", userId)
-      .orderBy("month", "desc")
-      .executeTakeFirst() as unknown as FinancialSummaryMonthlyDTO | undefined;
-  }
+// Removed getMonthlySummary and getLatestMonthlySummary (retail/personal)
 
   async getActiveLoans(userId: string): Promise<LoanAccountDTO[]> {
     return this.db
-      .selectFrom("loan_accounts")
-      .select(["loan_type", "provider", "outstanding_amount", "emi_amount", "status", "currency"])
-      .where("user_id", "=", userId)
-      .where("status", "=", 1)
-      .execute() as unknown as LoanAccountDTO[];
-  }
-
-  async getCreditProfile(userId: string): Promise<CreditProfileDTO | undefined> {
-    return this.db
-      .selectFrom("credit_profile")
-      .select(["credit_score", "score_band", "bureau"])
-      .where("user_id", "=", userId)
-      .executeTakeFirst() as unknown as CreditProfileDTO | undefined;
-  }
-
-  async getInvestmentSummary(userId: string): Promise<InvestmentSummaryDTO[]> {
-    return this.db
-      .selectFrom("investment_summary")
-      .select(["as_of_month", "total_invested", "total_current_value", "total_unrealized_gain", "currency", "investment_info"])
-      .where("user_id", "=", userId)
-      .orderBy("as_of_month", "desc")
-      .execute() as unknown as InvestmentSummaryDTO[];
-  }
-
-  async getLatestTreasuryDecisionSnapshot(userId: string): Promise<TreasuryDecisionSnapshotDTO | undefined> {
-    return this.db
-      .selectFrom("treasury_decision_snapshots")
-      .select([
-        "snapshot_date",
-        "weekly_outflow_baseline",
-        "midweek_inflow_baseline",
-        "late_inflow_count_last_4_weeks",
-        "comfort_threshold",
-        "min_inflow_for_midweek_release",
-        "release_condition_hit_rate_10_weeks",
-        "currency",
-        "metadata",
-      ])
-      .where("user_id", "=", userId)
-      .orderBy("snapshot_date", "desc")
-      .executeTakeFirst()
-      .then((r) => r ? ({
-        snapshotDate: String(r.snapshot_date),
-        weeklyOutflowBaseline: Number(r.weekly_outflow_baseline),
-        midweekInflowBaseline: Number(r.midweek_inflow_baseline),
-        lateInflowCountLast4Weeks: Number(r.late_inflow_count_last_4_weeks),
-        comfortThreshold: Number(r.comfort_threshold),
-        minInflowForMidweekRelease: r.min_inflow_for_midweek_release == null ? null : Number(r.min_inflow_for_midweek_release),
-        releaseConditionHitRate10Weeks: r.release_condition_hit_rate_10_weeks == null ? null : Number(r.release_condition_hit_rate_10_weeks),
-        currency: String(r.currency),
-        metadata: r.metadata,
-      }) : undefined);
-  }
-
-  async getTreasurySupplierCandidates(userId: string): Promise<TreasurySupplierCandidateDTO[]> {
-    return this.db
-      .selectFrom("treasury_supplier_payment_candidates")
-      .select([
-        "supplier_ref",
-        "supplier_name",
-        "amount",
-        "currency",
-        "urgency",
-        "due_date",
-        "batch_hint",
-        "metadata",
-      ])
-      .where("user_id", "=", userId)
-      .orderBy("due_date", "asc")
-      .execute()
-      .then((rows) => rows.map((r) => ({
-        supplierRef: r.supplier_ref,
-        supplierName: r.supplier_name,
-        amount: Number(r.amount),
-        currency: String(r.currency),
-        urgency: r.urgency as "URGENT" | "DEFERABLE",
-        dueDate: r.due_date == null ? null : String(r.due_date),
-        batchHint: r.batch_hint as "T0" | "T1" | "T2" | null,
-        metadata: r.metadata,
-      })));
-  }
-
-  async getRecentTreasuryCashflow(userId: string, days: number): Promise<TreasuryCashflowDailyDTO[]> {
-    return this.db
-      .selectFrom("treasury_cashflow_daily")
-      .select([
-        "business_date",
-        "day_name",
-        "total_inflows",
-        "total_outflows",
-        "payroll_outflow",
+    // Removed syncAllFinancialData (retail/personal)
         "supplier_outflow",
         "closing_balance",
         "currency",

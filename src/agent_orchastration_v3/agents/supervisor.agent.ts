@@ -220,7 +220,7 @@ export async function runSupervisorAgent(
     targetCurrency:     (parsed.targetCurrency as string) || undefined,
     userHomeCurrency:   (parsed.userHomeCurrency as string) || homeCurrency,
     userStatedPrice:    Number(parsed.userStatedPrice)    || 0,
-    intentType: intentType as "retail_personal" | "corporate_treasury" | "unknown"
+    intentType: (intentType === "corporate_treasury" ? "corporate_treasury" : "unknown")
   };
 
   // Deterministic price fallback (GBP/£) from current or immediately previous user turn.

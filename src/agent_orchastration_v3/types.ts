@@ -13,16 +13,7 @@ export type IntentType =
 
 // ─── Domain taxonomy ─────────────────────────────────────────────────────────
 
-export type DomainType =
-  | "TRAVEL"
-  | "CONSUMER_PURCHASE"
-  | "HOUSING"
-  | "LOAN"
-  | "SAVINGS"
-  | "INVESTMENT"
-  | "SUBSCRIPTION"
-  | "LIFESTYLE"
-  | "GENERAL_BANKING";
+// Removed DomainType (retail/personal)
 
 // ─── Reasoning level ─────────────────────────────────────────────────────────
 
@@ -42,18 +33,12 @@ export type SuggestionReason =
 
 // ─── Financial goal context ───────────────────────────────────────────────────
 
-export interface FinancialGoalContext {
-  goalType: "TRIP" | "PURCHASE" | "HOUSING" | "LOAN" | "INVESTMENT" | "SAVINGS";
-  cost?: number;
-  currency?: string;
-  timeHorizon?: string;
-  metadata?: Record<string, unknown>;
-}
+// Removed FinancialGoalContext (retail/personal)
 
 // ─── User profile ─────────────────────────────────────────────────────────────
 
 export interface UserProfile {
-  availableSavings: number;
+  availableLiquidity: number;
   monthlyIncome?: number;
   monthlyExpenses?: number;
   netMonthlySurplus?: number;

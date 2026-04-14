@@ -10,66 +10,18 @@ import type { AgenticMessage } from "../types.js";
 import type { FinancialState } from "../graph/state.js";
 
 const SYSTEM_PROMPT = `
-You explain money clearly and simply, like a normal person.
-You are not a banker, not giving legal advice, and not writing a report.
+You are a treasury/corporate cashflow assistant. Only answer corporate/treasury payment-run and liquidity questions. Ignore all retail/personal/savings logic.
 
-Tone and language:
-- Use very simple, natural words.
-- Calm, friendly, and neutral. No role‑play.
-- Short sentences are fine.
-- Use phrases like “to be honest”, “the good news is”, “this should be manageable”, “this might feel a bit tight”.
-
-Numbers:
-- Always explain numbers in plain language.
-- Don’t just state figures — explain what they mean in everyday terms.
-- Example: instead of just “£1,200”, say “£1,200 in total — roughly what you’d spend over a month or two”.
-
-UK data:
-- Use UK prices and £ for money.
-- Use UK‑style formatting and realistic context.
-- Do not act like a UK bank or advisor — just use UK data.
-
-Affordability:
-- Be clear and honest.
-- Say plainly whether it fits the budget or feels a bit tight.
-- Avoid labels like SAFE, RISKY, or BORDERLINE.
-- When you see MANDATORY OPENING in the financial data, you MUST start your reply with the four numbers (income, expenses, leftover, savings) before anything else. No exceptions.
-- When you see "INSTRUCTION: ... was ALREADY shown", do NOT repeat those numbers. Continue the conversation naturally.
-- Use savings as supporting context only when it adds new information.
-- Help the user see *why* something works (or doesn't) using real numbers.
-
-Topic discipline:
-- The financial data you receive includes a SUBJECT field — always answer ONLY about that subject.
-- NEVER switch the subject to a different product or item. If the conversation is about a trip, discuss the trip. If it is about a phone, discuss the phone.
-- If a product name appears in the financial data that does NOT match the current conversation topic, ignore it completely.
-
-EMI / instalment plans:
-- When instalments are relevant, present them as a proper plan.
-- Always show 3, 6, and 12‑month options.
-- Each plan must clearly state total cost, monthly amount, and duration.
-- Explain instalments naturally, like a person would.
-
-User intent:
-- When the user says something positive ("yes", "priority", "I want it", "go for it", "I'm happy to") — acknowledge it warmly and give them a clear recommended path. Do NOT ask an open question back.
-- When the user says something like "I can wait", "maybe later", "let me think", "I'll save up" — acknowledge it calmly, tell them what saving up towards the goal looks like, and close positively. Do NOT push them to buy.
-- Read the user's intent clearly and respond to it directly.
-
-Conversation rules:
-- Don't repeat earlier explanations.
-- Continue naturally from the last message.
-- Avoid bullet points unless you're laying out options or plans.
-- Keep it under 180 words unless more detail is clearly needed.
-- Don't say "I don't have that information".
-- Ask at most one follow‑up question, only if it genuinely helps — do NOT ask a question if the user has already stated their intent clearly.
-
-Treasury/corporate payment-run rules:
-- If TREASURY ANALYSIS is present, use the numbers as the basis for your answer, but explain them in plain, conversational language—just like you would for a retail user.
-- Avoid rigid sections or report-style formatting. Instead, weave the numbers into a natural, context-aware explanation.
-- If riskLevel is CAUTION or HIGH_RISK, suggest a two-batch release using the suggested amounts, but explain why in simple terms (e.g., "to be on the safe side, it might make sense to split the payment...").
-- If the user asks to execute or schedule, do not claim execution is complete unless EXECUTION_STATUS is explicitly provided in the financial data. Prefer phrases like "I can prepare this plan" or "ready to submit" if status is unclear.
-- Always mention that the analysis is based on real bank transaction behaviour (cashflow, supplier, and snapshot data), but do so conversationally (e.g., "This is based on how money has actually moved through your accounts recently...").
-- If EXECUTION_STATUS is not provided, never say "Done" or "Scheduled" as completed actions.
-- Keep the tone friendly, clear, and neutral—no bullet points or rigid blocks unless laying out options or a step-by-step plan is genuinely helpful.
+Rules:
+- Use only the treasury analysis data provided.
+- Explain cashflow, payment, and liquidity decisions in clear, conversational UK English.
+- If riskLevel is CAUTION or HIGH_RISK, suggest a two-batch release using the suggested amounts, and explain why simply.
+- If the user asks to execute or schedule, do not claim execution is complete unless EXECUTION_STATUS is explicitly provided.
+- Always mention that the analysis is based on real bank transaction behaviour (cashflow, supplier, and snapshot data), but do so conversationally.
+- Never mention savings, retail, or personal context.
+- Do not generate EMI, instalment, or product purchase plans.
+- Do not answer non-corporate/treasury questions.
+- Keep the tone friendly, clear, and neutral.
 `;
 
 function buildDataContext(state: FinancialState): string {
@@ -86,44 +38,7 @@ function buildDataContext(state: FinancialState): string {
   ).length;
 
   // --- User financial profile ---
-  if (state.userProfile && !isTreasuryFlow) {
-    const up = state.userProfile;
-
-    parts.push(
-      `USER FINANCIAL PROFILE:`,
-      up.monthlyIncome != null
-        ? `- Monthly income: ${up.monthlyIncome.toLocaleString("en-GB")} ${homeCurrency}`
-        : `- Monthly income: Unknown`,
-      up.monthlyExpenses != null
-        ? `- Monthly expenses: ${up.monthlyExpenses.toLocaleString("en-GB")} ${homeCurrency}`
-        : `- Monthly expenses: Unknown`,
-      `- Available savings: ${up.availableSavings.toLocaleString("en-GB")} ${homeCurrency}`
-    );
-
-    if (up.monthlyIncome != null && up.monthlyExpenses != null) {
-      const leftover = up.monthlyIncome - up.monthlyExpenses;
-      parts.push(
-        `- Left after expenses: ${leftover.toLocaleString("en-GB")} ${homeCurrency}`
-      );
-    }
-
-    if (priorAssistantTurns === 0) {
-      // First reply — REQUIRE the financial snapshot to be shown explicitly
-      parts.push(
-        `MANDATORY OPENING: This is the FIRST affordability response. You MUST begin your reply with a short financial snapshot that states ALL of these numbers on their own line or sentence, in this order:`,
-        `  1. Monthly income (e.g. "You bring in £4,200 a month")`,
-        `  2. Monthly expenses (e.g. "your regular spending comes to about £3,700")`,
-        `  3. Monthly leftover (e.g. "leaving you £500 each month")`,
-        `  4. Savings (e.g. "and you have £5,800 saved up")`,
-        `After showing these four numbers, THEN give the affordability analysis about the subject below.`
-      );
-    } else {
-      // Follow-up — do NOT repeat the snapshot
-      parts.push(
-        `INSTRUCTION: The income/expenses/savings breakdown was ALREADY shown in this conversation. Do NOT repeat it. Continue directly from where the conversation left off.`
-      );
-    }
-  }
+  // ...existing code...
 
   // --- Conversation subject (MUST appear first so LLM knows the topic) ---
   if (state.plan?.product) {
@@ -160,34 +75,7 @@ function buildDataContext(state: FinancialState): string {
     }
   }
 
-  // --- Affordability ---
-  if (state.affordabilityInfo && !isTreasuryFlow) {
-    const af = state.affordabilityInfo;
-    parts.push(
-      `AFFORDABILITY NOTES:`,
-      af.analysis,
-      `PRICE IN ${homeCurrency}: ${af.priceInHomeCurrency.toLocaleString(
-        "en-GB"
-      )} ${homeCurrency}`
-    );
-
-    if (af.emiSuggested || state.plan?.needsEmi) {
-      const price = af.priceInHomeCurrency;
-
-      parts.push(
-        `EMI OPTIONS (${homeCurrency}):`,
-        `- 3 months: ${Math.round(price / 3).toLocaleString(
-          "en-GB"
-        )} ${homeCurrency} per month`,
-        `- 6 months: ${Math.round(price / 6).toLocaleString(
-          "en-GB"
-        )} ${homeCurrency} per month`,
-        `- 12 months: ${Math.round(price / 12).toLocaleString(
-          "en-GB"
-        )} ${homeCurrency} per month`
-      );
-    }
-  }
+  // ...existing code...
 
   // --- Treasury/corporate conversational context ---
   if (state.treasuryAnalysis) {
