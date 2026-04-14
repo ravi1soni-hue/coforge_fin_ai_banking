@@ -241,7 +241,7 @@ export const initWebSocket = (server: any): void => {
       console.log("[SOCKET][DEBUG] Using DATABASE_URL:", dbUrl);
 
       // Query and log all users in the table for debugging
-      let allUsers = [];
+      let allUsers: Array<{ id: any; external_user_id: any; status: any }> = [];
       try {
         // Use dynamic import for ESM compatibility
         const dbModule = await import("../db.js");
