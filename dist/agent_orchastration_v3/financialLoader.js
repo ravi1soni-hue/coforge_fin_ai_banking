@@ -10,12 +10,6 @@ function debugLog(label, data) {
         // ignore logging errors
     }
 }
-/**
- * Loads the user's financial profile from already-normalised knownFacts
- * (populated by client profile seed) or falls back to the structured DB,
- * and finally to vector DB as last resort.
- */
-import { sql } from "kysely";
 /** Parse a raw unknown value to a finite number (or undefined) */
 const parseNum = (v) => {
     if (typeof v === "number" && Number.isFinite(v) && v > 0)
@@ -52,20 +46,49 @@ export class FinancialLoader {
         const intentType = typeof knownFacts.intentType === "string" ? knownFacts.intentType : undefined;
         if (Array.isArray(knownFacts.accounts)) {
             debugLog('accounts', knownFacts.accounts);
+            // Build the LLM extraction prompt outside the function call to avoid template literal issues
+            const llmPrompt = [
+                'Given the following user accounts and intent, extract the correct available savings (for retail/personal) or liquidity (for corporate/treasury) for affordability analysis.',
+                '',
+                `User intent: ${intentType ?? "unknown"}`,
+                '',
+                'Accounts:',
+                JSON.stringify(knownFacts.accounts, null, 2),
+                '',
+                'Rules:',
+                '- For retail/personal, savings should include any account that can be used for personal spending, excluding loans/credit/debt.',
+                '- For corporate/treasury, liquidity should include any account that can be used for payments, excluding loans/credit/debt.',
+                '- If unsure, err on the side of including more, but never include negative balances or debts.',
+                '- Return the sum as availableSavings (retail) or liquidity (corporate/treasury).',
+                '- Also extract monthlyIncome, monthlyExpenses, netMonthlySurplus, and currency if present in the data.',
+                '',
+                'Return ONLY valid JSON (no markdown):',
+                '{',
+                '  "availableSavings": number | null, // for retail',
+                '  "liquidity": number | null,        // for corporate/treasury',
+                '  "monthlyIncome": number | null,',
+                '  "monthlyExpenses": number | null,',
+                '  "netMonthlySurplus": number | null,',
+                '  "currency": string | null',
+                '}'
+            ].join('\n');
+            const llmProfile = await this.llm.generateJSON(llmPrompt);
+            debugLog('llmProfile extraction', llmProfile);
             if (intentType === "corporate_treasury") {
-                // Only sum current/operating/reserve accounts
-                liquidity = knownFacts.accounts
-                    .filter((a) => typeof a.type === "string" && ["current", "operating", "reserve"].includes(a.type.toLowerCase()))
-                    .reduce((sum, a) => sum + (parseNum(a.balance) ?? 0), 0);
-                debugLog('liquidity (corporate/treasury)', liquidity);
+                liquidity = parseNum(llmProfile.liquidity);
             }
             else {
-                // Only sum savings/investment accounts
-                savings = knownFacts.accounts
-                    .filter((a) => typeof a.type === "string" && ["savings", "isa", "deposit", "investment"].includes(a.type.toLowerCase()))
-                    .reduce((sum, a) => sum + (parseNum(a.balance) ?? 0), 0);
-                debugLog('savings (retail)', savings);
+                savings = parseNum(llmProfile.availableSavings);
             }
+            // Optionally override income/expenses/surplus/currency if LLM extracted them
+            if (llmProfile.monthlyIncome != null)
+                knownFacts.monthlyIncome = llmProfile.monthlyIncome;
+            if (llmProfile.monthlyExpenses != null)
+                knownFacts.monthlyExpenses = llmProfile.monthlyExpenses;
+            if (llmProfile.netMonthlySurplus != null)
+                knownFacts.netMonthlySurplus = llmProfile.netMonthlySurplus;
+            if (llmProfile.currency != null)
+                knownFacts.profileCurrency = llmProfile.currency;
         }
         // Fallbacks for legacy/seeded facts
         // Only use legacy fields if accounts array is missing or not an array
@@ -92,9 +115,9 @@ export class FinancialLoader {
         if (intentType === "corporate_treasury" && liquidity !== undefined && liquidity >= 0) {
             const profile = {
                 availableSavings: liquidity, // For treasury, this is actually liquidity
-                monthlyIncome: income,
-                monthlyExpenses: expenses,
-                netMonthlySurplus: surplus,
+                monthlyIncome: parseNum(knownFacts.monthlyIncome),
+                monthlyExpenses: parseNum(knownFacts.monthlyExpenses),
+                netMonthlySurplus: parseNum(knownFacts.netMonthlySurplus),
                 homeCurrency: currency,
                 userName,
             };
@@ -105,64 +128,15 @@ export class FinancialLoader {
         if ((intentType !== "corporate_treasury" || !intentType) && savings !== undefined && savings >= 0) {
             const profile = {
                 availableSavings: savings,
-                monthlyIncome: income,
-                monthlyExpenses: expenses,
-                netMonthlySurplus: surplus,
+                monthlyIncome: parseNum(knownFacts.monthlyIncome),
+                monthlyExpenses: parseNum(knownFacts.monthlyExpenses),
+                netMonthlySurplus: parseNum(knownFacts.netMonthlySurplus),
                 homeCurrency: currency,
                 userName,
             };
             debugLog('RETURN profile (retail)', profile);
             debugLog('--- LOAD PROFILE END ---', {});
             return profile;
-        }
-        // Secondary: query account_balances + financial_summary_monthly (seeded, deterministic)
-        if (this.db) {
-            try {
-                const row = await sql `
-          SELECT COALESCE(SUM(balance), 0)::text AS total_balance,
-                 MAX(currency) AS currency
-          FROM account_balances
-             WHERE user_id = ${profileLookupUserId}
-        `.execute(this.db);
-                debugLog('account_balances row', row.rows);
-                const monthlyRow = await sql `
-          SELECT total_income AS monthly_income,
-                 total_expenses AS monthly_expenses,
-                 net_cashflow
-          FROM financial_summary_monthly
-             WHERE user_id = ${profileLookupUserId}
-          ORDER BY month DESC
-          LIMIT 1
-        `.execute(this.db);
-                debugLog('financial_summary_monthly row', monthlyRow.rows);
-                const p = row.rows[0];
-                const m = monthlyRow.rows[0];
-                if (p && p.total_balance !== null && Number(p.total_balance) > 0) {
-                    const dbSavings = Number(p.total_balance);
-                    const dbIncome = m?.monthly_income != null ? Number(m.monthly_income) : undefined;
-                    const dbExpenses = m?.monthly_expenses != null ? Number(m.monthly_expenses) : undefined;
-                    const dbSurplus = m?.net_cashflow != null
-                        ? Number(m.net_cashflow)
-                        : dbIncome !== undefined && dbExpenses !== undefined
-                            ? dbIncome - dbExpenses
-                            : undefined;
-                    debugLog('Loaded from account_balances+monthly', { dbSavings, dbIncome, dbExpenses, dbSurplus, currency: p.currency ?? currency });
-                    const profile = {
-                        availableSavings: dbSavings,
-                        monthlyIncome: dbIncome,
-                        monthlyExpenses: dbExpenses,
-                        netMonthlySurplus: dbSurplus,
-                        homeCurrency: p.currency ?? currency,
-                        userName,
-                    };
-                    debugLog('RETURN profile (db)', profile);
-                    debugLog('--- LOAD PROFILE END ---', {});
-                    return profile;
-                }
-            }
-            catch (err) {
-                debugLog('DB profile lookup failed, falling back to vector DB', String(err));
-            }
         }
         // Tertiary: query vector DB and let LLM extract profile
         debugLog('knownFacts and DB empty — falling back to vector DB', {});
