@@ -119,17 +119,18 @@ export async function buildDataContextAsync(state: FinancialState, llmClient: V3
 
     // Step 1: Always show explicit scenario breakdown if user asked about a specific amount
     if (isUserAmountSpecific) {
-      parts.push(`You currently hold £${t.availableLiquidity?.toLocaleString("en-GB") ?? "-"} across your operating accounts.`);
-      parts.push(`Based on the last 90 days, your business typically runs £${t.weeklyOutflow?.toLocaleString("en-GB") ?? "-"} of weekly outflows, with payroll landing on ${t.payrollDay ?? "Friday"}.`);
-      parts.push(`Looking at actual cash-in patterns, you normally receive around £${t.expectedMidweekInflow?.toLocaleString("en-GB") ?? "-"} between Tuesday and Thursday — but that inflow has been late ${t.lateInflowEventsLast4Weeks ?? 0} times in the last four weeks.`);
-      parts.push(`From a cash-buffer perspective:`);
-      parts.push(`* Releasing the full £${userAmount?.toLocaleString("en-GB") ?? "-"} today would still leave you liquid,`);
-      parts.push(`* but it pushes your projected Thursday low balance close to your internal comfort threshold.`);
-      parts.push(`To be confident this works, I need to know:`);
-      parts.push(`* Is this payment run all critical suppliers, or`);
-      parts.push(`* Are there some payments you could safely defer by a few days?`);
+      // Short, focused scenario summary (max 150 words)
+      const stats = [];
+      stats.push(`You have £${t.availableLiquidity?.toLocaleString("en-GB") ?? "-"} in operating accounts.`);
+      stats.push(`Typical weekly outflow: £${t.weeklyOutflow?.toLocaleString("en-GB") ?? "-"}.`);
+      stats.push(`Usual midweek inflow: £${t.expectedMidweekInflow?.toLocaleString("en-GB") ?? "-"}.`);
+      stats.push(`Requested payment: £${userAmount?.toLocaleString("en-GB") ?? "-"}.`);
+      stats.push(`Projected low after payment: £${t.projectedLowBalanceIfFullRelease?.toLocaleString("en-GB") ?? "-"}.`);
+      parts.push(stats.join(' '));
+      parts.push(`If all items are critical, you can release the £${userAmount?.toLocaleString("en-GB") ?? "-"} today and remain liquid.`);
+      parts.push(`If some payments can wait, you’ll keep a healthier buffer ahead of payroll.`);
+      parts.push(`Would you like to review which payments could be safely deferred?`);
     } else {
-      // If no specific amount, fallback to generic summary
       parts.push(`Your current liquidity position is healthy. No specific payment amount was mentioned.`);
     }
 
