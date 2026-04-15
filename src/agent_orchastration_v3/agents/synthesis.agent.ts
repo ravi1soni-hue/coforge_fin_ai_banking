@@ -117,6 +117,10 @@ export async function buildDataContextAsync(state: FinancialState, llmClient: V3
 
     // Use LLM-driven scenario state
     const scenario = await extractScenarioStateLLM(state.conversationHistory ?? [], t, llmClient);
+    // Strict anchoring: if user specified an amount, enforce it in all splits/summaries
+    if (scenario.lastUserRequestedAmount && Math.abs(scenario.lastUserRequestedAmount - t.paymentAmount) > 1) {
+      parts.push(`(Note: You asked about £${scenario.lastUserRequestedAmount.toLocaleString("en-GB")}, so all advice below is strictly about that amount.)`);
+    }
 
     let summary = "";
 

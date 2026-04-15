@@ -4,6 +4,7 @@ async function extractScenarioStateLLM(conversationHistory, treasuryAnalysis, ll
   - userChoseSplit (boolean)
   - userChoseFullRelease (boolean)
   - userRequestedSimulation (boolean)
+  - userConfirmedSchedule (boolean) // true if the user has confirmed or requested to schedule, in any wording
   - lastSplitAmount (number|null)
   - lastDeferAmount (number|null)
   - lastUrgentAmount (number|null)
@@ -24,6 +25,9 @@ ${conversationHistory.map(t => `${t.role}: ${t.content}`).join("\n")}
             scenario.lastSplitAmount = treasuryAnalysis.suggestedNowAmount;
         if (!scenario.lastDeferAmount && treasuryAnalysis?.suggestedLaterAmount)
             scenario.lastDeferAmount = treasuryAnalysis.suggestedLaterAmount;
+        // Ensure userConfirmedSchedule is always present
+        if (typeof scenario.userConfirmedSchedule !== "boolean")
+            scenario.userConfirmedSchedule = false;
         return scenario;
     }
     catch {
@@ -32,6 +36,7 @@ ${conversationHistory.map(t => `${t.role}: ${t.content}`).join("\n")}
             userChoseSplit: false,
             userChoseFullRelease: false,
             userRequestedSimulation: false,
+            userConfirmedSchedule: false,
             lastSplitAmount: treasuryAnalysis?.suggestedNowAmount ?? null,
             lastDeferAmount: treasuryAnalysis?.suggestedLaterAmount ?? null,
             lastUrgentAmount: null,
@@ -83,8 +88,20 @@ export async function buildDataContextAsync(state, llmClient) {
         const alreadyMentioned = (str) => history.some(msg => msg.includes(str.toLowerCase()));
         // Use LLM-driven scenario state
         const scenario = await extractScenarioStateLLM(state.conversationHistory ?? [], t, llmClient);
+        // Strict anchoring: if user specified an amount, enforce it in all splits/summaries
+        if (scenario.lastUserRequestedAmount && Math.abs(scenario.lastUserRequestedAmount - t.paymentAmount) > 1) {
+            parts.push(`(Note: You asked about £${scenario.lastUserRequestedAmount.toLocaleString("en-GB")}, so all advice below is strictly about that amount.)`);
+        }
         let summary = "";
-        if (scenario.userChoseSplit && t.suggestedNowAmount && t.suggestedLaterAmount) {
+        // NEW: If user has confirmed scheduling, give a clear scheduled message and do not ask further questions
+        if (scenario.userConfirmedSchedule && t.suggestedNowAmount && t.suggestedLaterAmount) {
+            summary += `The mid-week batch has been scheduled for review.\n`;
+            summary += `* £${t.suggestedNowAmount.toLocaleString("en-GB")} is scheduled for today.`;
+            summary += `\n* £${t.suggestedLaterAmount.toLocaleString("en-GB")} is scheduled for mid-week, pending cash confirmation.`;
+            summary += `\nI’ll notify you before release and monitor for incoming receipts.`;
+            parts.push(summary);
+        }
+        else if (scenario.userChoseSplit && t.suggestedNowAmount && t.suggestedLaterAmount) {
             summary += `Alright — here’s what that means.\n\n`;
             summary += `With £${t.suggestedNowAmount.toLocaleString("en-GB")} released today:`;
             summary += `\n* Your projected cash position stays above your usual buffer all week`;

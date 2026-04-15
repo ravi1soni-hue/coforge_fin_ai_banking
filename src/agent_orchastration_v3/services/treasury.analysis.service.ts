@@ -142,10 +142,6 @@ export class TreasuryAnalysisService {
       latestSnapshot?.comfort_threshold ??
       Math.max(0, weeklyOutflow * 0.35);
 
-    const paymentAmount =
-      parseNum(knownFacts.paymentAmount) ??
-      parseMoneyWithSuffix(message);
-
     const urgentSupplierTotal = sum(
       supplierCandidates
         .filter((c) => c.urgency === "URGENT")
@@ -157,9 +153,23 @@ export class TreasuryAnalysisService {
         .map((c) => Number(c.amount ?? 0)),
     );
 
-    const amountToAnalyse = paymentAmount > 0
-      ? paymentAmount
-      : (urgentSupplierTotal + deferableSupplierTotal);
+    // Strictly anchor to user-requested amount if present
+    let paymentAmount = 0;
+    const parsedKnownFactAmount = knownFacts.paymentAmount !== undefined ? parseNum(knownFacts.paymentAmount) : undefined;
+    if (parsedKnownFactAmount !== undefined && parsedKnownFactAmount > 0) {
+      paymentAmount = parsedKnownFactAmount;
+    } else {
+      // Try to extract from user message
+      paymentAmount = parseMoneyWithSuffix(message);
+    }
+    // Only if user did NOT specify an amount, fallback to DB totals
+    const usedDbTotal = paymentAmount <= 0;
+    if (usedDbTotal) {
+      paymentAmount = urgentSupplierTotal + deferableSupplierTotal;
+    }
+
+    // Always analyze the user-requested amount unless ambiguous
+    const amountToAnalyse = paymentAmount;
 
     const projectedLowBalance =
       availableLiquidity - amountToAnalyse - weeklyOutflow + expectedMidweekInflow;
@@ -176,9 +186,9 @@ export class TreasuryAnalysisService {
 
     let suggestedNowAmount = paymentAmount;
     let suggestedLaterAmount = 0;
-
     if (amountToAnalyse > 0 && riskLevel !== "SAFE") {
-      const baseNow = urgentSupplierTotal > 0 ? Math.round(urgentSupplierTotal) : Math.floor(amountToAnalyse * 0.7);
+      // Always split the user-requested amount, not DB total
+      const baseNow = Math.floor(amountToAnalyse * 0.7);
       const maxNowFromBuffer = Math.max(0, Math.floor(availableLiquidity - weeklyOutflow + expectedMidweekInflow - adjustedThreshold));
       suggestedNowAmount = Math.max(0, Math.min(baseNow, maxNowFromBuffer > 0 ? maxNowFromBuffer : baseNow));
       suggestedLaterAmount = Math.max(0, amountToAnalyse - suggestedNowAmount);
@@ -222,6 +232,7 @@ export class TreasuryAnalysisService {
       `projected low if inflow late ${Math.round(projectedLowIfLateInflow).toLocaleString("en-GB")}`,
       `projected low if inflow early ${Math.round(projectedLowIfEarlyInflow).toLocaleString("en-GB")}`,
       `late inflow events (4w) ${lateInflowEventsLast4Weeks}, observed late inflows (28d) ${observedLateInflows}`,
+      usedDbTotal ? "(No amount specified by user, using total supplier run)" : "(User-requested amount strictly used)"
     ].join("; ");
 
     return {

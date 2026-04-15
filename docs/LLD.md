@@ -1,49 +1,62 @@
-# Low-Level Design — Message Flow
+
+# Low-Level Design — LLM-Driven Confirmation & Scheduling
+
+## Key Logic Components
+
+### 1. Scenario State Extraction (LLM)
+- The agent uses a language model to extract scenario state from the full conversation history.
+- It detects:
+  - If the user wants to split, schedule, or fully release a payment
+  - If the user has confirmed scheduling (in any wording)
+  - Relevant amounts (split, urgent, deferable)
+
+**Example extracted state:**
+```json
+{
+  "userChoseSplit": true,
+  "userConfirmedSchedule": true,
+  "lastSplitAmount": 520000,
+  "lastDeferAmount": 5080000,
+  ...
+}
+```
+
+### 2. Scheduling Logic
+- If `userConfirmedSchedule` is true, the agent:
+  - Schedules the payment batches (today + mid-week)
+  - Responds with a clear, final message:
+    - “The mid-week batch has been scheduled for review. I’ll notify you before release.”
+- No further confirmation is requested.
+- If confirmation is missing, the agent continues to offer options or ask for next steps.
+
+### 3. Message Flow (Technical)
 
 ```mermaid
 sequenceDiagram
     participant U as User
     participant GW as Gateway
     participant DB as Database
-    participant SUP as Supervisor
-    participant RES as Research
-    participant AFF as Affordability
-    participant SYN as Response Writer
-    participant LLM as Coforge LLM
-    participant EXT as Google Search & FX API
+    participant SYN as Synthesis Agent
+    participant LLM as Language Model
+    participant SCHED as Scheduler
 
-    U->>GW: sends a question
-    GW->>DB: load financial profile & last 3 conversation turns
-    DB-->>GW: profile + history
-
-    GW->>SUP: classify this message
-    SUP->>LLM: what does the user need?
-    LLM-->>SUP: routing plan
-
-    alt user needs price, FX rate, or affordability check
-        SUP->>RES: research price, exchange rate & news
-        RES->>EXT: search Google + fetch live FX rate
-        EXT-->>RES: search results + exchange rate
-        RES->>LLM: extract confirmed price from results
-        LLM-->>RES: price (or not found)
-
-        alt price confirmed
-            RES->>AFF: can the user afford this?
-            AFF->>LLM: compare price against savings & monthly surplus
-            LLM-->>AFF: SAFE / BORDERLINE / RISKY
-            AFF-->>SYN: verdict + analysis
-        else price not found
-            RES-->>SYN: no price available — ask user to confirm amount
-        end
-
-    else simple conversational reply
-        SUP-->>SYN: no research needed
+    U->>GW: asks payment/cashflow question
+    GW->>DB: load balances, supplier data, history
+    DB-->>GW: data
+    GW->>SYN: pass data + conversation
+    SYN->>LLM: extract scenario state (split, confirm, etc)
+    LLM-->>SYN: scenario state JSON
+    alt userConfirmedSchedule = true
+        SYN->>SCHED: schedule batches
+        SCHED-->>SYN: confirm scheduled
+        SYN-->>GW: "Scheduled" message (no more questions)
+    else
+        SYN-->>GW: options or next steps
     end
-
-    SYN->>LLM: write a plain-English reply under 180 words
-    LLM-->>SYN: final response
-
-    SYN->>DB: save this conversation turn
-    SYN-->>GW: response
-    GW-->>U: delivers the answer
+    GW-->>U: delivers answer
 ```
+
+## Implementation Notes
+- No regex or keyword matching for confirmation—LLM intent extraction only
+- All amounts and decisions are based on real DB data
+- The agent’s response logic is fully state-driven and auditable
