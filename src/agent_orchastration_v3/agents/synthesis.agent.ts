@@ -7,6 +7,7 @@ async function extractScenarioStateLLM(conversationHistory: {role: string, conte
   - userChoseSplit (boolean)
   - userChoseFullRelease (boolean)
   - userRequestedSimulation (boolean)
+  - userConfirmedSchedule (boolean) // true if the user has confirmed or requested to schedule, in any wording
   - lastSplitAmount (number|null)
   - lastDeferAmount (number|null)
   - lastUrgentAmount (number|null)
@@ -25,6 +26,8 @@ ${conversationHistory.map(t => `${t.role}: ${t.content}`).join("\n")}
     // Fallback to treasuryAnalysis if needed
     if (!scenario.lastSplitAmount && treasuryAnalysis?.suggestedNowAmount) scenario.lastSplitAmount = treasuryAnalysis.suggestedNowAmount;
     if (!scenario.lastDeferAmount && treasuryAnalysis?.suggestedLaterAmount) scenario.lastDeferAmount = treasuryAnalysis.suggestedLaterAmount;
+    // Ensure userConfirmedSchedule is always present
+    if (typeof scenario.userConfirmedSchedule !== "boolean") scenario.userConfirmedSchedule = false;
     return scenario;
   } catch {
     // Fallback: return empty/default scenario
@@ -32,6 +35,7 @@ ${conversationHistory.map(t => `${t.role}: ${t.content}`).join("\n")}
       userChoseSplit: false,
       userChoseFullRelease: false,
       userRequestedSimulation: false,
+      userConfirmedSchedule: false,
       lastSplitAmount: treasuryAnalysis?.suggestedNowAmount ?? null,
       lastDeferAmount: treasuryAnalysis?.suggestedLaterAmount ?? null,
       lastUrgentAmount: null,
@@ -116,7 +120,15 @@ export async function buildDataContextAsync(state: FinancialState, llmClient: V3
 
     let summary = "";
 
-    if (scenario.userChoseSplit && t.suggestedNowAmount && t.suggestedLaterAmount) {
+    // NEW: If user has confirmed scheduling, give a clear scheduled message and do not ask further questions
+    if (scenario.userConfirmedSchedule && t.suggestedNowAmount && t.suggestedLaterAmount) {
+      summary += `The mid-week batch has been scheduled for review.\n`;
+      summary += `* £${t.suggestedNowAmount.toLocaleString("en-GB")} is scheduled for today.`;
+      summary += `\n* £${t.suggestedLaterAmount.toLocaleString("en-GB")} is scheduled for mid-week, pending cash confirmation.`;
+      summary += `\nI’ll notify you before release and monitor for incoming receipts.`;
+      parts.push(summary);
+    }
+    else if (scenario.userChoseSplit && t.suggestedNowAmount && t.suggestedLaterAmount) {
       summary += `Alright — here’s what that means.\n\n`;
       summary += `With £${t.suggestedNowAmount.toLocaleString("en-GB")} released today:`;
       summary += `\n* Your projected cash position stays above your usual buffer all week`;
