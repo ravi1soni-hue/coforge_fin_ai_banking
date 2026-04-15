@@ -123,6 +123,11 @@ export async function buildDataContextAsync(state: FinancialState, llmClient: V3
     const isUserAmountSpecific = t.usedUserAmount && typeof userAmount === 'number' && userAmount > 0;
     if (isUserAmountSpecific) {
       parts.push(`(Note: You asked about £${userAmount.toLocaleString("en-GB")}, so all advice below is strictly about that amount.)`);
+      // Show available funds, cashflow, and comfort threshold for this amount
+      parts.push(`Available funds: £${t.availableLiquidity.toLocaleString("en-GB")}`);
+      parts.push(`Comfort threshold: £${t.comfortThreshold.toLocaleString("en-GB")}`);
+      parts.push(`This payment: £${userAmount.toLocaleString("en-GB")}`);
+      parts.push(`(All calculations below are based on £${userAmount.toLocaleString("en-GB")}, not the total supplier run.)`);
     } else if (!t.usedUserAmount) {
       parts.push(`(No amount specified by user, using total supplier run.)`);
     }
@@ -157,11 +162,21 @@ export async function buildDataContextAsync(state: FinancialState, llmClient: V3
       parts.push(summary);
     } else if (scenario.userChoseFullRelease) {
       let summary = "";
+      if (isUserAmountSpecific) {
+        summary += `Available funds: £${t.availableLiquidity.toLocaleString("en-GB")}.\n`;
+        summary += `Comfort threshold: £${t.comfortThreshold.toLocaleString("en-GB")}.\n`;
+        summary += `Requested payment: £${userAmount.toLocaleString("en-GB")}.\n`;
+      }
       summary += `Releasing the full payment today is within safe limits.`;
       summary += `\nWould you like to proceed with the full release, or see a split scenario for extra buffer?`;
       parts.push(summary);
     } else {
       let summaryParts: string[] = [];
+      if (isUserAmountSpecific) {
+        summaryParts.push(`Available funds: £${t.availableLiquidity.toLocaleString("en-GB")}.`);
+        summaryParts.push(`Comfort threshold: £${t.comfortThreshold.toLocaleString("en-GB")}.`);
+        summaryParts.push(`Requested payment: £${userAmount.toLocaleString("en-GB")}.`);
+      }
       summaryParts.push(`The supplier run is well within safe limits.`);
       if (t.lateInflowEventsLast4Weeks > 0) {
         summaryParts.push(`There have been some late inflows recently, but your buffer remains healthy.`);
