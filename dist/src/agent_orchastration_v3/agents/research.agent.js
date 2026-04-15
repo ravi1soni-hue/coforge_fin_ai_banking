@@ -12,16 +12,13 @@
 import { searchWeb } from "../tools/webSearch.js";
 import { getExchangeRate } from "../tools/exchangeRate.js";
 // ─── Price sub-agent ─────────────────────────────────────────────────────────
-async function researchPrice(llmClient, searchQuery, priceCurrency) {
+async function researchPrice(llmClient, searchQuery, priceCurrency, ragContext) {
     console.log(`[ResearchAgent:Price] Searching for: "${searchQuery}"`);
     const resolvedCurrency = priceCurrency ?? "GBP";
     const noDataFallback = `No web data available — return {"price": 0, "currency": "${resolvedCurrency}", "source": "web_search", "confidence": "low"}.`;
     // 1. Get web data from Serper.dev (Google Search, UK results)
-    // Don't append "UK price buy" if it already has UK context or is a travel query
-    const isTravel = /trip|holiday|hotel|flight|travel|vacation/i.test(searchQuery);
-    const hasUk = /\buk\b/i.test(searchQuery);
-    const ukQuery = hasUk ? searchQuery : isTravel ? `${searchQuery} UK cost 2025` : `${searchQuery} UK price`;
-    const webData = await searchWeb(ukQuery);
+    // LLM is responsible for all context/intent extraction. No regex/static logic.
+    const webData = await searchWeb(searchQuery);
     const webContext = [
         webData.abstract,
         webData.answer,
@@ -30,22 +27,11 @@ async function researchPrice(llmClient, searchQuery, priceCurrency) {
         .filter(Boolean)
         .join("\n");
     console.log(`[ResearchAgent:Price] Web context length: ${webContext.length} chars`);
-    // 2. Ask LLM to extract/estimate the price using web data + its knowledge
+    // 2. Ask LLM to extract/estimate the price using web data + RAG context
     const messages = [
         {
             role: "system",
-            content: `You are a product price researcher. Extract the current retail price strictly from the web data provided below.
-
-Respond with ONLY this JSON (no explanation, no markdown):
-{"price": <number>, "currency": "<3-letter ISO code>", "source": "web_search", "confidence": "<'high'|'medium'|'low'>"}
-
-Rules:
-- price must be a number (no currency symbols)
-- currency should be the ISO 4217 code (EUR, GBP, USD, etc.)
-- source is ALWAYS "web_search" — do NOT use your training knowledge to invent or estimate a price
-- confidence = 'high' if exact price found, 'medium' if approximate, 'low' if unclear
-- If no price can be found in the web data, return {"price": 0, "currency": "${resolvedCurrency}", "source": "web_search", "confidence": "low"}
-- NEVER guess or fabricate a price — if uncertain, return price: 0`,
+            content: `You are a product price researcher. Extract the current retail price strictly from the web data and RAG context provided below.`,
         },
         {
             role: "user",
@@ -55,7 +41,10 @@ Expected currency: ${resolvedCurrency}
 Web search results:
 ${webContext || noDataFallback}
 
-Extract the current retail price strictly from the web data above. Do NOT use training knowledge to estimate a price.`,
+RAG context:
+${(ragContext && ragContext.length > 0) ? ragContext.join("\n") : "No RAG context available."}
+
+Extract the current retail price strictly from the web data and RAG context above. Do NOT use training knowledge to estimate a price.`,
         },
     ];
     let parsed = null;
@@ -63,28 +52,19 @@ Extract the current retail price strictly from the web data above. Do NOT use tr
         parsed = await llmClient.chatJSON(messages);
     }
     catch { /* fall through */ }
-    if (parsed?.price && Number(parsed.price) > 0) {
-        const src = parsed.source;
-        const conf = parsed.confidence;
-        console.log(`[ResearchAgent:Price] Found: ${parsed.price} ${parsed.currency} (${src}, ${conf})`);
-        return {
-            price: Number(parsed.price),
-            currency: String(parsed.currency ?? priceCurrency ?? "GBP").toUpperCase(),
-            source: src === "web_search" ? "web_search" : "llm_knowledge",
-            confidence: (["high", "medium", "low"].includes(conf) ? conf : "medium"),
-            rawContext: webContext.slice(0, 600),
-        };
+    if (!parsed || typeof parsed.price !== 'number' || typeof parsed.currency !== 'string' || typeof parsed.source !== 'string' || typeof parsed.confidence !== 'string') {
+        console.log(`[ResearchAgent:Price] Failed to parse LLM response: ${JSON.stringify(parsed)}`);
+        return { price: 0, currency: resolvedCurrency, source: "web_search", confidence: "low", rawContext: webContext };
     }
-    console.warn("[ResearchAgent:Price] Could not extract price from web data — returning 0 to avoid hallucination");
     return {
-        price: 0,
-        currency: priceCurrency ?? "GBP",
-        source: "web_search",
-        confidence: "low",
-        rawContext: webContext.slice(0, 300),
+        price: parsed.price,
+        currency: parsed.currency,
+        source: parsed.source,
+        confidence: parsed.confidence,
+        rawContext: webContext,
     };
 }
-// ─── FX sub-agent ────────────────────────────────────────────────────────────
+// ─── FX sub-agent ───────────────────────────────────────────────────────────
 async function researchFx(from, to) {
     console.log(`[ResearchAgent:FX] Fetching rate: ${from} → ${to}`);
     try {
@@ -128,12 +108,16 @@ Summarise the most relevant financial news and market context.`,
         parsed = await llmClient.chatJSON(messages);
     }
     catch { /* fall through */ }
+    if (!parsed || !Array.isArray(parsed.headlines) || typeof parsed.context !== 'string') {
+        console.log(`[ResearchAgent:News] Failed to parse LLM response: ${JSON.stringify(parsed)}`);
+        return { headlines: [], context: "No news data available" };
+    }
     return {
-        headlines: Array.isArray(parsed?.headlines) ? parsed.headlines.slice(0, 3) : [],
-        context: typeof parsed?.context === "string" ? parsed.context : "Market conditions appear stable.",
+        headlines: parsed.headlines,
+        context: parsed.context,
     };
 }
-export async function runResearchAgent(llmClient, plan) {
+export async function runResearchAgent(llmClient, plan, ragContext) {
     // If the user stated a price explicitly, use it directly — no web search needed.
     const statedPrice = plan.userStatedPrice ?? 0;
     const userStatedPriceInfo = statedPrice > 0
@@ -145,19 +129,18 @@ export async function runResearchAgent(llmClient, plan) {
             rawContext: `User stated price: ${statedPrice}`,
         }
         : null;
-    const tasks = [
-        userStatedPriceInfo
-            ? Promise.resolve(userStatedPriceInfo)
-            : plan.needsWebSearch && plan.searchQuery
-                ? researchPrice(llmClient, plan.searchQuery, plan.priceCurrency)
-                : Promise.resolve(null),
-        plan.needsFxConversion && plan.priceCurrency && plan.targetCurrency
-            ? researchFx(plan.priceCurrency, plan.targetCurrency)
-            : Promise.resolve(null),
-        plan.needsNews
-            ? researchNews(llmClient, plan.product)
-            : Promise.resolve(null),
-    ];
+    const tasks = [];
+    tasks.push(userStatedPriceInfo
+        ? Promise.resolve(userStatedPriceInfo)
+        : plan.needsWebSearch && plan.searchQuery
+            ? researchPrice(llmClient, plan.searchQuery, plan.priceCurrency, ragContext)
+            : Promise.resolve(null));
+    tasks.push(plan.needsFxConversion && plan.priceCurrency && plan.targetCurrency
+        ? researchFx(plan.priceCurrency, plan.targetCurrency)
+        : Promise.resolve(null));
+    tasks.push(plan.needsNews
+        ? researchNews(llmClient, plan.product)
+        : Promise.resolve(null));
     const [priceInfo, fxInfo, newsInfo] = await Promise.all(tasks);
     return { priceInfo, fxInfo, newsInfo };
 }

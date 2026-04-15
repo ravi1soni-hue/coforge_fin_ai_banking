@@ -91,52 +91,7 @@ const DEFAULT_PLAN = {
     conversationalOnly: false,
     userHomeCurrency: "GBP",
 };
-function extractStatedGbpPrice(text) {
-    const compact = text.toLowerCase().replace(/,/g, "");
-    const suffixed = compact.match(/(?:£|gbp\s*)?(\d+(?:\.\d+)?)\s*([km])\b/i);
-    if (suffixed) {
-        const base = Number(suffixed[1]);
-        const mult = suffixed[2].toLowerCase() === "m" ? 1_000_000 : 1_000;
-        const n = base * mult;
-        if (Number.isFinite(n) && n > 0)
-            return n;
-    }
-    // Match explicit £/GBP amounts OR bare standalone numbers >= 100 (plain cost statements like "around 3000")
-    const explicit = text.match(/(£\s*[\d,]+(?:\.\d+)?|[\d,]+(?:\.\d+)?\s*(?:GBP|pounds?))/i);
-    if (explicit) {
-        const n = Number(explicit[0].replace(/[^\d.]/g, ""));
-        if (Number.isFinite(n) && n > 0)
-            return n;
-    }
-    // Bare number (e.g. "around 3000", "costs 3000", "it's 2500")
-    const bare = text.match(/(?:around|about|roughly|costs?|is|=|\s)\s*([\d,]{3,7})(?:\s|$|[.,!?])/i);
-    if (bare) {
-        const n = Number(bare[1].replace(/,/g, ""));
-        if (Number.isFinite(n) && n >= 100)
-            return n;
-    }
-    return 0;
-}
-function inferTripProductFromUserHistory(userMessage, conversationHistory) {
-    const userTurns = conversationHistory
-        .filter((m) => m.role === "user")
-        .map((m) => m.content)
-        .concat(userMessage)
-        .reverse();
-    for (const text of userTurns) {
-        const lower = text.toLowerCase();
-        if (!/(trip|travel|holiday|flight|hotel)/.test(lower))
-            continue;
-        const toMatch = text.match(/trip\s+to\s+([a-zA-Z\s'-]{2,40})/i);
-        if (toMatch?.[1]) {
-            const destination = toMatch[1].trim().replace(/[?.!,]$/, "");
-            return `${destination} trip`;
-        }
-        return "trip";
-    }
-    return undefined;
-}
-export async function runSupervisorAgent(llmClient, userMessage, userProfile, conversationHistory = []) {
+export async function runSupervisorAgent(llmClient, userMessage, userProfile, conversationHistory = [], ragContext) {
     const homeCurrency = String(userProfile?.homeCurrency ?? "GBP");
     // Pass ONLY user turns to the supervisor — the assistant's previous responses are outputs, not ground truth.
     // Feeding assistant history back in causes the LLM to anchor on whatever the assistant said before
@@ -152,7 +107,8 @@ export async function runSupervisorAgent(llmClient, userMessage, userProfile, co
         { role: "system", content: SYSTEM_PROMPT },
         {
             role: "user",
-            content: `User's home currency: ${homeCurrency}${historyText}\n\nCurrent message: "${userMessage}"`,
+            content: (ragContext ? `Relevant context:\n${ragContext}\n\n` : "") +
+                `User's home currency: ${homeCurrency}${historyText}\n\nCurrent message: "${userMessage}"`,
         },
     ];
     console.log("[SupervisorAgent] Calling LLM to classify query...");
@@ -172,13 +128,7 @@ export async function runSupervisorAgent(llmClient, userMessage, userProfile, co
     // If LLM does not return intentType or product, treat as unknown/new topic.
     let intentType = typeof parsed.intentType === "string" ? parsed.intentType : undefined;
     let product = typeof parsed.product === "string" ? parsed.product : undefined;
-    // Removed retail context inference
-    if (!product && intentType !== 'corporate_treasury') {
-        const inferredTrip = inferTripProductFromUserHistory(userMessage, conversationHistory);
-        if (inferredTrip) {
-            product = inferredTrip;
-        }
-    }
+    // No static or regex fallback: product is LLM-only.
     // If LLM did not return intentType, treat as unknown
     if (!intentType) {
         intentType = 'unknown';

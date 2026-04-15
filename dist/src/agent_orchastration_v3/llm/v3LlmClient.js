@@ -1,10 +1,13 @@
 /**
- * V3 LLM Client — multi-agent financial assistant.
+ * V3 LLM Client — CANONICAL LLM INTERFACE (2026+)
  *
- * Wraps the Coforge endpoint for the new agent-based architecture.
+ * This is the ONLY supported LLM client for all agentic operations.
+ * All agents must use this class for LLM calls.
+ * Legacy clients (llmClient.ts, openAIClient.ts) are deprecated and must not be used.
+ *
+ * Multi-agent financial assistant: wraps the Coforge endpoint for the new agent-based architecture.
  * Each agent sends a message array and receives a plain-text reply.
- * No tool-calling loop — agents call real APIs (webSearch, exchangeRate)
- * directly in code and use the LLM purely for reasoning and extraction.
+ * No tool-calling loop — agents call real APIs (webSearch, exchangeRate) directly in code and use the LLM purely for reasoning and extraction.
  */
 import { extractJson } from "../../utils/jsonExtractor.js";
 const API_URL = "https://quasarmarket.coforge.com/qag/llmrouter-api/v2/chat/completions";

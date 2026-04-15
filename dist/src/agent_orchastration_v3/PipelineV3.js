@@ -16,15 +16,12 @@ export class PipelineV3 {
     chatRepo;
     sessionRepo;
     treasuryAnalysisService;
-    constructor(llmClient, 
-    /** Used by FinancialLoader's vector-DB fallback path only */
-    baseLlmClient, vectorQuery, treasuryAnalysisService, chatRepo, sessionRepo, db) {
+    constructor(llmClient, vectorQuery, treasuryAnalysisService, chatRepo, sessionRepo, db) {
         this.chatRepo = chatRepo;
         this.sessionRepo = sessionRepo;
         this.treasuryAnalysisService = treasuryAnalysisService;
         this.graph = createFinancialGraph({
             v3LlmClient: llmClient,
-            baseLlmClient,
             vectorQuery,
             treasuryAnalysisService,
             sessionRepo,
@@ -55,6 +52,17 @@ export class PipelineV3 {
         // Persist this turn so the next message has context
         await this.chatRepo.saveMessage(req.userId, sessionId, "user", req.message);
         await this.chatRepo.saveMessage(req.userId, sessionId, "assistant", answer);
-        return { type: "FINAL", message: answer };
+        // Feedback capture: if feedback is present in the request, store it
+        let feedbackId = undefined;
+        if (req.feedback) {
+            feedbackId = await this.chatRepo.saveFeedback({
+                userId: req.userId,
+                sessionId,
+                type: req.feedback.type,
+                comment: req.feedback.comment,
+                forMessageId: req.feedback.forMessageId,
+            });
+        }
+        return { type: "FINAL", message: answer, feedbackId };
     }
 }

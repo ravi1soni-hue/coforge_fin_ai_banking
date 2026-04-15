@@ -1,3 +1,5 @@
+import { Kysely, sql } from "kysely";
+
 export interface ChatFeedback {
   id?: string;
   userId: string;
@@ -7,10 +9,14 @@ export interface ChatFeedback {
   forMessageId?: string;
   createdAt?: Date;
 }
+
+export class ChatRepo {
+  constructor(private db: Kysely<any>) {}
+
   async saveFeedback(feedback: ChatFeedback): Promise<string | undefined> {
     try {
       await this.ensureFeedbackTable();
-      const result = await sql`
+      const result = await sql<{ id: string }>`
         INSERT INTO chat_feedback (user_id, session_id, type, comment, for_message_id)
         VALUES (${feedback.userId}, ${feedback.sessionId}, ${feedback.type}, ${feedback.comment ?? null}, ${feedback.forMessageId ?? null})
         RETURNING id
@@ -44,7 +50,7 @@ export interface ChatFeedback {
     }
     await (this as any)._feedbackTableReady;
   }
-import { Kysely, sql } from "kysely";
+}
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -55,7 +61,7 @@ export class ChatRepository {
     async saveFeedback(feedback: ChatFeedback): Promise<string | undefined> {
       try {
         await this.ensureFeedbackTable();
-        const result = await sql`
+        const result = await sql<{ id: string }>`
           INSERT INTO chat_feedback (user_id, session_id, type, comment, for_message_id)
           VALUES (${feedback.userId}, ${feedback.sessionId}, ${feedback.type}, ${feedback.comment ?? null}, ${feedback.forMessageId ?? null})
           RETURNING id

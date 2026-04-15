@@ -1,5 +1,85 @@
 import { sql } from "kysely";
+export class ChatRepo {
+    db;
+    constructor(db) {
+        this.db = db;
+    }
+    async saveFeedback(feedback) {
+        try {
+            await this.ensureFeedbackTable();
+            const result = await sql `
+        INSERT INTO chat_feedback (user_id, session_id, type, comment, for_message_id)
+        VALUES (${feedback.userId}, ${feedback.sessionId}, ${feedback.type}, ${feedback.comment ?? null}, ${feedback.forMessageId ?? null})
+        RETURNING id
+      `.execute(this.db);
+            return result.rows[0]?.id;
+        }
+        catch (error) {
+            console.warn("Failed to save chat feedback:", error);
+            return undefined;
+        }
+    }
+    async ensureFeedbackTable() {
+        if (!this._feedbackTableReady) {
+            this._feedbackTableReady = sql `
+        CREATE TABLE IF NOT EXISTS chat_feedback (
+          id SERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          session_id TEXT NOT NULL,
+          type TEXT NOT NULL,
+          comment TEXT,
+          for_message_id TEXT,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `
+                .execute(this.db)
+                .then(() => undefined)
+                .catch((error) => {
+                this._feedbackTableReady = undefined;
+                throw error;
+            });
+        }
+        await this._feedbackTableReady;
+    }
+}
 export class ChatRepository {
+    async saveFeedback(feedback) {
+        try {
+            await this.ensureFeedbackTable();
+            const result = await sql `
+          INSERT INTO chat_feedback (user_id, session_id, type, comment, for_message_id)
+          VALUES (${feedback.userId}, ${feedback.sessionId}, ${feedback.type}, ${feedback.comment ?? null}, ${feedback.forMessageId ?? null})
+          RETURNING id
+        `.execute(this.db);
+            return result.rows[0]?.id;
+        }
+        catch (error) {
+            console.warn("Failed to save chat feedback:", error);
+            return undefined;
+        }
+    }
+    async ensureFeedbackTable() {
+        if (!this._feedbackTableReady) {
+            this._feedbackTableReady = sql `
+          CREATE TABLE IF NOT EXISTS chat_feedback (
+            id SERIAL PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            type TEXT NOT NULL,
+            comment TEXT,
+            for_message_id TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+          )
+        `
+                .execute(this.db)
+                .then(() => undefined)
+                .catch((error) => {
+                this._feedbackTableReady = undefined;
+                throw error;
+            });
+        }
+        await this._feedbackTableReady;
+    }
     tableReady;
     db;
     constructor({ db }) {

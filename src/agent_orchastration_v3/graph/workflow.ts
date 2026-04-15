@@ -77,13 +77,13 @@ function makeResearchNode(llmClient: V3LlmClient, vectorQuery: VectorQueryServic
     if (state.intentType === 'corporate_treasury') {
       console.log('[research] Running treasury analysis...');
       const treasuryAnalysis = await treasuryAnalysisService.analyze(state.userId, state.userMessage, state.knownFacts ?? {});
-      return { treasuryAnalysis, ragContext };
+      return { treasuryAnalysis };
     }
     // Removed: retail flow
     console.log("[research] Starting parallel research (price + FX + news)...");
-    const { priceInfo, fxInfo, newsInfo } = await runResearchAgent(llmClient, state.plan!, ragContext);
+    const { priceInfo, fxInfo, newsInfo } = await runResearchAgent(llmClient, state.plan!, Array.isArray(ragContext) ? ragContext : [ragContext]);
     console.log("[research] Done — price=" + (priceInfo?.price ?? "none") + " " + (priceInfo?.currency ?? "") + " fx=" + (fxInfo?.rate ?? "none") + " news=" + (newsInfo?.headlines?.length ?? 0));
-    return { priceInfo, fxInfo, newsInfo, ragContext };
+    return { priceInfo, fxInfo, newsInfo };
   };
 }
 
@@ -94,13 +94,13 @@ function makeAffordabilityNode(llmClient: V3LlmClient, vectorQuery: VectorQueryS
     if (state.intentType === 'corporate_treasury') {
       // Treasury queries do not use affordability agent
       console.log('[affordability] Skipping for treasury/corporate intent.');
-      return { ragContext };
+      return {};
     }
     // Removed: retail flow
     console.log("[affordability] Running LLM analysis...");
-    const affordabilityInfo = await runAffordabilityAgent(llmClient, state, ragContext);
+    const affordabilityInfo = await runAffordabilityAgent(llmClient, state, Array.isArray(ragContext) ? ragContext : [ragContext]);
     console.log("[affordability] Verdict=" + affordabilityInfo.verdict + " canAfford=" + affordabilityInfo.canAfford);
-    return { affordabilityInfo, ragContext };
+    return { affordabilityInfo };
   };
 }
 
@@ -109,8 +109,8 @@ function makeSynthesisNode(llmClient: V3LlmClient, vectorQuery: VectorQueryServi
     // RAG: fetch relevant context from vector DB
     const ragContext = await vectorQuery.getContext(state.userId, state.userMessage, { topK: 6, domain: "financial_profile" });
     console.log("[synthesis] Generating final response...");
-    const finalResponse = await runSynthesisAgent(llmClient, state, ragContext);
-    return { finalResponse, ragContext };
+    const finalResponse = await runSynthesisAgent(llmClient, state, Array.isArray(ragContext) ? ragContext : [ragContext]);
+    return { finalResponse };
   };
 }
 

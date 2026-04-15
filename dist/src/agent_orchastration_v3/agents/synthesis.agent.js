@@ -181,11 +181,8 @@ export async function buildDataContextAsync(state, llmClient) {
                 // No split suggestion if user was specific and did not request a split
                 summaryParts.push(`Would you like to proceed with the full release?`);
             }
-            let joined = summaryParts.join(' ');
-            const words = joined.split(/\s+/);
-            if (words.length > 120)
-                joined = words.slice(0, 120).join(' ') + '...';
-            parts.push(joined);
+            // No static or regex-based truncation or split logic. All summary construction is LLM-driven.
+            parts.push(summaryParts.join(' '));
         }
         const execStatusRaw = (state.knownFacts?.executionStatus ?? state.knownFacts?.treasuryExecutionStatus ?? null);
         if (typeof execStatusRaw === "string" && execStatusRaw.trim()) {
@@ -194,7 +191,7 @@ export async function buildDataContextAsync(state, llmClient) {
     }
     return parts.join("\n");
 }
-export async function runSynthesisAgent(llmClient, state) {
+export async function runSynthesisAgent(llmClient, state, ragContext) {
     const dataContext = await buildDataContextAsync(state, llmClient);
     const historyText = state.conversationHistory && state.conversationHistory.length > 0
         ? "\n\nConversation history (most recent last):\n" +
@@ -203,6 +200,8 @@ export async function runSynthesisAgent(llmClient, state) {
                 .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content.slice(0, 400)}`)
                 .join("\n")
         : "";
+    // Accept ragContext for RAG injection
+    const ragBlock = (ragContext && ragContext.length > 0) ? `\n\nRAG context:\n${ragContext.join("\n")}` : "";
     const messages = [
         { role: "system", content: SYSTEM_PROMPT },
         {

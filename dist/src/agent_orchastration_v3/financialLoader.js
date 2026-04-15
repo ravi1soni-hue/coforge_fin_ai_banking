@@ -70,7 +70,9 @@ export class FinancialLoader {
                 '}'
             ].join('\n');
             debugLog('llmPrompt', llmPrompt);
-            const llmProfile = await this.llm.generateJSON(llmPrompt);
+            const llmProfile = await this.llm.chatJSON([
+                { role: "user", content: llmPrompt }
+            ]);
             debugLog('llmProfile extraction', llmProfile);
             liquidity = parseNum(llmProfile.liquidity);
             if (llmProfile.monthlyIncome != null)
@@ -126,22 +128,12 @@ export class FinancialLoader {
                 userName: undefined,
             };
         }
-        const extracted = await this.llm.generateJSON(`Extract the user's corporate/treasury financial summary from the context below.
-
-Context:
-${context}
-
-Return ONLY valid JSON (no markdown):
-{
-  "availableLiquidity": number | null,
-  "monthlyIncome": number | null,
-  "monthlyExpenses": number | null,
-  "netMonthlySurplus": number | null,
-  "currency": "GBP" | null,
-  "userName": string | null
-}
-
-Note: This service is UK-only. currency is always "GBP" — only return null if completely absent from context.`);
+        const extracted = await this.llm.chatJSON([
+            {
+                role: "user",
+                content: `Extract the user's corporate/treasury financial summary from the context below.\n\nContext:\n${context}\n\nReturn ONLY valid JSON (no markdown):\n{\n  "availableLiquidity": number | null,\n  "monthlyIncome": number | null,\n  "monthlyExpenses": number | null,\n  "netMonthlySurplus": number | null,\n  "currency": "GBP" | null,\n  "userName": string | null\n}\n\nNote: This service is UK-only. currency is always "GBP" — only return null if completely absent from context.`
+            }
+        ]);
         const profile = {
             availableLiquidity: parseNum(extracted.availableLiquidity) ?? 0,
             monthlyIncome: parseNum(extracted.monthlyIncome),

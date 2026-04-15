@@ -42,55 +42,46 @@ async function researchPrice(
 
   console.log(`[ResearchAgent:Price] Web context length: ${webContext.length} chars`);
 
-  // 2. Ask LLM to extract/estimate the price using web data + its knowledge
+  // 2. Ask LLM to extract/estimate the price using web data + RAG context
   const messages: AgenticMessage[] = [
     {
       role: "system",
-      content: `You are a product price researcher. Extract the current retail price strictly from the web data provided below.
-
-Respond with ONLY this JSON (no explanation, no markdown):
-{"price": <number>, "currency": "<3-letter ISO code>", "source": "web_search", "confidence": "<'high'|'medium'|'low'>"}
-
-Rules:
-- price must be a number (no currency symbols)
-- currency should be the ISO 4217 code (EUR, GBP, USD, etc.)
-- source is ALWAYS "web_search" — do NOT use your training knowledge to invent or estimate a price
-- confidence = 'high' if exact price found, 'medium' if approximate, 'low' if unclear
-- If no price can be found in the web data, return {"price": 0, "currency": "${resolvedCurrency}", "source": "web_search", "confidence": "low"}
-- NEVER guess or fabricate a price — if uncertain, return price: 0`,
+      content: `You are a product price researcher. Extract the current retail price strictly from the web data and RAG context provided below.`,
     },
     {
+      role: "user",
+      content: `Product search: "${searchQuery}"
+Expected currency: ${resolvedCurrency}
 
-Extract the current retail price strictly from the web data above. Do NOT use training knowledge to estimate a price.`,
+Web search results:
+${webContext || noDataFallback}
+
+RAG context:
+${(ragContext && ragContext.length > 0) ? ragContext.join("\n") : "No RAG context available."}
+
+Extract the current retail price strictly from the web data and RAG context above. Do NOT use training knowledge to estimate a price.`,
     },
   ];
 
+  let parsed: Record<string, unknown> | null = null;
+  try { parsed = await llmClient.chatJSON<Record<string, unknown>>(messages); } catch { /* fall through */ }
 
-        // 2. Ask LLM to extract/estimate the price using web data + RAG context
-        const messages: AgenticMessage[] = [
-          {
-            role: "system",
-            content: `You are a product price researcher. Extract the current retail price strictly from the web data and RAG context provided below.
-    price: 0,
-    currency: priceCurrency ?? "GBP",
-    source: "web_search",
-    confidence: "low",
-    rawContext: webContext.slice(0, 300),
-          },
-          {
-            role: "user",
-            content: `Product search: "${searchQuery}"
-      Expected currency: ${resolvedCurrency}
+  if (!parsed || typeof parsed.price !== 'number' || typeof parsed.currency !== 'string' || typeof parsed.source !== 'string' || typeof parsed.confidence !== 'string') {
+    console.log(`[ResearchAgent:Price] Failed to parse LLM response: ${JSON.stringify(parsed)}`);
+    return { price: 0, currency: resolvedCurrency, source: "web_search", confidence: "low", rawContext: webContext };
+  }
+  return {
+    price: parsed.price as number,
+    currency: parsed.currency as string,
+    source: parsed.source as "web_search" | "llm_knowledge" | "user_stated",
+    confidence: parsed.confidence as "high" | "medium" | "low",
+    rawContext: webContext,
+  };
+}
 
-      Web search results:
-      ${webContext || noDataFallback}
+// ─── FX sub-agent ───────────────────────────────────────────────────────────
 
-      RAG context:
-      ${(ragContext && ragContext.length > 0) ? ragContext.join("\n") : "No RAG context available."}
-
-      Extract the current retail price strictly from the web data and RAG context above. Do NOT use training knowledge to estimate a price.`,
-          },
-        ];
+async function researchFx(
   from: string,
   to: string,
 ): Promise<FxInfo | null> {
@@ -142,21 +133,35 @@ Summarise the most relevant financial news and market context.`,
   let parsed: Record<string, unknown> | null = null;
   try { parsed = await llmClient.chatJSON<Record<string, unknown>>(messages); } catch { /* fall through */ }
 
+  if (!parsed || !Array.isArray(parsed.headlines) || typeof parsed.context !== 'string') {
+    console.log(`[ResearchAgent:News] Failed to parse LLM response: ${JSON.stringify(parsed)}`);
+    return { headlines: [], context: "No news data available" };
+  }
   return {
-    headlines: Array.isArray(parsed?.headlines) ? (parsed.headlines as string[]).slice(0, 3) : [],
-    context:   typeof parsed?.context === "string" ? (parsed.context as string) : "Market conditions appear stable.",
+    headlines: parsed.headlines as string[],
+    context: parsed.context as string,
   };
 }
 
-// ─── Main research agent (runs all sub-tasks in parallel) ────────────────────
+// ─── Research agent ──────────────────────────────────────────────────────────
 
+/**
+ * Runs the full research agent.
+ *
+ * If the user stated a price explicitly, use it directly — no web search needed.
+ * Otherwise, search for the product and extract the price using web data + RAG context.
+ *
+ * @param llmClient - LLM client
+ * @param plan - Agent plan
+ * @param ragContext - RAG context (optional)
+ * @returns Research result
+ */
 export interface ResearchResult {
   priceInfo: PriceInfo | null;
-  fxInfo:    FxInfo | null;
-  newsInfo:  NewsInfo | null;
+  fxInfo: FxInfo | null;
+  newsInfo: NewsInfo | null;
 }
 
-// Accept ragContext for RAG injection
 export async function runResearchAgent(
   llmClient: V3LlmClient,
   plan: AgentPlan,
@@ -174,27 +179,27 @@ export async function runResearchAgent(
       }
     : null;
 
-  const tasks: [
-    Promise<PriceInfo | null>,
-    Promise<FxInfo | null>,
-    Promise<NewsInfo | null>,
-  ] = [
+  const tasks: Promise<any>[] = [];
+  tasks.push(
     userStatedPriceInfo
       ? Promise.resolve(userStatedPriceInfo)
       : plan.needsWebSearch && plan.searchQuery
         ? researchPrice(llmClient, plan.searchQuery, plan.priceCurrency, ragContext)
         : Promise.resolve(null),
+  );
 
+  tasks.push(
     plan.needsFxConversion && plan.priceCurrency && plan.targetCurrency
       ? researchFx(plan.priceCurrency, plan.targetCurrency)
       : Promise.resolve(null),
+  );
 
+  tasks.push(
     plan.needsNews
-      ? researchNews(llmClient, plan.product, ragContext)
+      ? researchNews(llmClient, plan.product)
       : Promise.resolve(null),
-  ];
+  );
 
   const [priceInfo, fxInfo, newsInfo] = await Promise.all(tasks);
-
   return { priceInfo, fxInfo, newsInfo };
 }
