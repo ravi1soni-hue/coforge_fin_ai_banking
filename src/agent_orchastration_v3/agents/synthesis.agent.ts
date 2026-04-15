@@ -136,76 +136,46 @@ export async function buildDataContextAsync(state: FinancialState, llmClient: V3
     // NEW: If user has confirmed scheduling, give a clear scheduled message and do not ask further questions
     if (scenario.userConfirmedSchedule && splitNow) {
       summary += `The batch has been scheduled for review.\n`;
-      summary += `* £${splitNow.toLocaleString("en-GB")} is scheduled for today.`;
-      if (splitLater > 0) summary += `\n* £${splitLater.toLocaleString("en-GB")} is scheduled for mid-week, pending cash confirmation.`;
+      summary += `* Payment is scheduled for today.`;
+      if (splitLater > 0) summary += `\n* Another batch is scheduled for mid-week, pending cash confirmation.`;
       summary += `\nI’ll notify you before release and monitor for incoming receipts.`;
       parts.push(summary);
     }
     else if (scenario.userChoseSplit && splitNow) {
       summary += `Alright — here’s what that means.\n\n`;
-      summary += `With £${splitNow.toLocaleString("en-GB")} released today:`;
-      summary += `\n* Your projected cash position stays above your usual buffer all week.`;
-      if (typeof t.projectedLowBalanceIfSplit === 'number') {
-        summary += ` (projected low: £${t.projectedLowBalanceIfSplit.toLocaleString("en-GB")})`;
-      }
-      if (typeof t.historicalBuffer === 'number' && t.historicalBuffer > 0) {
-        summary += `, which matches your historical buffer of £${t.historicalBuffer.toLocaleString("en-GB")}`;
-      }
+      summary += `With a split release today:`;
+      summary += `\n* Your cash position stays comfortably above your usual buffer all week.`;
       summary += ".";
       if (splitLater > 0) {
-        summary += `\nThe remaining £${splitLater.toLocaleString("en-GB")} can go mid-week, as long as at least £${t.minInflowForMidweekRelease.toLocaleString("en-GB")} of expected inflows arrive by then`;
-        if (typeof t.releaseConditionHitRate10Weeks === 'number' && t.releaseConditionHitRate10Weeks > 0) {
-          summary += ` — which has happened ${t.releaseConditionHitRate10Weeks} times out of the last 10 weeks`;
-        }
+        summary += `\nThe remaining payment can go mid-week, as long as expected inflows arrive by then.`;
         summary += ".";
       }
-      summary += `\nI’ll:\n* Schedule £${splitNow.toLocaleString("en-GB")} for today`;
-      if (splitLater > 0) summary += `\n* Prepare £${splitLater.toLocaleString("en-GB")} for mid-week, pending cash confirmation`;
+      summary += `\nI’ll:\n* Schedule the first batch for today`;
+      if (splitLater > 0) summary += `\n* Prepare the next batch for mid-week, pending cash confirmation`;
       summary += `\n* Alert you automatically if receipts arrive earlier or later than expected`;
       summary += `\nBefore I proceed — do you want:\n* Final confirmation alerts, or\n* Auto-release on mid-week if cash arrives as expected?`;
       parts.push(summary);
     } else if (scenario.userChoseFullRelease) {
       let summary = "";
-      summary += `You have £${t.availableLiquidity.toLocaleString("en-GB")} available.\n`;
-      summary += `Releasing the full £${(isUserAmountSpecific ? userAmount : t.paymentAmount).toLocaleString("en-GB")} today is within safe limits.`;
-      if (typeof t.projectedLowBalanceIfFullRelease === 'number') {
-        summary += ` Your projected low balance is £${t.projectedLowBalanceIfFullRelease.toLocaleString("en-GB")}.`;
-      }
+      summary += `Releasing the full payment today is within safe limits.`;
       summary += `\nWould you like to proceed with the full release, or see a split scenario for extra buffer?`;
       parts.push(summary);
     } else {
       let summaryParts: string[] = [];
-      if (!alreadyMentioned(t.availableLiquidity.toLocaleString("en-GB"))) {
-        summaryParts.push(`You have £${t.availableLiquidity.toLocaleString("en-GB")} available.`);
-      }
-      if (!alreadyMentioned(t.comfortThreshold.toLocaleString("en-GB"))) {
-        summaryParts.push(`Your comfort threshold is £${t.comfortThreshold.toLocaleString("en-GB")}.`);
-      }
-      if (!alreadyMentioned((isUserAmountSpecific ? userAmount : t.paymentAmount).toLocaleString("en-GB"))) {
-        summaryParts.push(`The £${(isUserAmountSpecific ? userAmount : t.paymentAmount).toLocaleString("en-GB")} supplier run is well within safe limits.`);
-      }
+      summaryParts.push(`The supplier run is well within safe limits.`);
       if (t.lateInflowEventsLast4Weeks > 0) {
-        if (!alreadyMentioned("late inflows")) {
-          summaryParts.push(`There have been some late inflows recently, but even if midweek receipts are delayed, your lowest balance stays above £${typeof t.projectedLowIfLateInflow === 'number' ? t.projectedLowIfLateInflow.toLocaleString("en-GB") : t.projectedLowBalance.toLocaleString("en-GB")}.`);
-        }
+        summaryParts.push(`There have been some late inflows recently, but your buffer remains healthy.`);
       } else {
-        if (!alreadyMentioned("midweek inflows")) {
-          summaryParts.push(`Even if midweek inflows are late, your lowest balance would be about £${typeof t.projectedLowIfLateInflow === 'number' ? t.projectedLowIfLateInflow.toLocaleString("en-GB") : t.projectedLowBalance.toLocaleString("en-GB")}.`);
-        }
+        summaryParts.push(`Even if midweek inflows are late, your buffer remains healthy.`);
       }
       // Only suggest split if user explicitly requested a split
       if (scenario.userChoseSplit && !alreadyMentioned("split")) {
-        if (isUserAmountSpecific) {
-          summaryParts.push(`If you want extra headroom, you could split the £${userAmount.toLocaleString("en-GB")} run into smaller batches (e.g., part now, part later).`);
-        } else if (t.urgentSupplierTotal && t.deferableSupplierTotal) {
-          summaryParts.push(`If you want extra headroom, you could split the total supplier run: release £${t.urgentSupplierTotal.toLocaleString("en-GB")} now, defer £${t.deferableSupplierTotal.toLocaleString("en-GB")} until midweek.`);
-        }
+        summaryParts.push(`If you want extra headroom, you could split the run into smaller batches (e.g., part now, part later).`);
         summaryParts.push(`Want to proceed with the full release, or set up a split for treasury approval?`);
       } else {
         // No split suggestion unless user requested it
         summaryParts.push(`Would you like to proceed with the full release?`);
       }
-      // No static or regex-based truncation or split logic. All summary construction is LLM-driven.
       parts.push(summaryParts.join(' '));
     }
 
