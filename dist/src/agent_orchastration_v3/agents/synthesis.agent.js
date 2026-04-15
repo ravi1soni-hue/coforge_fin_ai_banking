@@ -89,17 +89,20 @@ export async function buildDataContextAsync(state, llmClient) {
         const isUserAmountSpecific = t.usedUserAmount && typeof userAmount === 'number' && userAmount > 0;
         // Step 1: Always show explicit scenario breakdown if user asked about a specific amount
         if (isUserAmountSpecific) {
-            // Short, focused scenario summary (max 150 words)
+            // Strictly anchor all stats to user-specified amount
             const stats = [];
-            stats.push(`You have £${t.availableLiquidity?.toLocaleString("en-GB") ?? "-"} in operating accounts.`);
-            stats.push(`Typical weekly outflow: £${t.weeklyOutflow?.toLocaleString("en-GB") ?? "-"}.`);
-            stats.push(`Usual midweek inflow: £${t.expectedMidweekInflow?.toLocaleString("en-GB") ?? "-"}.`);
-            stats.push(`Requested payment: £${userAmount?.toLocaleString("en-GB") ?? "-"}.`);
-            stats.push(`Projected low after payment: £${t.projectedLowBalanceIfFullRelease?.toLocaleString("en-GB") ?? "-"}.`);
-            parts.push(stats.join(' '));
-            parts.push(`If all items are critical, you can release the £${userAmount?.toLocaleString("en-GB") ?? "-"} today and remain liquid.`);
-            parts.push(`If some payments can wait, you’ll keep a healthier buffer ahead of payroll.`);
-            parts.push(`Would you like to review which payments could be safely deferred?`);
+            stats.push(`Operating balance: £${t.availableLiquidity?.toLocaleString("en-GB") ?? "-"}`);
+            stats.push(`Typical inflow: £${t.expectedMidweekInflow?.toLocaleString("en-GB") ?? "-"}`);
+            stats.push(`Typical outflow: £${t.weeklyOutflow?.toLocaleString("en-GB") ?? "-"}`);
+            stats.push(`Requested payment: £${userAmount?.toLocaleString("en-GB") ?? "-"}`);
+            // Calculate projected balance after this payment
+            const projected = (typeof t.availableLiquidity === 'number' && typeof userAmount === 'number')
+                ? t.availableLiquidity - userAmount
+                : undefined;
+            stats.push(`Projected balance after payment: £${projected?.toLocaleString("en-GB") ?? "-"}`);
+            parts.push(stats.join(' | '));
+            parts.push(`You can release £${userAmount?.toLocaleString("en-GB") ?? "-"} today and remain liquid.`);
+            parts.push(`Want to review which payments could be safely deferred?`);
         }
         else {
             parts.push(`Your current liquidity position is healthy. No specific payment amount was mentioned.`);
