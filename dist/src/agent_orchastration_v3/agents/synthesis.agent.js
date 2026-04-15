@@ -167,18 +167,18 @@ export async function buildDataContextAsync(state, llmClient) {
                     summaryParts.push(`Even if midweek inflows are late, your lowest balance would be about £${typeof t.projectedLowIfLateInflow === 'number' ? t.projectedLowIfLateInflow.toLocaleString("en-GB") : t.projectedLowBalance.toLocaleString("en-GB")}.`);
                 }
             }
-            // Only suggest split if user is ambiguous (no specific amount) or explicitly requested a split
-            if (!isUserAmountSpecific && t.urgentSupplierTotal && t.deferableSupplierTotal && !alreadyMentioned("split")) {
-                summaryParts.push(`If you want extra headroom, you could split the total supplier run: release £${t.urgentSupplierTotal.toLocaleString("en-GB")} now, defer £${t.deferableSupplierTotal.toLocaleString("en-GB")} until midweek.`);
-                summaryParts.push(`Want to proceed with the full release, or set up a split for treasury approval?`);
-            }
-            else if (isUserAmountSpecific && scenario.userChoseSplit && !alreadyMentioned("split")) {
-                // Only mention splitting the user amount if user explicitly chose split
-                summaryParts.push(`If you want extra headroom, you could split the £${userAmount.toLocaleString("en-GB")} run into smaller batches (e.g., part now, part later).`);
+            // Only suggest split if user explicitly requested a split
+            if (scenario.userChoseSplit && !alreadyMentioned("split")) {
+                if (isUserAmountSpecific) {
+                    summaryParts.push(`If you want extra headroom, you could split the £${userAmount.toLocaleString("en-GB")} run into smaller batches (e.g., part now, part later).`);
+                }
+                else if (t.urgentSupplierTotal && t.deferableSupplierTotal) {
+                    summaryParts.push(`If you want extra headroom, you could split the total supplier run: release £${t.urgentSupplierTotal.toLocaleString("en-GB")} now, defer £${t.deferableSupplierTotal.toLocaleString("en-GB")} until midweek.`);
+                }
                 summaryParts.push(`Want to proceed with the full release, or set up a split for treasury approval?`);
             }
             else {
-                // No split suggestion if user was specific and did not request a split
+                // No split suggestion unless user requested it
                 summaryParts.push(`Would you like to proceed with the full release?`);
             }
             // No static or regex-based truncation or split logic. All summary construction is LLM-driven.
