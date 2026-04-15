@@ -107,9 +107,9 @@ function makeAffordabilityNode(llmClient: V3LlmClient, vectorQuery: VectorQueryS
 function makeSynthesisNode(llmClient: V3LlmClient, vectorQuery: VectorQueryService) {
   return async function synthesisNode(state: FinancialState): Promise<Partial<FinancialState>> {
     // RAG: fetch relevant context from vector DB
-    const ragContext = await vectorQuery.getContext(state.userId, state.userMessage, { topK: 6, domain: "financial_profile" });
+    // RAG context is not used in the stable tag version
     console.log("[synthesis] Generating final response...");
-    const finalResponse = await runSynthesisAgent(llmClient, state, Array.isArray(ragContext) ? ragContext : [ragContext]);
+    const finalResponse = await runSynthesisAgent(llmClient, state);
     return { finalResponse };
   };
 }
