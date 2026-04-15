@@ -1,28 +1,4 @@
 
-# High-Level Design — Treasury AI Assistant
-
-## What does this system do?
-
-This AI assistant helps treasury teams make safe, confident payment decisions. It reviews your company’s real bank data, cashflow, and supplier commitments, then gives clear, conversational advice—no jargon, no guesswork.
-
-**Key features:**
-- Answers questions about supplier payments, cashflow, and liquidity in plain English
-- Always checks real data before giving advice
-- Suggests safe ways to split or schedule payments if needed
-- Understands your intent—even if you confirm in your own words
-- Clearly tells you when a payment is “scheduled” (no repeated confirmations)
-
-## How does it work? (Simple Flow)
-
-1. **You ask a question** (e.g., “Can I pay £750,000 to suppliers today?”)
-2. **The AI reviews your real bank data** (balances, upcoming payments, expected inflows)
-3. **It checks if the payment is safe**
-4. **If there’s a risk, it suggests splitting or scheduling** (e.g., “Pay £520k now, rest mid-week”)
-5. **You confirm in your own words** (e.g., “Yes, go ahead”)
-6. **The AI schedules the payment and tells you clearly** (e.g., “The mid-week batch has been scheduled for review. I’ll notify you before release.”)
-7. **No repeated questions—just clear next steps**
-
-## Visual Overview
 
 ```mermaid
 flowchart TD

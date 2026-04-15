@@ -120,9 +120,11 @@ export async function buildDataContextAsync(state: FinancialState, llmClient: V3
     const scenario = await extractScenarioStateLLM(state.conversationHistory ?? [], t, llmClient);
     // Strict anchoring: if user specified an amount, enforce it in all splits/summaries
     const userAmount = scenario.lastUserRequestedAmount;
-    const isUserAmountSpecific = typeof userAmount === 'number' && Math.abs(userAmount - t.paymentAmount) > 1;
+    const isUserAmountSpecific = t.usedUserAmount && typeof userAmount === 'number' && userAmount > 0;
     if (isUserAmountSpecific) {
       parts.push(`(Note: You asked about £${userAmount.toLocaleString("en-GB")}, so all advice below is strictly about that amount.)`);
+    } else if (!t.usedUserAmount) {
+      parts.push(`(No amount specified by user, using total supplier run.)`);
     }
 
     // Helper: always use user-requested amount for splits if specific, else use total
@@ -193,7 +195,10 @@ export async function buildDataContextAsync(state: FinancialState, llmClient: V3
       }
       // Only suggest split if user is ambiguous or matches total supplier run
       if (!isUserAmountSpecific && t.urgentSupplierTotal && t.deferableSupplierTotal && !alreadyMentioned("split")) {
-        summaryParts.push(`If you want extra headroom, you could split: release £${t.urgentSupplierTotal.toLocaleString("en-GB")} now, defer £${t.deferableSupplierTotal.toLocaleString("en-GB")} until midweek.`);
+        summaryParts.push(`If you want extra headroom, you could split the total supplier run: release £${t.urgentSupplierTotal.toLocaleString("en-GB")} now, defer £${t.deferableSupplierTotal.toLocaleString("en-GB")} until midweek.`);
+      } else if (isUserAmountSpecific && !alreadyMentioned("split")) {
+        // For specific user-requested amounts, only mention splitting that amount
+        summaryParts.push(`If you want extra headroom, you could split the £${userAmount.toLocaleString("en-GB")} run into smaller batches (e.g., part now, part later).`);
       }
       summaryParts.push(`Want to proceed with the full release, or set up a split for treasury approval?`);
       let joined = summaryParts.join(' ');

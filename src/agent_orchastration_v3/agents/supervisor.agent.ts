@@ -223,19 +223,8 @@ export async function runSupervisorAgent(
     intentType: (intentType === "corporate_treasury" ? "corporate_treasury" : "unknown")
   };
 
-  // Deterministic price fallback (GBP/£) from current or immediately previous user turn.
-  if ((plan.userStatedPrice ?? 0) === 0) {
-    const currentPrice = extractStatedGbpPrice(userMessage);
-    if (currentPrice > 0) {
-      plan.userStatedPrice = currentPrice;
-    } else {
-      const prevUser = [...conversationHistory].reverse().find((m) => m.role === "user")?.content ?? "";
-      const prevPrice = extractStatedGbpPrice(prevUser);
-      if (prevPrice > 0) {
-        plan.userStatedPrice = prevPrice;
-      }
-    }
-  }
+
+  // No regex fallback: userStatedPrice is now LLM-only. If LLM extraction fails, userStatedPrice remains 0 and downstream will use fallback logic.
 
   // Safety guard: if user stated a price, never search (prevents hallucinating products)
   if ((plan.userStatedPrice ?? 0) > 0) {

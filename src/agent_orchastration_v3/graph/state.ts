@@ -92,6 +92,7 @@ export interface TreasuryAnalysis {
   projectedLowIfLateInflow?: number;
   projectedLowIfEarlyInflow?: number;
   inflowVariance?: number;
+  usedUserAmount: boolean;
 }
 
 // ─── Conversation turn (for history) ─────────────────────────────────────────
