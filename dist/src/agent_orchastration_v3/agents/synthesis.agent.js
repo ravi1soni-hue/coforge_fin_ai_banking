@@ -84,90 +84,74 @@ export async function buildDataContextAsync(state, llmClient) {
     }
     if (state.treasuryAnalysis) {
         const t = state.treasuryAnalysis;
-        // Use last 10 messages (user and assistant) for context awareness
-        const history = (state.conversationHistory ?? []).slice(-10).map(m => m.content.toLowerCase());
-        const alreadyMentioned = (str) => history.some(msg => msg.includes(str.toLowerCase()));
-        // Use LLM-driven scenario state with full conversation history
         const scenario = await extractScenarioStateLLM(state.conversationHistory ?? [], t, llmClient);
-        // Strict anchoring: if user specified an amount, enforce it in all splits/summaries
-        const userAmount = scenario.lastUserRequestedAmount;
+        const userAmount = scenario.lastUserRequestedAmount ?? t.urgentSupplierTotal;
         const isUserAmountSpecific = t.usedUserAmount && typeof userAmount === 'number' && userAmount > 0;
+        // Step 1: Always show explicit scenario breakdown if user asked about a specific amount
         if (isUserAmountSpecific) {
-            parts.push(`(Note: You asked about £${userAmount.toLocaleString("en-GB")}, so all advice below is strictly about that amount.)`);
-            // Show available funds, cashflow, and comfort threshold for this amount
-            parts.push(`Available funds: £${t.availableLiquidity.toLocaleString("en-GB")}`);
-            parts.push(`Comfort threshold: £${t.comfortThreshold.toLocaleString("en-GB")}`);
-            parts.push(`This payment: £${userAmount.toLocaleString("en-GB")}`);
-            parts.push(`(All calculations below are based on £${userAmount.toLocaleString("en-GB")}, not the total supplier run.)`);
-        }
-        else if (!t.usedUserAmount) {
-            parts.push(`(No amount specified by user, using total supplier run.)`);
-        }
-        // Helper: always use user-requested amount for splits if specific, else use total
-        const splitNow = isUserAmountSpecific ? userAmount : t.urgentSupplierTotal;
-        const splitLater = isUserAmountSpecific ? 0 : t.deferableSupplierTotal;
-        let summary = "";
-        // NEW: If user has confirmed scheduling, give a clear scheduled message and do not ask further questions
-        if (scenario.userConfirmedSchedule && splitNow) {
-            summary += `The batch has been scheduled for review.\n`;
-            summary += `* Payment is scheduled for today.`;
-            if (splitLater > 0)
-                summary += `\n* Another batch is scheduled for mid-week, pending cash confirmation.`;
-            summary += `\nI’ll notify you before release and monitor for incoming receipts.`;
-            parts.push(summary);
-        }
-        else if (scenario.userChoseSplit && splitNow) {
-            summary += `Alright — here’s what that means.\n\n`;
-            summary += `With a split release today:`;
-            summary += `\n* Your cash position stays comfortably above your usual buffer all week.`;
-            summary += ".";
-            if (splitLater > 0) {
-                summary += `\nThe remaining payment can go mid-week, as long as expected inflows arrive by then.`;
-                summary += ".";
-            }
-            summary += `\nI’ll:\n* Schedule the first batch for today`;
-            if (splitLater > 0)
-                summary += `\n* Prepare the next batch for mid-week, pending cash confirmation`;
-            summary += `\n* Alert you automatically if receipts arrive earlier or later than expected`;
-            summary += `\nBefore I proceed — do you want:\n* Final confirmation alerts, or\n* Auto-release on mid-week if cash arrives as expected?`;
-            parts.push(summary);
-        }
-        else if (scenario.userChoseFullRelease) {
-            let summary = "";
-            if (isUserAmountSpecific) {
-                summary += `Available funds: £${t.availableLiquidity.toLocaleString("en-GB")}.\n`;
-                summary += `Comfort threshold: £${t.comfortThreshold.toLocaleString("en-GB")}.\n`;
-                summary += `Requested payment: £${userAmount.toLocaleString("en-GB")}.\n`;
-            }
-            summary += `Releasing the full payment today is within safe limits.`;
-            summary += `\nWould you like to proceed with the full release, or see a split scenario for extra buffer?`;
-            parts.push(summary);
+            parts.push(`You currently hold £${t.availableLiquidity?.toLocaleString("en-GB") ?? "-"} across your operating accounts.`);
+            parts.push(`Based on the last 90 days, your business typically runs £${t.weeklyOutflow?.toLocaleString("en-GB") ?? "-"} of weekly outflows, with payroll landing on ${t.payrollDay ?? "Friday"}.`);
+            parts.push(`Looking at actual cash-in patterns, you normally receive around £${t.expectedMidweekInflow?.toLocaleString("en-GB") ?? "-"} between Tuesday and Thursday — but that inflow has been late ${t.lateInflowEventsLast4Weeks ?? 0} times in the last four weeks.`);
+            parts.push(`From a cash-buffer perspective:`);
+            parts.push(`* Releasing the full £${userAmount?.toLocaleString("en-GB") ?? "-"} today would still leave you liquid,`);
+            parts.push(`* but it pushes your projected Thursday low balance close to your internal comfort threshold.`);
+            parts.push(`To be confident this works, I need to know:`);
+            parts.push(`* Is this payment run all critical suppliers, or`);
+            parts.push(`* Are there some payments you could safely defer by a few days?`);
         }
         else {
-            let summaryParts = [];
-            if (isUserAmountSpecific) {
-                summaryParts.push(`Available funds: £${t.availableLiquidity.toLocaleString("en-GB")}.`);
-                summaryParts.push(`Comfort threshold: £${t.comfortThreshold.toLocaleString("en-GB")}.`);
-                summaryParts.push(`Requested payment: £${userAmount.toLocaleString("en-GB")}.`);
-            }
-            summaryParts.push(`The supplier run is well within safe limits.`);
-            if (t.lateInflowEventsLast4Weeks > 0) {
-                summaryParts.push(`There have been some late inflows recently, but your buffer remains healthy.`);
-            }
-            else {
-                summaryParts.push(`Even if midweek inflows are late, your buffer remains healthy.`);
-            }
-            // Only suggest split if user explicitly requested a split
-            if (scenario.userChoseSplit && !alreadyMentioned("split")) {
-                summaryParts.push(`If you want extra headroom, you could split the run into smaller batches (e.g., part now, part later).`);
-                summaryParts.push(`Want to proceed with the full release, or set up a split for treasury approval?`);
-            }
-            else {
-                // No split suggestion unless user requested it
-                summaryParts.push(`Would you like to proceed with the full release?`);
-            }
-            parts.push(summaryParts.join(' '));
+            // If no specific amount, fallback to generic summary
+            parts.push(`Your current liquidity position is healthy. No specific payment amount was mentioned.`);
         }
+        // Step 2: If user says "some can wait", show split/full scenario breakdown
+        if (scenario.userChoseSplit || scenario.userChoseFullRelease) {
+            parts.push(`\nHere’s how this plays out based on real transaction behaviour, not forecasts from your ERP:`);
+            // Full release scenario
+            parts.push(`If you release all £${userAmount?.toLocaleString("en-GB") ?? "-"} today:`);
+            parts.push(`* Your projected low balance this week drops to £${t.projectedLowBalanceIfFullRelease?.toLocaleString("en-GB") ?? "-"},`);
+            parts.push(`* This is close to your historical buffer. You can do it — but it removes margin if receipts slip again.`);
+            // Split scenario
+            if (t.suggestedNowAmount && t.suggestedLaterAmount) {
+                parts.push(`If you split the run instead:`);
+                parts.push(`* You could release £${t.suggestedNowAmount?.toLocaleString("en-GB") ?? "-"} today`);
+                parts.push(`* and hold £${t.suggestedLaterAmount?.toLocaleString("en-GB") ?? "-"} until Wednesday morning. That keeps your low balance nearer £${t.projectedLowBalanceIfSplit?.toLocaleString("en-GB") ?? "-"}, which is more consistent with your historical buffer.`);
+                parts.push(`If that split works, I can:`);
+                parts.push(`* Schedule the payments in two batches, or`);
+                parts.push(`* Simulate what changes if incoming cash lands earlier or later`);
+                parts.push(`Would you like to split the run, or see the risk if you pay everything today?`);
+            }
+        }
+        // Step 3: If user confirms split, show execution plan
+        if (scenario.userConfirmedSchedule && t.suggestedNowAmount && t.suggestedLaterAmount) {
+            parts.push(`Alright — here’s what that means.`);
+            parts.push(`With £${t.suggestedNowAmount?.toLocaleString("en-GB") ?? "-"} released today:`);
+            parts.push(`* Your projected cash position stays above your usual buffer all week,`);
+            parts.push(`* even if one of the larger mid-week receipts arrives a day late.`);
+            parts.push(`The remaining £${t.suggestedLaterAmount?.toLocaleString("en-GB") ?? "-"} on Wednesday works as long as at least £${t.minInflowForMidweekRelease?.toLocaleString("en-GB") ?? "-"} of expected inflows arrive by then — which they have ${t.releaseConditionHitRate10Weeks ?? "-"} times out of the last 10 weeks.`);
+            parts.push(`I’ll:`);
+            parts.push(`* Schedule £${t.suggestedNowAmount?.toLocaleString("en-GB") ?? "-"} for today`);
+            parts.push(`* Prepare £${t.suggestedLaterAmount?.toLocaleString("en-GB") ?? "-"} for Wednesday, pending cash confirmation`);
+            parts.push(`* Alert you automatically if receipts arrive earlier or later than expected`);
+            parts.push(`Before I proceed — do you want:`);
+            parts.push(`* Final confirmation alerts, or`);
+            parts.push(`* Auto-release on Wednesday if cash arrives as expected?`);
+        }
+        // Step 4: If user confirms auto-release, show final execution
+        if (scenario.userConfirmedSchedule && scenario.userChoseSplit) {
+            parts.push(`Done.`);
+            parts.push(`I’ve:`);
+            parts.push(`* Scheduled today’s payment batch for £${t.suggestedNowAmount?.toLocaleString("en-GB") ?? "-"}`);
+            parts.push(`* Set conditional release for £${t.suggestedLaterAmount?.toLocaleString("en-GB") ?? "-"} on Wednesday`);
+            parts.push(`* Linked it to actual credit movements, not estimates`);
+            parts.push(`* Logged the full audit trail for treasury and approvals`);
+            parts.push(`You’ll get an alert:`);
+            parts.push(`* When Wednesday’s release condition is met, or`);
+            parts.push(`* If incoming cash deviates from the normal pattern`);
+            parts.push(`If you’d like, I can also:`);
+            parts.push(`* Show how sensitive this plan is to delayed receipts, or`);
+            parts.push(`* Review whether short-term liquidity cover would reduce future stress`);
+        }
+        // Always show execution status if present
         const execStatusRaw = (state.knownFacts?.executionStatus ?? state.knownFacts?.treasuryExecutionStatus ?? null);
         if (typeof execStatusRaw === "string" && execStatusRaw.trim()) {
             parts.push(`EXECUTION_STATUS: ${execStatusRaw.trim()}`);
