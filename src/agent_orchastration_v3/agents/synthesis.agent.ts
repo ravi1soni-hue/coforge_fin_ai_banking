@@ -112,30 +112,37 @@ export async function buildDataContextAsync(state: FinancialState, llmClient: V3
 
   if (state.treasuryAnalysis) {
     const t = state.treasuryAnalysis;
-    const history = (state.conversationHistory ?? []).filter(m => m.role === "assistant").slice(-2).map(m => m.content.toLowerCase());
+    // Use last 10 messages (user and assistant) for context awareness
+    const history = (state.conversationHistory ?? []).slice(-10).map(m => m.content.toLowerCase());
     const alreadyMentioned = (str: string) => history.some(msg => msg.includes(str.toLowerCase()));
 
-    // Use LLM-driven scenario state
+    // Use LLM-driven scenario state with full conversation history
     const scenario = await extractScenarioStateLLM(state.conversationHistory ?? [], t, llmClient);
     // Strict anchoring: if user specified an amount, enforce it in all splits/summaries
-    if (scenario.lastUserRequestedAmount && Math.abs(scenario.lastUserRequestedAmount - t.paymentAmount) > 1) {
-      parts.push(`(Note: You asked about £${scenario.lastUserRequestedAmount.toLocaleString("en-GB")}, so all advice below is strictly about that amount.)`);
+    const userAmount = scenario.lastUserRequestedAmount;
+    const isUserAmountSpecific = typeof userAmount === 'number' && Math.abs(userAmount - t.paymentAmount) > 1;
+    if (isUserAmountSpecific) {
+      parts.push(`(Note: You asked about £${userAmount.toLocaleString("en-GB")}, so all advice below is strictly about that amount.)`);
     }
+
+    // Helper: always use user-requested amount for splits if specific, else use total
+    const splitNow = isUserAmountSpecific ? userAmount : t.urgentSupplierTotal;
+    const splitLater = isUserAmountSpecific ? 0 : t.deferableSupplierTotal;
 
     let summary = "";
 
     // NEW: If user has confirmed scheduling, give a clear scheduled message and do not ask further questions
-    if (scenario.userConfirmedSchedule && t.suggestedNowAmount && t.suggestedLaterAmount) {
-      summary += `The mid-week batch has been scheduled for review.\n`;
-      summary += `* £${t.suggestedNowAmount.toLocaleString("en-GB")} is scheduled for today.`;
-      summary += `\n* £${t.suggestedLaterAmount.toLocaleString("en-GB")} is scheduled for mid-week, pending cash confirmation.`;
+    if (scenario.userConfirmedSchedule && splitNow) {
+      summary += `The batch has been scheduled for review.\n`;
+      summary += `* £${splitNow.toLocaleString("en-GB")} is scheduled for today.`;
+      if (splitLater > 0) summary += `\n* £${splitLater.toLocaleString("en-GB")} is scheduled for mid-week, pending cash confirmation.`;
       summary += `\nI’ll notify you before release and monitor for incoming receipts.`;
       parts.push(summary);
     }
-    else if (scenario.userChoseSplit && t.suggestedNowAmount && t.suggestedLaterAmount) {
+    else if (scenario.userChoseSplit && splitNow) {
       summary += `Alright — here’s what that means.\n\n`;
-      summary += `With £${t.suggestedNowAmount.toLocaleString("en-GB")} released today:`;
-      summary += `\n* Your projected cash position stays above your usual buffer all week`;
+      summary += `With £${splitNow.toLocaleString("en-GB")} released today:`;
+      summary += `\n* Your projected cash position stays above your usual buffer all week.`;
       if (typeof t.projectedLowBalanceIfSplit === 'number') {
         summary += ` (projected low: £${t.projectedLowBalanceIfSplit.toLocaleString("en-GB")})`;
       }
@@ -143,21 +150,22 @@ export async function buildDataContextAsync(state: FinancialState, llmClient: V3
         summary += `, which matches your historical buffer of £${t.historicalBuffer.toLocaleString("en-GB")}`;
       }
       summary += ".";
-      if (t.suggestedLaterAmount > 0) {
-        summary += `\nThe remaining £${t.suggestedLaterAmount.toLocaleString("en-GB")} can go mid-week, as long as at least £${t.minInflowForMidweekRelease.toLocaleString("en-GB")} of expected inflows arrive by then`;
+      if (splitLater > 0) {
+        summary += `\nThe remaining £${splitLater.toLocaleString("en-GB")} can go mid-week, as long as at least £${t.minInflowForMidweekRelease.toLocaleString("en-GB")} of expected inflows arrive by then`;
         if (typeof t.releaseConditionHitRate10Weeks === 'number' && t.releaseConditionHitRate10Weeks > 0) {
           summary += ` — which has happened ${t.releaseConditionHitRate10Weeks} times out of the last 10 weeks`;
         }
         summary += ".";
       }
-      summary += `\nI’ll:\n* Schedule £${t.suggestedNowAmount.toLocaleString("en-GB")} for today\n* Prepare £${t.suggestedLaterAmount.toLocaleString("en-GB")} for mid-week, pending cash confirmation`;
+      summary += `\nI’ll:\n* Schedule £${splitNow.toLocaleString("en-GB")} for today`;
+      if (splitLater > 0) summary += `\n* Prepare £${splitLater.toLocaleString("en-GB")} for mid-week, pending cash confirmation`;
       summary += `\n* Alert you automatically if receipts arrive earlier or later than expected`;
       summary += `\nBefore I proceed — do you want:\n* Final confirmation alerts, or\n* Auto-release on mid-week if cash arrives as expected?`;
       parts.push(summary);
     } else if (scenario.userChoseFullRelease) {
       let summary = "";
       summary += `You have £${t.availableLiquidity.toLocaleString("en-GB")} available.\n`;
-      summary += `Releasing the full £${t.paymentAmount.toLocaleString("en-GB")} today is within safe limits.`;
+      summary += `Releasing the full £${(isUserAmountSpecific ? userAmount : t.paymentAmount).toLocaleString("en-GB")} today is within safe limits.`;
       if (typeof t.projectedLowBalanceIfFullRelease === 'number') {
         summary += ` Your projected low balance is £${t.projectedLowBalanceIfFullRelease.toLocaleString("en-GB")}.`;
       }
@@ -171,8 +179,8 @@ export async function buildDataContextAsync(state: FinancialState, llmClient: V3
       if (!alreadyMentioned(t.comfortThreshold.toLocaleString("en-GB"))) {
         summaryParts.push(`Your comfort threshold is £${t.comfortThreshold.toLocaleString("en-GB")}.`);
       }
-      if (!alreadyMentioned(t.paymentAmount.toLocaleString("en-GB"))) {
-        summaryParts.push(`The £${t.paymentAmount.toLocaleString("en-GB")} supplier run is well within safe limits.`);
+      if (!alreadyMentioned((isUserAmountSpecific ? userAmount : t.paymentAmount).toLocaleString("en-GB"))) {
+        summaryParts.push(`The £${(isUserAmountSpecific ? userAmount : t.paymentAmount).toLocaleString("en-GB")} supplier run is well within safe limits.`);
       }
       if (t.lateInflowEventsLast4Weeks > 0) {
         if (!alreadyMentioned("late inflows")) {
@@ -183,7 +191,8 @@ export async function buildDataContextAsync(state: FinancialState, llmClient: V3
           summaryParts.push(`Even if midweek inflows are late, your lowest balance would be about £${typeof t.projectedLowIfLateInflow === 'number' ? t.projectedLowIfLateInflow.toLocaleString("en-GB") : t.projectedLowBalance.toLocaleString("en-GB")}.`);
         }
       }
-      if (t.urgentSupplierTotal && t.deferableSupplierTotal && !alreadyMentioned("split")) {
+      // Only suggest split if user is ambiguous or matches total supplier run
+      if (!isUserAmountSpecific && t.urgentSupplierTotal && t.deferableSupplierTotal && !alreadyMentioned("split")) {
         summaryParts.push(`If you want extra headroom, you could split: release £${t.urgentSupplierTotal.toLocaleString("en-GB")} now, defer £${t.deferableSupplierTotal.toLocaleString("en-GB")} until midweek.`);
       }
       summaryParts.push(`Want to proceed with the full release, or set up a split for treasury approval?`);
