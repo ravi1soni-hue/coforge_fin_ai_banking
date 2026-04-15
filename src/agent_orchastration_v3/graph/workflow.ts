@@ -22,7 +22,7 @@ import { FinancialLoader }         from "../financialLoader.js";
 import type { V3LlmClient }        from "../llm/v3LlmClient.js";
 import type { SessionRepository }  from "../../repo/session.repo.js";
 import type { VectorQueryService } from "../services/vector.query.service.js";
-import type { LlmClient }          from "../llm/llmClient.js";
+// (LlmClient import removed)
 import type { TreasuryAnalysisService } from "../services/treasury.analysis.service.js";
 import { UserProfile } from "../types.js";
 
@@ -30,7 +30,7 @@ import { UserProfile } from "../types.js";
 
 export interface GraphDeps {
   v3LlmClient:   V3LlmClient;
-  baseLlmClient: LlmClient;          // used by FinancialLoader's vector-DB fallback
+  // (baseLlmClient removed; use v3LlmClient only)
   vectorQuery:   VectorQueryService;
   treasuryAnalysisService: TreasuryAnalysisService;
   sessionRepo:   SessionRepository;
@@ -51,57 +51,66 @@ function makeLoadProfileNode(loader: FinancialLoader) {
   };
 }
 
-function makeSupervisorNode(llmClient: V3LlmClient) {
+function makeSupervisorNode(llmClient: V3LlmClient, vectorQuery: VectorQueryService) {
   return async function supervisorNode(state: FinancialState): Promise<Partial<FinancialState>> {
     console.log("[supervisor] Analysing query: " + state.userMessage.slice(0, 80));
     console.log("[supervisor] Conversation history:", JSON.stringify(state.conversationHistory, null, 2));
+    // RAG: fetch relevant context from vector DB
+    const ragContext = await vectorQuery.getContext(state.userId, state.userMessage, { topK: 6, domain: "financial_profile" });
     // LLM is the only source of intent and plan extraction
     const plan = await runSupervisorAgent(
       llmClient,
       state.userMessage,
       state.userProfile,
       state.conversationHistory ?? [],
+      ragContext
     );
     console.log("[supervisor] LLM plan:", JSON.stringify(plan, null, 2));
     return { plan, intentType: plan.intentType };
   };
 }
 
-function makeResearchNode(llmClient: V3LlmClient, treasuryAnalysisService: TreasuryAnalysisService) {
+function makeResearchNode(llmClient: V3LlmClient, vectorQuery: VectorQueryService, treasuryAnalysisService: TreasuryAnalysisService) {
   return async function researchNode(state: FinancialState): Promise<Partial<FinancialState>> {
+    // RAG: fetch relevant context from vector DB
+    const ragContext = await vectorQuery.getContext(state.userId, state.userMessage, { topK: 6, domain: "financial_profile" });
     if (state.intentType === 'corporate_treasury') {
       console.log('[research] Running treasury analysis...');
       const treasuryAnalysis = await treasuryAnalysisService.analyze(state.userId, state.userMessage, state.knownFacts ?? {});
-      return { treasuryAnalysis };
+      return { treasuryAnalysis, ragContext };
     }
     // Removed: retail flow
     console.log("[research] Starting parallel research (price + FX + news)...");
-    const { priceInfo, fxInfo, newsInfo } = await runResearchAgent(llmClient, state.plan!);
+    const { priceInfo, fxInfo, newsInfo } = await runResearchAgent(llmClient, state.plan!, ragContext);
     console.log("[research] Done — price=" + (priceInfo?.price ?? "none") + " " + (priceInfo?.currency ?? "") + " fx=" + (fxInfo?.rate ?? "none") + " news=" + (newsInfo?.headlines?.length ?? 0));
-    return { priceInfo, fxInfo, newsInfo };
+    return { priceInfo, fxInfo, newsInfo, ragContext };
   };
 }
 
-function makeAffordabilityNode(llmClient: V3LlmClient) {
+function makeAffordabilityNode(llmClient: V3LlmClient, vectorQuery: VectorQueryService) {
   return async function affordabilityNode(state: FinancialState): Promise<Partial<FinancialState>> {
+    // RAG: fetch relevant context from vector DB
+    const ragContext = await vectorQuery.getContext(state.userId, state.userMessage, { topK: 6, domain: "financial_profile" });
     if (state.intentType === 'corporate_treasury') {
       // Treasury queries do not use affordability agent
       console.log('[affordability] Skipping for treasury/corporate intent.');
-      return {};
+      return { ragContext };
     }
     // Removed: retail flow
     console.log("[affordability] Running LLM analysis...");
-    const affordabilityInfo = await runAffordabilityAgent(llmClient, state);
+    const affordabilityInfo = await runAffordabilityAgent(llmClient, state, ragContext);
     console.log("[affordability] Verdict=" + affordabilityInfo.verdict + " canAfford=" + affordabilityInfo.canAfford);
-    return { affordabilityInfo };
+    return { affordabilityInfo, ragContext };
   };
 }
 
-function makeSynthesisNode(llmClient: V3LlmClient) {
+function makeSynthesisNode(llmClient: V3LlmClient, vectorQuery: VectorQueryService) {
   return async function synthesisNode(state: FinancialState): Promise<Partial<FinancialState>> {
+    // RAG: fetch relevant context from vector DB
+    const ragContext = await vectorQuery.getContext(state.userId, state.userMessage, { topK: 6, domain: "financial_profile" });
     console.log("[synthesis] Generating final response...");
-    const finalResponse = await runSynthesisAgent(llmClient, state);
-    return { finalResponse };
+    const finalResponse = await runSynthesisAgent(llmClient, state, ragContext);
+    return { finalResponse, ragContext };
   };
 }
 
@@ -132,14 +141,14 @@ function routeAfterResearch(state: FinancialState): "affordability" | "synthesis
 // ─── Graph factory ────────────────────────────────────────────────────────────
 
 export function createFinancialGraph(deps: GraphDeps) {
-  const loader = new FinancialLoader(deps.vectorQuery, deps.baseLlmClient, deps.db);
+  const loader = new FinancialLoader(deps.vectorQuery, deps.v3LlmClient, deps.db);
 
   const compiled = new StateGraph(FinancialGraphState)
     .addNode("loadProfile",    makeLoadProfileNode(loader))
-    .addNode("supervisor",     makeSupervisorNode(deps.v3LlmClient))
-    .addNode("research",       makeResearchNode(deps.v3LlmClient, deps.treasuryAnalysisService))
-    .addNode("affordability",  makeAffordabilityNode(deps.v3LlmClient))
-    .addNode("synthesis",      makeSynthesisNode(deps.v3LlmClient))
+    .addNode("supervisor",     makeSupervisorNode(deps.v3LlmClient, deps.vectorQuery))
+    .addNode("research",       makeResearchNode(deps.v3LlmClient, deps.vectorQuery, deps.treasuryAnalysisService))
+    .addNode("affordability",  makeAffordabilityNode(deps.v3LlmClient, deps.vectorQuery))
+    .addNode("synthesis",      makeSynthesisNode(deps.v3LlmClient, deps.vectorQuery))
     .addEdge(START,            "loadProfile")
     .addEdge("loadProfile",    "supervisor")
     .addConditionalEdges("supervisor", routeAfterSupervisor, {
@@ -155,7 +164,7 @@ export function createFinancialGraph(deps: GraphDeps) {
     .addEdge("synthesis",      END)
     .compile();
 
-  console.log("✅ Financial graph compiled: supervisor → research → affordability → synthesis");
+  console.log("✅ Financial graph compiled: supervisor → research → affordability → synthesis (RAG everywhere, persistent memory ready)");
   return compiled;
 }
 

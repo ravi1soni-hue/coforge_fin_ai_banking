@@ -22,6 +22,7 @@ async function researchPrice(
   llmClient: V3LlmClient,
   searchQuery: string,
   priceCurrency: string | undefined,
+  ragContext?: string[]
 ): Promise<PriceInfo> {
   console.log(`[ResearchAgent:Price] Searching for: "${searchQuery}"`);
 
@@ -29,11 +30,8 @@ async function researchPrice(
   const noDataFallback = `No web data available — return {"price": 0, "currency": "${resolvedCurrency}", "source": "web_search", "confidence": "low"}.`;
 
   // 1. Get web data from Serper.dev (Google Search, UK results)
-  // Don't append "UK price buy" if it already has UK context or is a travel query
-  const isTravel = /trip|holiday|hotel|flight|travel|vacation/i.test(searchQuery);
-  const hasUk = /\buk\b/i.test(searchQuery);
-  const ukQuery = hasUk ? searchQuery : isTravel ? `${searchQuery} UK cost 2025` : `${searchQuery} UK price`;
-  const webData = await searchWeb(ukQuery);
+  // LLM is responsible for all context/intent extraction. No regex/static logic.
+  const webData = await searchWeb(searchQuery);
   const webContext = [
     webData.abstract,
     webData.answer,
@@ -62,46 +60,37 @@ Rules:
 - NEVER guess or fabricate a price — if uncertain, return price: 0`,
     },
     {
-      role: "user",
-      content: `Product search: "${searchQuery}"
-Expected currency: ${resolvedCurrency}
-
-Web search results:
-${webContext || noDataFallback}
 
 Extract the current retail price strictly from the web data above. Do NOT use training knowledge to estimate a price.`,
     },
   ];
 
-  let parsed: Record<string, unknown> | null = null;
-  try { parsed = await llmClient.chatJSON<Record<string, unknown>>(messages); } catch { /* fall through */ }
 
-  if (parsed?.price && Number(parsed.price) > 0) {
-    const src = parsed.source as string;
-    const conf = parsed.confidence as string;
-    console.log(`[ResearchAgent:Price] Found: ${parsed.price} ${parsed.currency} (${src}, ${conf})`);
-    return {
-      price:      Number(parsed.price),
-      currency:   String(parsed.currency ?? priceCurrency ?? "GBP").toUpperCase(),
-      source:     src === "web_search" ? "web_search" : "llm_knowledge",
-      confidence: (["high", "medium", "low"].includes(conf) ? conf : "medium") as PriceInfo["confidence"],
-      rawContext: webContext.slice(0, 600),
-    };
-  }
-
-  console.warn("[ResearchAgent:Price] Could not extract price from web data — returning 0 to avoid hallucination");
-  return {
+        // 2. Ask LLM to extract/estimate the price using web data + RAG context
+        const messages: AgenticMessage[] = [
+          {
+            role: "system",
+            content: `You are a product price researcher. Extract the current retail price strictly from the web data and RAG context provided below.
     price: 0,
     currency: priceCurrency ?? "GBP",
     source: "web_search",
     confidence: "low",
     rawContext: webContext.slice(0, 300),
-  };
-}
+          },
+          {
+            role: "user",
+            content: `Product search: "${searchQuery}"
+      Expected currency: ${resolvedCurrency}
 
-// ─── FX sub-agent ────────────────────────────────────────────────────────────
+      Web search results:
+      ${webContext || noDataFallback}
 
-async function researchFx(
+      RAG context:
+      ${(ragContext && ragContext.length > 0) ? ragContext.join("\n") : "No RAG context available."}
+
+      Extract the current retail price strictly from the web data and RAG context above. Do NOT use training knowledge to estimate a price.`,
+          },
+        ];
   from: string,
   to: string,
 ): Promise<FxInfo | null> {
@@ -167,9 +156,11 @@ export interface ResearchResult {
   newsInfo:  NewsInfo | null;
 }
 
+// Accept ragContext for RAG injection
 export async function runResearchAgent(
   llmClient: V3LlmClient,
   plan: AgentPlan,
+  ragContext?: string[]
 ): Promise<ResearchResult> {
   // If the user stated a price explicitly, use it directly — no web search needed.
   const statedPrice = plan.userStatedPrice ?? 0;
@@ -191,7 +182,7 @@ export async function runResearchAgent(
     userStatedPriceInfo
       ? Promise.resolve(userStatedPriceInfo)
       : plan.needsWebSearch && plan.searchQuery
-        ? researchPrice(llmClient, plan.searchQuery, plan.priceCurrency)
+        ? researchPrice(llmClient, plan.searchQuery, plan.priceCurrency, ragContext)
         : Promise.resolve(null),
 
     plan.needsFxConversion && plan.priceCurrency && plan.targetCurrency
@@ -199,7 +190,7 @@ export async function runResearchAgent(
       : Promise.resolve(null),
 
     plan.needsNews
-      ? researchNews(llmClient, plan.product)
+      ? researchNews(llmClient, plan.product, ragContext)
       : Promise.resolve(null),
   ];
 

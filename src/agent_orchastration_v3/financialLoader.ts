@@ -19,7 +19,7 @@ function debugLog(label: string, data: any) {
 import { sql } from "kysely";
 import type { Kysely } from "kysely";
 import type { VectorQueryService } from "./services/vector.query.service.js";
-import type { LlmClient } from "./llm/llmClient.js";
+import type { V3LlmClient } from "./llm/v3LlmClient.js";
 import type { UserProfile } from "./types.js";
 
 /** Parse a raw unknown value to a finite number (or undefined) */
@@ -35,7 +35,7 @@ const parseNum = (v: unknown): number | undefined => {
 export class FinancialLoader {
   constructor(
     private readonly vectorQuery: VectorQueryService,
-    private readonly llm: LlmClient,
+    private readonly llm: V3LlmClient,
     private readonly db?: Kysely<unknown>,
   ) {}
 
@@ -86,13 +86,15 @@ export class FinancialLoader {
         '}'
       ].join('\n');
       debugLog('llmPrompt', llmPrompt);
-      const llmProfile = await this.llm.generateJSON<{
+      const llmProfile = await this.llm.chatJSON<{
         liquidity: number | null;
         monthlyIncome?: number | null;
         monthlyExpenses?: number | null;
         netMonthlySurplus?: number | null;
         currency?: string | null;
-      }>(llmPrompt);
+      }>([
+        { role: "user", content: llmPrompt }
+      ]);
       debugLog('llmProfile extraction', llmProfile);
       liquidity = parseNum(llmProfile.liquidity);
       if (llmProfile.monthlyIncome != null) knownFacts.monthlyIncome = llmProfile.monthlyIncome;
@@ -158,29 +160,19 @@ export class FinancialLoader {
       };
     }
 
-    const extracted = await this.llm.generateJSON<{
-      availableLiquidity: number | null;
-      monthlyIncome: number | null;
-      monthlyExpenses: number | null;
-      netMonthlySurplus?: number | null;
-      currency: string | null;
-      userName?: string | null;
-    }>(`Extract the user's corporate/treasury financial summary from the context below.
-
-Context:
-${context}
-
-Return ONLY valid JSON (no markdown):
-{
-  "availableLiquidity": number | null,
-  "monthlyIncome": number | null,
-  "monthlyExpenses": number | null,
-  "netMonthlySurplus": number | null,
-  "currency": "GBP" | null,
-  "userName": string | null
-}
-
-Note: This service is UK-only. currency is always "GBP" — only return null if completely absent from context.`);
+        const extracted = await this.llm.chatJSON<{
+          availableLiquidity: number | null;
+          monthlyIncome: number | null;
+          monthlyExpenses: number | null;
+          netMonthlySurplus?: number | null;
+          currency: string | null;
+          userName?: string | null;
+        }>([
+          {
+            role: "user",
+            content: `Extract the user's corporate/treasury financial summary from the context below.\n\nContext:\n${context}\n\nReturn ONLY valid JSON (no markdown):\n{\n  "availableLiquidity": number | null,\n  "monthlyIncome": number | null,\n  "monthlyExpenses": number | null,\n  "netMonthlySurplus": number | null,\n  "currency": "GBP" | null,\n  "userName": string | null\n}\n\nNote: This service is UK-only. currency is always "GBP" — only return null if completely absent from context.`
+          }
+        ]);
 
     const profile = {
       availableLiquidity: parseNum(extracted.availableLiquidity) ?? 0,

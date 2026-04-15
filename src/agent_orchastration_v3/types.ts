@@ -55,17 +55,26 @@ export interface ConversationTurn {
 
 // ─── Socket contract ──────────────────────────────────────────────────────────
 
+
+export type FeedbackType = "like" | "dislike" | "correction" | "approve" | "reject" | "custom";
+
 export interface ChatRequestV3 {
   userId: string;
   message: string;
   sessionId?: string;
   knownFacts?: Record<string, unknown>;
+  feedback?: {
+    type: FeedbackType;
+    comment?: string;
+    forMessageId?: string;
+  };
 }
 
 export interface ChatResponseV3 {
   type: "FINAL" | "FOLLOW_UP" | "ERROR";
   message: string;
   missingFacts?: string[];
+  feedbackId?: string;
 }
 
 // ─── LLM message shapes ────────────────────────────────────────────────────────

@@ -34,9 +34,11 @@ Set emiSuggested = true when BORDERLINE or RISKY, or when the user mentioned ins
 
 Your analysis must be specific — cite actual numbers from the profile, not vague statements.`;
 
+// Accept ragContext for RAG injection
 export async function runAffordabilityAgent(
   llmClient: V3LlmClient,
   state: FinancialState,
+  ragContext?: string[]
 ): Promise<AffordabilityInfo> {
   const profile = state.userProfile ;
   const plan    = state.plan!;
@@ -73,6 +75,9 @@ Purchase details:
 - Listed price: ${price?.price ?? "unknown"} ${price?.currency ?? "unknown"} (confidence: ${price?.confidence ?? "unknown"})
 ${fx ? `- Exchange rate: 1 ${fx.from} = ${fx.rate.toFixed(4)} ${fx.to}` : ""}
 - Estimated price in ${currency}: ${priceInHome.toLocaleString("en-GB")} ${currency}
+
+RAG context:
+${(ragContext && ragContext.length > 0) ? ragContext.join("\n") : "No RAG context available."}
 
 Provide a detailed affordability assessment.`,
     },

@@ -15,7 +15,7 @@ import type { Kysely } from "kysely";
 import type { ChatRepository }    from "../repo/chat.repo.js";
 import type { SessionRepository } from "../repo/session.repo.js";
 import type { VectorQueryService } from "./services/vector.query.service.js";
-import type { LlmClient }         from "./llm/llmClient.js";
+// (LlmClient import removed)
 import type { TreasuryAnalysisService } from "./services/treasury.analysis.service.js";
 
 import { V3LlmClient } from "./llm/v3LlmClient.js";
@@ -30,8 +30,6 @@ export class PipelineV3 {
 
   constructor(
     llmClient: V3LlmClient,
-    /** Used by FinancialLoader's vector-DB fallback path only */
-    baseLlmClient: LlmClient,
     vectorQuery: VectorQueryService,
     treasuryAnalysisService: TreasuryAnalysisService,
     chatRepo: ChatRepository,
@@ -43,7 +41,6 @@ export class PipelineV3 {
     this.treasuryAnalysisService = treasuryAnalysisService;
     this.graph = createFinancialGraph({
       v3LlmClient:   llmClient,
-      baseLlmClient,
       vectorQuery,
       treasuryAnalysisService,
       sessionRepo,
@@ -82,9 +79,21 @@ export class PipelineV3 {
     });
 
     // Persist this turn so the next message has context
-    await this.chatRepo.saveMessage(req.userId, sessionId, "user",      req.message);
+    await this.chatRepo.saveMessage(req.userId, sessionId, "user", req.message);
     await this.chatRepo.saveMessage(req.userId, sessionId, "assistant", answer);
 
-    return { type: "FINAL", message: answer };
+    // Feedback capture: if feedback is present in the request, store it
+    let feedbackId: string | undefined = undefined;
+    if (req.feedback) {
+      feedbackId = await this.chatRepo.saveFeedback({
+        userId: req.userId,
+        sessionId,
+        type: req.feedback.type,
+        comment: req.feedback.comment,
+        forMessageId: req.feedback.forMessageId,
+      });
+    }
+
+    return { type: "FINAL", message: answer, feedbackId };
   }
 }
