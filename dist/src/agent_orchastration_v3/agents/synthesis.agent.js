@@ -89,13 +89,12 @@ export async function buildDataContextAsync(state, llmClient) {
         const isUserAmountSpecific = t.usedUserAmount && typeof userAmount === 'number' && userAmount > 0;
         // Step 1: Always show explicit scenario breakdown if user asked about a specific amount
         if (isUserAmountSpecific) {
-            // Strictly anchor all stats to user-specified amount
+            // Only use user-specified amount for all stats and projections
             const stats = [];
             stats.push(`Operating balance: £${t.availableLiquidity?.toLocaleString("en-GB") ?? "-"}`);
             stats.push(`Typical inflow: £${t.expectedMidweekInflow?.toLocaleString("en-GB") ?? "-"}`);
             stats.push(`Typical outflow: £${t.weeklyOutflow?.toLocaleString("en-GB") ?? "-"}`);
             stats.push(`Requested payment: £${userAmount?.toLocaleString("en-GB") ?? "-"}`);
-            // Calculate projected balance after this payment
             const projected = (typeof t.availableLiquidity === 'number' && typeof userAmount === 'number')
                 ? t.availableLiquidity - userAmount
                 : undefined;
