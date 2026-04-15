@@ -193,14 +193,18 @@ export async function buildDataContextAsync(state: FinancialState, llmClient: V3
           summaryParts.push(`Even if midweek inflows are late, your lowest balance would be about £${typeof t.projectedLowIfLateInflow === 'number' ? t.projectedLowIfLateInflow.toLocaleString("en-GB") : t.projectedLowBalance.toLocaleString("en-GB")}.`);
         }
       }
-      // Only suggest split if user is ambiguous or matches total supplier run
+      // Only suggest split if user is ambiguous (no specific amount) or explicitly requested a split
       if (!isUserAmountSpecific && t.urgentSupplierTotal && t.deferableSupplierTotal && !alreadyMentioned("split")) {
         summaryParts.push(`If you want extra headroom, you could split the total supplier run: release £${t.urgentSupplierTotal.toLocaleString("en-GB")} now, defer £${t.deferableSupplierTotal.toLocaleString("en-GB")} until midweek.`);
-      } else if (isUserAmountSpecific && !alreadyMentioned("split")) {
-        // For specific user-requested amounts, only mention splitting that amount
+        summaryParts.push(`Want to proceed with the full release, or set up a split for treasury approval?`);
+      } else if (isUserAmountSpecific && scenario.userChoseSplit && !alreadyMentioned("split")) {
+        // Only mention splitting the user amount if user explicitly chose split
         summaryParts.push(`If you want extra headroom, you could split the £${userAmount.toLocaleString("en-GB")} run into smaller batches (e.g., part now, part later).`);
+        summaryParts.push(`Want to proceed with the full release, or set up a split for treasury approval?`);
+      } else {
+        // No split suggestion if user was specific and did not request a split
+        summaryParts.push(`Would you like to proceed with the full release?`);
       }
-      summaryParts.push(`Want to proceed with the full release, or set up a split for treasury approval?`);
       let joined = summaryParts.join(' ');
       const words = joined.split(/\s+/);
       if (words.length > 120) joined = words.slice(0, 120).join(' ') + '...';
