@@ -205,6 +205,7 @@ export class TreasuryAnalysisService {
                 : 0,
             currency,
             rationale,
+            usedUserAmount: !usedDbTotal, // true if user amount was used, false if fallback to DB total
             // Expose new scenario-aware fields for downstream use
             payrollOutflow: Math.round(payrollOutflow),
             payrollDay,
