@@ -8,9 +8,9 @@ import { bootstrapBankingUserVectors } from "./services/bankingUserVector.bootst
 
 
 import ingestionRoutes from "./routes/ingestion.route.js";
-//import { configureLangSmith } from "./config/langsmith.config.js";
+import { configureLangSmith } from "./config/langsmith.config.js";
 
-//configureLangSmith();
+configureLangSmith();
 
 const server = http.createServer(app);
 

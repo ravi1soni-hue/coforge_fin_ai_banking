@@ -110,6 +110,11 @@ export const FinancialGraphState = Annotation.Root({
   userMessage: Annotation<string>,
   knownFacts:  Annotation<Record<string, unknown>>,
 
+  
+ treasuryAnchorAmount: Annotation<number | null>,
+ treasuryAnchorCurrency: Annotation<string | null>,
+
+
   // ── Conversation history (loaded before graph, passed in) ───────────────────
   conversationHistory: Annotation<ConversationTurn[]>,
 

@@ -2,7 +2,12 @@ const chat = document.getElementById("chat");
 const input = document.getElementById("messageInput");
 
 // Canonical test identity used for both retail and corporate flows
-const userId = "corp-northstar-001";
+const userId = "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1";
+
+
+// ✅ New session per connection
+const sessionId = crypto.randomUUID();
+
 
 // WebSocket connection
 const socket = new WebSocket(
@@ -44,7 +49,7 @@ function sendMessage() {
       v: 1,
       type: "CHAT_QUERY",
       requestId: `ui-${Date.now()}`,
-      sessionId: userId,
+      sessionId: sessionId,
       payload: {
         message: text,
       },

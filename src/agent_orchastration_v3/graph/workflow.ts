@@ -61,6 +61,7 @@ function makeSupervisorNode(llmClient: V3LlmClient) {
       state.userMessage,
       state.userProfile,
       state.conversationHistory ?? [],
+      state
     );
     console.log("[supervisor] LLM plan:", JSON.stringify(plan, null, 2));
     return { plan, intentType: plan.intentType };
@@ -76,7 +77,7 @@ function makeResearchNode(llmClient: V3LlmClient, treasuryAnalysisService: Treas
     }
     // Removed: retail flow
     console.log("[research] Starting parallel research (price + FX + news)...");
-    const { priceInfo, fxInfo, newsInfo } = await runResearchAgent(llmClient, state.plan!);
+    const { priceInfo, fxInfo, newsInfo } = await runResearchAgent(llmClient, state.plan!,state);
     console.log("[research] Done — price=" + (priceInfo?.price ?? "none") + " " + (priceInfo?.currency ?? "") + " fx=" + (fxInfo?.rate ?? "none") + " news=" + (newsInfo?.headlines?.length ?? 0));
     return { priceInfo, fxInfo, newsInfo };
   };

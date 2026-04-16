@@ -11,7 +11,7 @@
 
 import type { V3LlmClient } from "../llm/v3LlmClient.js";
 import type { AgenticMessage, UserProfile } from "../types.js";
-import type { AgentPlan, ConversationTurn } from "../graph/state.js";
+import type { AgentPlan, ConversationTurn, FinancialState } from "../graph/state.js";
 
 const SYSTEM_PROMPT = `You are a financial assistant supervisor serving UK-based clients exclusively.
 
@@ -152,19 +152,24 @@ export async function runSupervisorAgent(
   userMessage: string,
   userProfile: UserProfile | null,
   conversationHistory: ConversationTurn[] = [],
+  state: FinancialState
 ): Promise<AgentPlan> {
-  const homeCurrency = String(userProfile?.homeCurrency ?? "GBP");
 
-  // Pass ONLY user turns to the supervisor — the assistant's previous responses are outputs, not ground truth.
-  // Feeding assistant history back in causes the LLM to anchor on whatever the assistant said before
-  // (even if it was wrong), poisoning product detection for follow-up messages.
-  const recentUserTurns = conversationHistory.filter(m => m.role === "user").slice(-5);
-  const historyText = recentUserTurns.length > 0
-    ? "\n\nWhat the user has said so far (most recent last):\n" +
-      recentUserTurns
-        .map(m => `User: ${m.content.slice(0, 300)}`)
-        .join("\n")
-    : "";
+  const homeCurrency = String(userProfile?.homeCurrency ?? "GBP");
+  const existingTreasuryAnchor = state.treasuryAnchorAmount ?? null;
+
+  // ── Build user-only history for LLM ──────────────────────────────
+  const recentUserTurns = conversationHistory
+    .filter(m => m.role === "user")
+    .slice(-5);
+
+  const historyText =
+    recentUserTurns.length > 0
+      ? "\n\nWhat the user has said so far (most recent last):\n" +
+        recentUserTurns
+          .map(m => `User: ${m.content.slice(0, 300)}`)
+          .join("\n")
+      : "";
 
   const messages: AgenticMessage[] = [
     { role: "system", content: SYSTEM_PROMPT },
@@ -188,25 +193,52 @@ export async function runSupervisorAgent(
     return { ...DEFAULT_PLAN, userHomeCurrency: homeCurrency };
   }
 
-  // --- LLM-based intent and product extraction only ---
-  // Always use LLM for intent and product, never regex or keyword fallback.
-  // If LLM does not return intentType or product, treat as unknown/new topic.
-  let intentType: string | undefined = typeof parsed.intentType === "string" ? parsed.intentType : undefined;
-  let product: string | undefined = typeof parsed.product === "string" ? parsed.product : undefined;
+  // ── Intent & product ─────────────────────────────────────────────
+  const intentTypeRaw =
+    typeof parsed.intentType === "string" ? parsed.intentType : "unknown";
 
-  // Removed retail context inference
-  if (!product && intentType !== 'corporate_treasury') {
-    const inferredTrip = inferTripProductFromUserHistory(userMessage, conversationHistory);
-    if (inferredTrip) {
-      product = inferredTrip;
-    }
+  const intentType =
+    intentTypeRaw === "corporate_treasury"
+      ? "corporate_treasury"
+      : "unknown";
+
+  let product =
+    typeof parsed.product === "string" ? parsed.product : undefined;
+
+  if (!product && intentType !== "corporate_treasury") {
+    const inferredTrip = inferTripProductFromUserHistory(
+      userMessage,
+      conversationHistory
+    );
+    if (inferredTrip) product = inferredTrip;
   }
 
-  // If LLM did not return intentType, treat as unknown
-  if (!intentType) {
-    intentType = 'unknown';
+  // ── ✅ ANCHOR SET LOGIC (THIS IS THE FIX) ─────────────────────────
+  // Only set / update anchor if the user explicitly stated an amount
+  // in THIS message and intent is corporate treasury.
+
+  let explicitUserAmount = 0;
+
+  if (intentType === "corporate_treasury") {
+    explicitUserAmount = extractStatedGbpPrice(userMessage);
   }
 
+  if (intentType === "corporate_treasury" && explicitUserAmount > 0) {
+    state.treasuryAnchorAmount = explicitUserAmount;
+    state.treasuryAnchorCurrency = "GBP";
+
+    console.log(
+      `[SupervisorAgent] 🔒 Treasury anchor SET to £${explicitUserAmount.toLocaleString("en-GB")}`
+    );
+  }
+
+  // Use anchor as the authoritative amount
+  const userStatedPrice =
+    explicitUserAmount > 0
+      ? explicitUserAmount       // new explicit amount
+      : existingTreasuryAnchor ?? 0;
+
+  // ── Build final plan ──────────────────────────────────────────────
   const plan: AgentPlan = {
     needsWebSearch:     Boolean(parsed.needsWebSearch),
     needsFxConversion:  Boolean(parsed.needsFxConversion),
@@ -218,33 +250,19 @@ export async function runSupervisorAgent(
     searchQuery:        (parsed.searchQuery as string)    || undefined,
     priceCurrency:      (parsed.priceCurrency as string)  || undefined,
     targetCurrency:     (parsed.targetCurrency as string) || undefined,
-    userHomeCurrency:   (parsed.userHomeCurrency as string) || homeCurrency,
-    userStatedPrice:    Number(parsed.userStatedPrice)    || 0,
-    intentType: (intentType === "corporate_treasury" ? "corporate_treasury" : "unknown")
+    userHomeCurrency:   homeCurrency,
+    userStatedPrice,
+    intentType,
   };
 
-  // Deterministic price fallback (GBP/£) from current or immediately previous user turn.
-  if ((plan.userStatedPrice ?? 0) === 0) {
-    const currentPrice = extractStatedGbpPrice(userMessage);
-    if (currentPrice > 0) {
-      plan.userStatedPrice = currentPrice;
-    } else {
-      const prevUser = [...conversationHistory].reverse().find((m) => m.role === "user")?.content ?? "";
-      const prevPrice = extractStatedGbpPrice(prevUser);
-      if (prevPrice > 0) {
-        plan.userStatedPrice = prevPrice;
-      }
-    }
-  }
-
-  // Safety guard: if user stated a price, never search (prevents hallucinating products)
-  if ((plan.userStatedPrice ?? 0) > 0) {
+  // ── Safety guards ─────────────────────────────────────────────────
+  if (intentType === "corporate_treasury" && userStatedPrice > 0) {
     plan.needsWebSearch = false;
     plan.searchQuery    = undefined;
-    plan.priceCurrency  = plan.priceCurrency ?? "GBP";
-    plan.targetCurrency = plan.targetCurrency ?? "GBP";
+    plan.priceCurrency  = "GBP";
+    plan.targetCurrency = "GBP";
   }
 
-  console.log("[SupervisorAgent] Plan:", JSON.stringify(plan));
+  console.log("[SupervisorAgent] Final plan (anchor-safe):", JSON.stringify(plan));
   return plan;
 }
