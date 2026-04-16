@@ -69,8 +69,9 @@ const SYSTEM_PROMPT = `
 You are a senior corporate banking treasury advisor. Respond to the user’s question about payment runs, cashflow, and treasury risk as if you are having a real conversation with a corporate client—never as a bot or machine.
 
 Requirements:
-- Write a single, natural conversational paragraph (no bullet points, no lists, no itemized breakdowns, no headings).
-- Do not use any risk flags, labels, or formulaic phrases (never say SAFE, DANGER, EASY, “the risk level is”, “here’s why”, or “this assessment is based on”).
+- For simple queries (no split decision): Write a single, natural conversational paragraph.
+- For split scenarios: When the user chooses to split a payment run, provide a detailed response that includes: (1) confirmation of the split decision, (2) the split amounts and timing, (3) clear liquidity calculations showing balances at each stage, and (4) confirmation final balance exceeds comfort threshold.
+- Do not use any risk flags, labels, or formulaic phrases (never say SAFE, DANGER, EASY).
 - Keep your answer concise: no more than 2–3 sentences and ideally under 80 words, focusing only on the most relevant numbers and implications for the user’s decision.
 - Always mention both the option to release the full payment run and the option to split it, even if the full release is safe, but do so in a tight, executive-summary style.
 - Weave together only the key numbers: available cash, the user’s requested payment amount, any critical inflows/outflows, and the comfort threshold—skip background or filler.
@@ -95,17 +96,28 @@ You will be given structured scenario data as JSON. Use only the data provided. 
 // Async version: buildDataContext with LLM-driven scenario extraction
 export async function buildDataContextAsync(state: FinancialState, llmClient: V3LlmClient): Promise<string> {
   // Build a structured context for the LLM
-  // Remove DB total from context if user specified amount
   const scenario = state.treasuryAnalysis
     ? await extractScenarioStateLLM(state.conversationHistory ?? [], state.treasuryAnalysis, llmClient)
     : null;
+  
+  // For split scenarios, include additional calculation context
+  const splitContext = scenario?.userChoseSplit && scenario?.lastSplitAmount
+    ? {
+        splitTranche1Amount: scenario.lastSplitAmount,
+        splitTranche2Amount: state.treasuryAnalysis?.paymentAmount ? state.treasuryAnalysis.paymentAmount - scenario.lastSplitAmount : scenario.lastDeferAmount,
+        expectedMidweekInflow: state.treasuryAnalysis?.expectedMidweekInflow,
+        projectedBalanceAfterTranche1: state.treasuryAnalysis?.availableLiquidity ? state.treasuryAnalysis.availableLiquidity - scenario.lastSplitAmount : null,
+        projectedFinalBalance: state.treasuryAnalysis?.projectedLowBalanceIfSplit,
+        comfortThreshold: state.treasuryAnalysis?.comfortThreshold,
+      }
+    : null;
+
   const context: any = {
     plan: state.plan,
     priceInfo: state.priceInfo,
     fxInfo: state.fxInfo,
     treasuryAnalysis: {
       ...state.treasuryAnalysis,
-      // If user specified an amount, override all scenario amounts with it
       ...(state.treasuryAnalysis?.usedUserAmount && state.treasuryAnalysis.paymentAmount > 0
         ? {
             suggestedNowAmount: state.treasuryAnalysis.paymentAmount,
@@ -116,6 +128,7 @@ export async function buildDataContextAsync(state: FinancialState, llmClient: V3
         : {})
     },
     scenario,
+    splitCalculation: splitContext,
     knownFacts: state.knownFacts,
     userProfile: state.userProfile,
     conversationHistory: state.conversationHistory,
@@ -131,6 +144,14 @@ export async function runSynthesisAgent(
   state: FinancialState
 ): Promise<string> {
   const dataContext = await buildDataContextAsync(state, llmClient);
+
+  // Detect if this is a split confirmation scenario
+  const isSplitConfirmation = state.userMessage.toLowerCase().includes('split') || 
+                              state.conversationHistory?.some(m => m.content.toLowerCase().includes('split'));
+
+  const splitGuidance = isSplitConfirmation
+    ? `\n\n[SPLIT SCENARIO: Provide detailed calculation with opening balance, Tranche 1 amount/timing, balance after T1, midweek inflow, Tranche 2 amount/timing, and final balance vs comfort threshold]`
+    : '';
 
   const historyText =
     state.conversationHistory && state.conversationHistory.length > 0
@@ -157,6 +178,7 @@ Current message: "${state.userMessage}"
 
 Financial data:
 ${dataContext}
+${splitGuidance}
 
 Write a clear, natural response using this information.`,
     },
