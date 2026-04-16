@@ -23,9 +23,16 @@ ${conversationHistory.map(t => `${t.role}: ${t.content}`).join("\n")}
   ]);
   try {
     const scenario = JSON.parse(response);
-    // Fallback to treasuryAnalysis if needed
-    if (!scenario.lastSplitAmount && treasuryAnalysis?.suggestedNowAmount) scenario.lastSplitAmount = treasuryAnalysis.suggestedNowAmount;
-    if (!scenario.lastDeferAmount && treasuryAnalysis?.suggestedLaterAmount) scenario.lastDeferAmount = treasuryAnalysis.suggestedLaterAmount;
+    // If user specified an amount, ensure all scenario fields use only that amount
+    if (treasuryAnalysis?.usedUserAmount && treasuryAnalysis.paymentAmount > 0) {
+      scenario.lastSplitAmount = treasuryAnalysis.paymentAmount;
+      scenario.lastDeferAmount = 0;
+      scenario.lastUrgentAmount = null;
+    } else {
+      // Fallback to treasuryAnalysis if needed
+      if (!scenario.lastSplitAmount && treasuryAnalysis?.suggestedNowAmount) scenario.lastSplitAmount = treasuryAnalysis.suggestedNowAmount;
+      if (!scenario.lastDeferAmount && treasuryAnalysis?.suggestedLaterAmount) scenario.lastDeferAmount = treasuryAnalysis.suggestedLaterAmount;
+    }
     // Ensure userConfirmedSchedule is always present
     if (typeof scenario.userConfirmedSchedule !== "boolean") scenario.userConfirmedSchedule = false;
     return scenario;
@@ -36,8 +43,12 @@ ${conversationHistory.map(t => `${t.role}: ${t.content}`).join("\n")}
       userChoseFullRelease: false,
       userRequestedSimulation: false,
       userConfirmedSchedule: false,
-      lastSplitAmount: treasuryAnalysis?.suggestedNowAmount ?? null,
-      lastDeferAmount: treasuryAnalysis?.suggestedLaterAmount ?? null,
+      lastSplitAmount: treasuryAnalysis?.usedUserAmount && treasuryAnalysis.paymentAmount > 0
+        ? treasuryAnalysis.paymentAmount
+        : treasuryAnalysis?.suggestedNowAmount ?? null,
+      lastDeferAmount: treasuryAnalysis?.usedUserAmount && treasuryAnalysis.paymentAmount > 0
+        ? 0
+        : treasuryAnalysis?.suggestedLaterAmount ?? null,
       lastUrgentAmount: null,
       lastUserMessage: conversationHistory.filter(t => t.role === "user").slice(-1)[0]?.content || ""
     };
@@ -72,14 +83,27 @@ You will be given structured scenario data as JSON. Use only the data provided. 
 // Async version: buildDataContext with LLM-driven scenario extraction
 export async function buildDataContextAsync(state: FinancialState, llmClient: V3LlmClient): Promise<string> {
   // Build a structured context for the LLM
+  // Remove DB total from context if user specified amount
+  const scenario = state.treasuryAnalysis
+    ? await extractScenarioStateLLM(state.conversationHistory ?? [], state.treasuryAnalysis, llmClient)
+    : null;
   const context: any = {
     plan: state.plan,
     priceInfo: state.priceInfo,
     fxInfo: state.fxInfo,
-    treasuryAnalysis: state.treasuryAnalysis,
-    scenario: state.treasuryAnalysis
-      ? await extractScenarioStateLLM(state.conversationHistory ?? [], state.treasuryAnalysis, llmClient)
-      : null,
+    treasuryAnalysis: {
+      ...state.treasuryAnalysis,
+      // If user specified an amount, override all scenario amounts with it
+      ...(state.treasuryAnalysis?.usedUserAmount && state.treasuryAnalysis.paymentAmount > 0
+        ? {
+            suggestedNowAmount: state.treasuryAnalysis.paymentAmount,
+            suggestedLaterAmount: 0,
+            urgentSupplierTotal: null,
+            deferableSupplierTotal: null
+          }
+        : {})
+    },
+    scenario,
     knownFacts: state.knownFacts,
     userProfile: state.userProfile,
     conversationHistory: state.conversationHistory,
