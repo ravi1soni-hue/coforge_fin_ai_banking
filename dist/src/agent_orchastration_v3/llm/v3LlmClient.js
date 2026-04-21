@@ -25,6 +25,7 @@ export class V3LlmClient {
      * Each agent uses this directly — no tool-calling loop needed.
      */
     async chat(messages) {
+        console.log("[V3LlmClient] chat called with messages:", JSON.stringify(messages));
         try {
             const response = await fetch(API_URL, {
                 method: "POST",
@@ -42,15 +43,18 @@ export class V3LlmClient {
             });
             if (!response.ok) {
                 const errorBody = await response.text();
+                console.error(`[V3LlmClient] chat API error ${response.status}:`, errorBody);
                 throw new Error(`API error ${response.status}: ${errorBody}`);
             }
             const data = await response.json();
             const rawContent = (data?.choices?.[0]?.message?.content ?? "").trim();
             if (!rawContent)
                 throw new Error("No content returned from API");
+            console.log("[V3LlmClient] chat rawContent:", rawContent);
             return rawContent;
         }
         catch (err) {
+            console.error("[V3LlmClient] chat error:", err);
             const message = err instanceof Error ? err.message : String(err);
             throw new Error(`V3LlmClient.chat failed: ${message}`);
         }
@@ -61,14 +65,18 @@ export class V3LlmClient {
      * structured output (supervisor, research, affordability).
      */
     async chatJSON(messages) {
+        console.log("[V3LlmClient] chatJSON called with messages:", JSON.stringify(messages));
         const raw = await this.chat(messages);
         if (!raw)
             throw new Error("chatJSON: empty response from LLM");
-        const extracted = extractJson(raw);
+        let extracted;
         try {
+            extracted = extractJson(raw);
+            console.log("[V3LlmClient] chatJSON extracted JSON:", extracted);
             return JSON.parse(extracted);
         }
-        catch {
+        catch (err) {
+            console.error("[V3LlmClient] chatJSON error:", err, "Raw:", raw);
             throw new Error(`chatJSON: LLM did not return valid JSON.\nRaw: ${raw.slice(0, 300)}`);
         }
     }

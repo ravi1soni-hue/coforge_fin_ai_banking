@@ -29,11 +29,16 @@ export class ChatServiceV3 {
      */
     async handleMessage(request) {
         try {
-            return await this.pipeline.handle(request);
+            console.log("[ChatServiceV3] Incoming request:", JSON.stringify(request, null, 2));
+            const response = await this.pipeline.handle(request);
+            console.log("[ChatServiceV3] Pipeline response:", JSON.stringify(response, null, 2));
+            return response;
         }
         catch (error) {
-            const msg = error instanceof Error ? error.message : String(error);
-            console.error("[ChatServiceV3] Unhandled error:", msg);
+            console.error("[ChatServiceV3] Unhandled error (full):", error);
+            if (error instanceof Error && error.stack) {
+                console.error("[ChatServiceV3] Stack trace:", error.stack);
+            }
             return {
                 type: "ERROR",
                 message: "Sorry, I ran into an internal problem. Please try again.",

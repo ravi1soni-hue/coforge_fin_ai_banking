@@ -36,6 +36,8 @@ Return only valid JSON.
                 scenario.lastDeferAmount = treasuryAnalysis.suggestedLaterAmount;
             }
         }
+        console.log("[extractScenarioStateLLM] called with conversationHistory:", JSON.stringify(conversationHistory));
+        console.log("[extractScenarioStateLLM] treasuryAnalysis:", JSON.stringify(treasuryAnalysis));
         if (typeof scenario.userConfirmedSchedule !== "boolean") {
             scenario.userConfirmedSchedule = false;
         }
@@ -129,6 +131,8 @@ export async function buildDataContextAsync(state, llmClient) {
 }
 export async function runSynthesisAgent(llmClient, state) {
     const dataContext = await buildDataContextAsync(state, llmClient);
+    console.log("[runSynthesisAgent] called with state:", JSON.stringify(state));
+    console.log("[runSynthesisAgent] dataContext:", dataContext);
     const historyText = state.conversationHistory?.length
         ? "\n\nRecent conversation:\n" +
             state.conversationHistory
@@ -153,7 +157,9 @@ Write a clear, professional response using only this information.
 `
         }
     ];
+    console.log("[runSynthesisAgent] LLM messages:", JSON.stringify(messages));
     const output = await llmClient.chat(messages);
+    console.log("[runSynthesisAgent] LLM output:", output);
     return output?.trim()
         ? output.trim()
         : "I’m sorry — I couldn’t generate a response just now. Please try again.";

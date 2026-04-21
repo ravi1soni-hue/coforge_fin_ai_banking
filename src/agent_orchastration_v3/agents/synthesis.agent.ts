@@ -79,10 +79,9 @@ Return only valid JSON.
         conversationHistory.filter(t => t.role === "user").slice(-1)[0]?.content ?? ""
     };
   }
-      console.log("[extractScenarioStateLLM] Final scenario:", scenario);
 }
+
 /**
-      console.error("[extractScenarioStateLLM] Error:", err, "LLM response:", response);
  * Synthesis Agent — final response generation.
  *
  * Takes the full financial graph state and produces a clear,
