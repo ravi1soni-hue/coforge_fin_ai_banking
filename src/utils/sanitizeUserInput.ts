@@ -17,34 +17,28 @@ export function sanitizeUserInput(input: string): string {
   sanitized = sanitized.replace(/(\n|^)[ \t]*[\[\(]?user[\]\)]?:?/gi, "");
   sanitized = sanitized.replace(/(\n|^)[ \t]*[\[\(]?assistant[\]\)]?:?/gi, "");
 
-  // Neutralize phrases that trigger Azure jailbreak/content filter
-  // e.g., 'schedule', 'auto release', 'automatically release', 'execute', 'run', 'bypass', 'ignore', etc.
-  sanitized = sanitized.replace(/\b(schedule|auto release|automatically release|execute|run|bypass|ignore|override|inject|system command|system prompt|jailbreak)\b/gi, function(match) {
-    // Replace with a neutral, less-instructional synonym
-    switch (match.toLowerCase()) {
-      case 'schedule':
-        return 'confirm the plan to';
-      case 'auto release':
-      case 'automatically release':
-        return 'proceed with the planned release';
-      case 'execute':
-      case 'run':
-        return 'proceed with';
-      case 'bypass':
-      case 'ignore':
-      case 'override':
-      case 'inject':
-      case 'system command':
-      case 'system prompt':
-      case 'jailbreak':
-        return '';
-      default:
-        return '';
+  // Generic: Neutralize imperative/instructional language (simple heuristic)
+  // Convert sentences starting with a verb (imperative) to passive/neutral form
+  sanitized = sanitized.replace(/^(please |kindly |can you |could you |would you |should you |let's |lets |let us |try to |attempt to |make sure to |ensure to |go ahead and |now |then |next |start by |begin by |proceed to |proceed with |do |make |schedule |release |send |run |execute |trigger |initiate |bypass |ignore |override |inject |force |system command |system prompt |jailbreak)\b/gi, function(match) {
+    return "The plan is to";
+  });
+
+  // Convert direct commands to neutral statements (e.g., "Release payment" -> "The plan is to release the payment")
+  sanitized = sanitized.replace(/^(\w+)( .*)?$/gm, function(line) {
+    // If line starts with a verb and is short, rephrase
+    if (/^(release|send|schedule|run|execute|trigger|initiate|bypass|ignore|override|inject|force)\b/i.test(line)) {
+      return "The plan is to " + line.charAt(0).toLowerCase() + line.slice(1);
     }
+    return line;
   });
 
   // Remove excessive whitespace
   sanitized = sanitized.replace(/\s{3,}/g, "  ");
+
+  // Fallback: If still contains suspicious patterns, replace with a generic safe message
+  if (/(schedule|auto release|automatically release|execute|run|bypass|ignore|override|inject|system command|system prompt|jailbreak|do this|make this|force|trigger)/i.test(sanitized)) {
+    sanitized = "The plan is to proceed with the requested action at the appropriate time, as per policy.";
+  }
 
   // Optionally: filter profanity or other unsafe content here
 
