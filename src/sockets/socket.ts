@@ -165,9 +165,26 @@ export const initWebSocket = (server: any): void => {
         },
       });
 
-      // Validate upgrade header
-      if (upgradeHeader !== "websocket") {
-        console.error("❌ [UPGRADE] Invalid upgrade header", {
+      // Log origin header for debugging (allow all origins, same as CORS policy)
+      const originHeader = req.headers.origin;
+      if (originHeader) {
+        console.log("🌐 [UPGRADE] Origin header present", { origin: originHeader });
+      } else {
+        console.log("🌐 [UPGRADE] No Origin header (may be a native mobile client)");
+      }
+
+      // Lenient upgrade header validation — mobile proxies commonly strip or
+      // modify headers, so we only hard-reject when the header is explicitly
+      // present AND clearly not a WebSocket request.
+      if (!req.headers.upgrade) {
+        // Header is absent entirely — warn but allow (proxy may have stripped it)
+        console.warn("⚠️ [UPGRADE] Missing upgrade header — allowing connection (mobile proxy may have stripped it)", {
+          url: req.url,
+          "user-agent": req.headers["user-agent"],
+        });
+      } else if (!upgradeHeader.includes("websocket")) {
+        // Header is present but explicitly not websocket — reject
+        console.error("❌ [UPGRADE] Invalid upgrade header — not a websocket request", {
           upgrade: req.headers.upgrade,
           connection: req.headers.connection,
         });
@@ -176,14 +193,13 @@ export const initWebSocket = (server: any): void => {
         return;
       }
 
-      // Validate connection header contains 'upgrade'
+      // Lenient connection header check — log a warning but do not reject.
+      // Mobile network proxies frequently strip the Connection: Upgrade header.
       if (!connectionHeader.includes("upgrade")) {
-        console.error("❌ [UPGRADE] Connection header doesn't contain 'upgrade'", {
+        console.warn("⚠️ [UPGRADE] Connection header missing 'upgrade' — allowing connection (mobile proxy may have stripped it)", {
           connection: req.headers.connection,
+          "user-agent": req.headers["user-agent"],
         });
-        socket.write("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n");
-        socket.destroy();
-        return;
       }
 
       const url = new URL(req.url ?? "", `http://${req.headers.host}`);
