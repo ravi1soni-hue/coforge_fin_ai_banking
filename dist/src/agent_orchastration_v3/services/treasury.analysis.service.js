@@ -132,6 +132,19 @@ export class TreasuryAnalysisService {
         if (usedDbTotal) {
             paymentAmount = urgentSupplierTotal + deferableSupplierTotal;
         }
+        // --- SANITY CHECKS & LOGGING ---
+        if (typeof paymentAmount !== 'number' || isNaN(paymentAmount)) {
+            console.error('[TREASURY] Invalid paymentAmount (not a number):', paymentAmount);
+            paymentAmount = 0;
+        }
+        else if (paymentAmount < 0) {
+            console.error('[TREASURY] Negative paymentAmount:', paymentAmount);
+            paymentAmount = 0;
+        }
+        else if (paymentAmount > availableLiquidity * 10) {
+            console.error('[TREASURY] Unrealistically large paymentAmount:', paymentAmount, 'Liquidity:', availableLiquidity);
+            paymentAmount = availableLiquidity; // Cap to available liquidity as a failsafe
+        }
         // Always analyze the user-requested amount unless ambiguous
         const amountToAnalyse = paymentAmount;
         const projectedLowBalance = availableLiquidity - amountToAnalyse - weeklyOutflow + expectedMidweekInflow;
