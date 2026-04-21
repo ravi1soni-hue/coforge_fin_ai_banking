@@ -1,0 +1,68 @@
+{
+  "dataset": "uk_treasury_cashflow_90_days",
+  "version": "1.0.0",
+  "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+  "start_date": "2026-01-14",
+  "end_date": "2026-04-13",
+  "days": 90,
+  "assumptions": {
+    "target_weekly_outflow_baseline": 3600000,
+    "target_midweek_inflow_baseline_tue_to_thu": 1900000,
+    "payroll_day": "FRIDAY",
+    "late_inflow_events_last_4_weeks": 2
+  },
+  "treasury_cashflow_daily": [
+    {
+      "id": "cf90-2026-01-14",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-14",
+      "day_name": "WEDNESDAY",
+      "total_inflows": 670800,
+      "total_outflows": 602400,
+      "payroll_outflow": 0,
+      "supplier_outflow": 381520,
+      "closing_balance": 4868400,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-01-15",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-15",
+      "day_name": "THURSDAY",
+      "total_inflows": 645120,
+      "total_outflows": 565600,
+      "payroll_outflow": 0,
+      "supplier_outflow": 353500,
+      "closing_balance": 4947920,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    },
+    {
+      "id": "cf90-2026-01-16",
+      "user_id": "9c3c98be-9e6e-4eaf-9f0a-b28d5c4b10a1",
+      "business_date": "2026-01-16",
+      "day_name": "FRIDAY",
+      "total_inflows": 386080,
+      "total_outflows": 1676400,
+      "payroll_outflow": 1450000,
+      "supplier_outflow": 223520,
+      "closing_balance": 3657600,
+      "currency": "GBP",
+      "metadata": {
+        "receiptPunctuality": "ON_TIME",
+        "source": "synthetic_uk_treasury_90d",
+        "generatedFor": "conversational_confidence"
+      }
+    }
+    // ... more days ...
+  ]
+}
