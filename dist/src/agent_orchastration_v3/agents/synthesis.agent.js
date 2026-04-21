@@ -1,3 +1,5 @@
+// LLM-driven scenario state extraction for agentic memory
+import { sanitizeUserInput } from "../../utils/sanitizeUserInput.js";
 export async function extractScenarioStateLLM(conversationHistory, treasuryAnalysis, llmClient) {
     const prompt = `
 From the conversation below, identify the current scenario state.
@@ -140,6 +142,8 @@ export async function runSynthesisAgent(llmClient, state) {
                 .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content.slice(0, 400)}`)
                 .join("\n")
         : "";
+    // Sanitize user input before sending to LLM
+    const safeUserMessage = sanitizeUserInput(state.userMessage);
     const messages = [
         { role: "system", content: SYSTEM_PROMPT },
         {
@@ -148,7 +152,7 @@ export async function runSynthesisAgent(llmClient, state) {
 ${historyText}
 
 Current message:
-"${state.userMessage}"
+"${safeUserMessage}"
 
 Financial data:
 ${dataContext}

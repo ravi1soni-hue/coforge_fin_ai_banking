@@ -1,5 +1,6 @@
 // LLM-driven scenario state extraction for agentic memory
-import { OpenAI } from "openai";
+
+import { sanitizeUserInput } from "../../utils/sanitizeUserInput.js";
 
 
 
@@ -202,6 +203,8 @@ export async function runSynthesisAgent(
           .join("\n")
       : "";
 
+  // Sanitize user input before sending to LLM
+  const safeUserMessage = sanitizeUserInput(state.userMessage);
   const messages: AgenticMessage[] = [
     { role: "system", content: SYSTEM_PROMPT },
     {
@@ -210,7 +213,7 @@ export async function runSynthesisAgent(
 ${historyText}
 
 Current message:
-"${state.userMessage}"
+"${safeUserMessage}"
 
 Financial data:
 ${dataContext}

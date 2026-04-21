@@ -8,6 +8,7 @@
  * This is the ONLY place in the pipeline where routing decisions are made.
  * Everything else is determined by this agent's LLM reasoning.
  */
+import { sanitizeUserInput } from "../../utils/sanitizeUserInput.js";
 const SYSTEM_PROMPT = `You are a financial assistant supervisor serving UK-based clients exclusively.
 
 CLIENT CONTEXT:
@@ -103,12 +104,14 @@ export async function runSupervisorAgent(llmClient, userMessage, userProfile, co
                 .map(m => `User: ${m.content.slice(0, 300)}`)
                 .join("\n")
         : "";
+    // Sanitize user input before sending to LLM
+    const safeUserMessage = sanitizeUserInput(userMessage);
     const messages = [
         { role: "system", content: SYSTEM_PROMPT },
         {
             role: "user",
             content: (ragContext ? `Relevant context:\n${ragContext}\n\n` : "") +
-                `User's home currency: ${homeCurrency}${historyText}\n\nCurrent message: "${userMessage}"`,
+                `User's home currency: ${homeCurrency}${historyText}\n\nCurrent message: "${safeUserMessage}"`,
         },
     ];
     console.log("[SupervisorAgent] Calling LLM to classify query...");

@@ -9,9 +9,11 @@
  * Everything else is determined by this agent's LLM reasoning.
  */
 
+
 import type { V3LlmClient } from "../llm/v3LlmClient.js";
 import type { AgenticMessage, UserProfile } from "../types.js";
 import type { AgentPlan, ConversationTurn } from "../graph/state.js";
+import { sanitizeUserInput } from "../../utils/sanitizeUserInput.js";
 
 const SYSTEM_PROMPT = `You are a financial assistant supervisor serving UK-based clients exclusively.
 
@@ -119,13 +121,15 @@ export async function runSupervisorAgent(
         .join("\n")
     : "";
 
+  // Sanitize user input before sending to LLM
+  const safeUserMessage = sanitizeUserInput(userMessage);
   const messages: AgenticMessage[] = [
     { role: "system", content: SYSTEM_PROMPT },
     {
       role: "user",
       content:
         (ragContext ? `Relevant context:\n${ragContext}\n\n` : "") +
-        `User's home currency: ${homeCurrency}${historyText}\n\nCurrent message: "${userMessage}"`,
+        `User's home currency: ${homeCurrency}${historyText}\n\nCurrent message: "${safeUserMessage}"`,
     },
   ];
 
