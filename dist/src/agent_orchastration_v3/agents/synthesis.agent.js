@@ -142,8 +142,12 @@ export async function runSynthesisAgent(llmClient, state) {
                 .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content.slice(0, 400)}`)
                 .join("\n")
         : "";
-    // Sanitize user input before sending to LLM
-    const safeUserMessage = sanitizeUserInput(state.userMessage);
+    // Always sanitize user input before sending to LLM
+    const originalUserMessage = state.userMessage;
+    const safeUserMessage = sanitizeUserInput(originalUserMessage);
+    // Log both original and sanitized user message for debugging
+    console.log("[runSynthesisAgent] original userMessage:", originalUserMessage);
+    console.log("[runSynthesisAgent] sanitized userMessage:", safeUserMessage);
     const messages = [
         { role: "system", content: SYSTEM_PROMPT },
         {
