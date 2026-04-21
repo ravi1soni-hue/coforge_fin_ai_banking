@@ -203,8 +203,13 @@ export async function runSynthesisAgent(
           .join("\n")
       : "";
 
-  // Sanitize user input before sending to LLM
-  const safeUserMessage = sanitizeUserInput(state.userMessage);
+    // Always sanitize user input before sending to LLM
+    const originalUserMessage = state.userMessage;
+    const safeUserMessage = sanitizeUserInput(originalUserMessage);
+    // Log both original and sanitized user message for debugging
+    console.log("[runSynthesisAgent] original userMessage:", originalUserMessage);
+    console.log("[runSynthesisAgent] sanitized userMessage:", safeUserMessage);
+
   const messages: AgenticMessage[] = [
     { role: "system", content: SYSTEM_PROMPT },
     {
