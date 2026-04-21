@@ -47,6 +47,8 @@ Return only valid JSON.
         scenario.lastDeferAmount = treasuryAnalysis.suggestedLaterAmount;
       }
     }
+    console.log("[extractScenarioStateLLM] called with conversationHistory:", JSON.stringify(conversationHistory));
+    console.log("[extractScenarioStateLLM] treasuryAnalysis:", JSON.stringify(treasuryAnalysis));
 
     if (typeof scenario.userConfirmedSchedule !== "boolean") {
       scenario.userConfirmedSchedule = false;
@@ -77,8 +79,10 @@ Return only valid JSON.
         conversationHistory.filter(t => t.role === "user").slice(-1)[0]?.content ?? ""
     };
   }
+      console.log("[extractScenarioStateLLM] Final scenario:", scenario);
 }
 /**
+      console.error("[extractScenarioStateLLM] Error:", err, "LLM response:", response);
  * Synthesis Agent — final response generation.
  *
  * Takes the full financial graph state and produces a clear,
@@ -184,6 +188,8 @@ export async function runSynthesisAgent(
   state: FinancialState
 ): Promise<string> {
   const dataContext = await buildDataContextAsync(state, llmClient);
+  console.log("[runSynthesisAgent] called with state:", JSON.stringify(state));
+  console.log("[runSynthesisAgent] dataContext:", dataContext);
 
   const historyText =
     state.conversationHistory?.length
@@ -215,7 +221,9 @@ Write a clear, professional response using only this information.
     }
   ];
 
+  console.log("[runSynthesisAgent] LLM messages:", JSON.stringify(messages));
   const output = await llmClient.chat(messages);
+  console.log("[runSynthesisAgent] LLM output:", output);
 
   return output?.trim()
     ? output.trim()
