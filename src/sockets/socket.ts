@@ -145,19 +145,22 @@ export const initWebSocket = (server: any): void => {
 
   server.on("upgrade", (req: IncomingMessage, socket: any, head: Buffer) => {
     try {
-      // Ensure upgrade headers are valid
-      const upgradeHeader = req.headers.upgrade?.toLowerCase() ?? "";
-      const connectionHeader = req.headers.connection?.toLowerCase() ?? "";
+      // Normalise headers — mobile proxies may lowercase, strip, or modify them
+      const upgradeHeader = req.headers.upgrade?.toLowerCase().trim() ?? "";
+      const connectionHeader = req.headers.connection?.toLowerCase().trim() ?? "";
+      const originHeader = req.headers.origin ?? "";
 
       console.log("🔌 [UPGRADE] WebSocket request received", {
         url: req.url,
         method: req.method,
         upgradeHeader,
         connectionHeader,
+        originHeader,
         hasHead: head.length > 0,
         headers: {
           upgrade: req.headers.upgrade,
           connection: req.headers.connection,
+          origin: req.headers.origin,
           host: req.headers.host,
           "x-forwarded-proto": req.headers["x-forwarded-proto"],
           "x-forwarded-for": req.headers["x-forwarded-for"],
@@ -165,25 +168,53 @@ export const initWebSocket = (server: any): void => {
         },
       });
 
-      // Validate upgrade header
-      if (upgradeHeader !== "websocket") {
-        console.error("❌ [UPGRADE] Invalid upgrade header", {
-          upgrade: req.headers.upgrade,
-          connection: req.headers.connection,
-        });
-        socket.write("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n");
-        socket.destroy();
-        return;
+      // --- Origin validation (allow all origins, mirrors HTTP CORS policy) ---
+      // We log the origin but never reject based on it so mobile apps and
+      // browser clients from any domain can connect.
+      if (originHeader) {
+        console.log("🌐 [UPGRADE] Origin header present — allowed", { origin: originHeader });
+      } else {
+        console.log("🌐 [UPGRADE] No Origin header (native mobile client or proxy stripped it) — allowed");
       }
 
-      // Validate connection header contains 'upgrade'
+      // --- Upgrade header validation (lenient, case-insensitive) ---
+      // Some mobile proxies send "WebSocket", "WEBSOCKET", or include extra
+      // whitespace.  We accept anything that contains "websocket".
+      const upgradeIsWebSocket = upgradeHeader.includes("websocket");
+      if (!upgradeIsWebSocket) {
+        if (upgradeHeader === "") {
+          // Header was stripped entirely by a proxy — log a warning but still
+          // attempt the upgrade so the client gets a chance to connect.
+          console.warn("⚠️ [UPGRADE] Missing upgrade header (likely stripped by mobile proxy) — attempting upgrade anyway", {
+            upgrade: req.headers.upgrade,
+            connection: req.headers.connection,
+            "user-agent": req.headers["user-agent"],
+          });
+        } else {
+          // Header is present but clearly not a WebSocket request — reject.
+          console.error("❌ [UPGRADE] Invalid upgrade header — not a WebSocket request", {
+            upgrade: req.headers.upgrade,
+            upgradeHeader,
+            connection: req.headers.connection,
+            reason: `Expected header to contain 'websocket', got '${upgradeHeader}'`,
+          });
+          socket.write("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n");
+          socket.destroy();
+          return;
+        }
+      }
+
+      // --- Connection header validation (lenient) ---
+      // RFC 6455 requires "Upgrade" in the Connection header, but many mobile
+      // network proxies strip or rewrite it.  We warn instead of rejecting so
+      // legitimate mobile clients are not blocked.
       if (!connectionHeader.includes("upgrade")) {
-        console.error("❌ [UPGRADE] Connection header doesn't contain 'upgrade'", {
+        console.warn("⚠️ [UPGRADE] Connection header missing 'upgrade' token (may have been stripped by mobile proxy) — proceeding", {
           connection: req.headers.connection,
+          connectionHeader,
+          "user-agent": req.headers["user-agent"],
+          reason: `Expected 'upgrade' in connection header, got '${connectionHeader || "(empty)"}'`,
         });
-        socket.write("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n");
-        socket.destroy();
-        return;
       }
 
       const url = new URL(req.url ?? "", `http://${req.headers.host}`);
