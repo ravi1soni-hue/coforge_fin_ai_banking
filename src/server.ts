@@ -42,18 +42,14 @@ async function start() {
 }
 
 async function bootstrapAndSync() {
-  try {
-    console.log("⏳ Bootstrapping banking user vectors...");
-    await bootstrapBankingUserVectors();
-    console.log("✅ Banking vectors loaded");
-
-    console.log("⏳ Syncing financial profiles...");
-
-    console.log("✅ Financial profiles synced");
-  } catch (err) {
-    console.error("⚠️ Background bootstrap failed:", err instanceof Error ? err.message : err);
-    console.warn("⚠️ Server is running but with degraded data - users can still connect");
-  }
+  // Bootstrapping disabled by request: DB already seeded, skip vector/user bootstrap
+  // If needed, re-enable the following lines:
+  // console.log("⏳ Bootstrapping banking user vectors...");
+  // await bootstrapBankingUserVectors();
+  // console.log("✅ Banking vectors loaded");
+  // console.log("⏳ Syncing financial profiles...");
+  // console.log("✅ Financial profiles synced");
+  return;
 }
 
 start();
