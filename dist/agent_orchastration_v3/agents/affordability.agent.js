@@ -8,6 +8,7 @@
  * Returns a structured AffordabilityInfo that the synthesis agent uses to
  * generate the final narrative.
  */
+import { sanitizeUserInput } from "../../utils/sanitizeUserInput.js";
 const SYSTEM_PROMPT = `You are an expert personal financial advisor in the UK banking sector.
 Analyse whether the user can afford the described purchase based on their financial profile.
 
@@ -44,11 +45,13 @@ export async function runAffordabilityAgent(llmClient, state) {
         priceInHome = price.price * fx.rate;
     }
     priceInHome = Math.round(priceInHome);
+    // Sanitize the user message before LLM call
+    const sanitizedUserMessage = sanitizeUserInput(state.userMessage);
     const messages = [
         { role: "system", content: SYSTEM_PROMPT },
         {
             role: "user",
-            content: `User question: "${state.userMessage}"
+            content: `User question: "${sanitizedUserMessage}"
 
 User financial profile:
 - Available savings:   ${savings.toLocaleString("en-GB")} ${currency}

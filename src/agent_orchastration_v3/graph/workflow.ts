@@ -49,12 +49,17 @@ function makeLoadProfileNode(loader: FinancialLoader) {
   };
 }
 
+import { sanitizeUserInput } from "../../utils/sanitizeUserInput.js";
+
 function makeSupervisorNode(llmClient: V3LlmClient) {
   return async function supervisorNode(state: FinancialState): Promise<Partial<FinancialState>> {
-    console.log("[supervisor] Analysing query: " + state.userMessage.slice(0, 80));
+    const originalUserMessage = state.userMessage;
+    const sanitizedUserMessage = sanitizeUserInput(originalUserMessage);
+    console.log("[supervisor] Analysing query (original): " + originalUserMessage.slice(0, 80));
+    console.log("[supervisor] Analysing query (sanitized): " + sanitizedUserMessage.slice(0, 80));
     const plan = await runSupervisorAgent(
       llmClient,
-      state.userMessage,
+      sanitizedUserMessage,
       state.userProfile,
       state.conversationHistory ?? [],
     );

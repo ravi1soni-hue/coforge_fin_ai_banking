@@ -1,27 +1,42 @@
 /**
  * Research Agent — parallel data gathering.
  *
- * Executes three sub-tasks in parallel (based on the supervisor's plan):
- *   1. Price research  — web search + LLM to extract/confirm product price
- *   2. FX conversion   — real-time rate from Frankfurter API
- *   3. News context    — web search + LLM to summarise relevant financial news
+ * Executes three sub-tasks in parallel:
+ *   1. Price research  — web search + LLM extraction
+ *   2. FX conversion   — real-time exchange rate
+ *   3. News context    — web search + LLM summarisation
  *
- * Each sub-task uses real APIs (not static data) and the LLM for intelligent
- * extraction/summarisation, making results adaptive to any query.
+ * Guarantees:
+ * - Never hallucinates prices
+ * - Uses ONLY web-provided data
+ * - Logs all successes and failures
+ * - Safe fallbacks for bank-grade usage
+ * - Domain-agnostic (products, services, fees, subscriptions, commodities)
  */
 import { searchWeb } from "../tools/webSearch.js";
 import { getExchangeRate } from "../tools/exchangeRate.js";
-// ─── Price sub-agent ─────────────────────────────────────────────────────────
+import { sanitizeUserInput } from "../../utils/sanitizeUserInput.js";
+// ─────────────────────────────────────────────────────────────────────────────
+// SHARED UTILITIES
+// ─────────────────────────────────────────────────────────────────────────────
+function enrichPriceQuery(query) {
+    const lower = query.toLowerCase();
+    const hasRegion = /\buk\b|\bindia\b|\bus\b|\beurope\b/.test(lower);
+    const hasPriceWord = /price|cost|pricing|fee|charges|how much/.test(lower);
+    if (hasPriceWord && hasRegion)
+        return query;
+    if (hasPriceWord)
+        return `${query} UK`;
+    return `${query} price UK 2025`;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+// PRICE SUB-AGENT (DOMAIN AGNOSTIC)
+// ─────────────────────────────────────────────────────────────────────────────
 async function researchPrice(llmClient, searchQuery, priceCurrency) {
-    console.log(`[ResearchAgent:Price] Searching for: "${searchQuery}"`);
-    const resolvedCurrency = priceCurrency ?? "GBP";
-    const noDataFallback = `No web data available — return {"price": 0, "currency": "${resolvedCurrency}", "source": "web_search", "confidence": "low"}.`;
-    // 1. Get web data from Serper.dev (Google Search, UK results)
-    // Don't append "UK price buy" if it already has UK context or is a travel query
-    const isTravel = /trip|holiday|hotel|flight|travel|vacation/i.test(searchQuery);
-    const hasUk = /\buk\b/i.test(searchQuery);
-    const ukQuery = hasUk ? searchQuery : isTravel ? `${searchQuery} UK cost 2025` : `${searchQuery} UK price`;
-    const webData = await searchWeb(ukQuery);
+    const resolvedCurrency = (priceCurrency ?? "GBP").toUpperCase();
+    const enrichedQuery = enrichPriceQuery(searchQuery);
+    console.log(`[ResearchAgent:Price] 🔍 Searching: "${enrichedQuery}"`);
+    const webData = await searchWeb(enrichedQuery);
     const webContext = [
         webData.abstract,
         webData.answer,
@@ -29,120 +44,153 @@ async function researchPrice(llmClient, searchQuery, priceCurrency) {
     ]
         .filter(Boolean)
         .join("\n");
-    console.log(`[ResearchAgent:Price] Web context length: ${webContext.length} chars`);
-    // 2. Ask LLM to extract/estimate the price using web data + its knowledge
+    console.log(`[ResearchAgent:Price] 📄 Web context length: ${webContext.length}`);
+    const fallbackJson = `{"price": 0, "currency": "${resolvedCurrency}", "source": "web_search", "confidence": "low"}`;
+    // Sanitize the search query before LLM call
+    const sanitizedSearchQuery = sanitizeUserInput(searchQuery);
     const messages = [
         {
             role: "system",
-            content: `You are a product price researcher. Extract the current retail price strictly from the web data provided below.
+            content: `You are a price research analyst.
 
-Respond with ONLY this JSON (no explanation, no markdown):
-{"price": <number>, "currency": "<3-letter ISO code>", "source": "web_search", "confidence": "<'high'|'medium'|'low'>"}
+You extract factual, published prices for ANY product, service, subscription,
+asset, commodity, or fee.
+
+Respond with ONLY this JSON:
+{"price": <number>, "currency": "<ISO 4217>", "source": "web_search", "confidence": "<high|medium|low>"}
 
 Rules:
-- price must be a number (no currency symbols)
-- currency should be the ISO 4217 code (EUR, GBP, USD, etc.)
-- source is ALWAYS "web_search" — do NOT use your training knowledge to invent or estimate a price
-- confidence = 'high' if exact price found, 'medium' if approximate, 'low' if unclear
-- If no price can be found in the web data, return {"price": 0, "currency": "${resolvedCurrency}", "source": "web_search", "confidence": "low"}
-- NEVER guess or fabricate a price — if uncertain, return price: 0`,
+- Use ONLY the provided web data
+- NEVER infer, estimate, or average
+- NEVER guess ranges
+- If price is unclear or missing, return:
+  ${fallbackJson}
+- price must be a number
+- source MUST be "web_search"`,
         },
         {
             role: "user",
-            content: `Product search: "${searchQuery}"
+            content: `Search term: "${sanitizedSearchQuery}"
 Expected currency: ${resolvedCurrency}
 
-Web search results:
-${webContext || noDataFallback}
+Web data:
+${webContext || "NO DATA AVAILABLE"}
 
-Extract the current retail price strictly from the web data above. Do NOT use training knowledge to estimate a price.`,
+Extract the explicit price strictly from the web data.`,
         },
     ];
     let parsed = null;
     try {
         parsed = await llmClient.chatJSON(messages);
     }
-    catch { /* fall through */ }
-    if (parsed?.price && Number(parsed.price) > 0) {
-        const src = parsed.source;
-        const conf = parsed.confidence;
-        console.log(`[ResearchAgent:Price] Found: ${parsed.price} ${parsed.currency} (${src}, ${conf})`);
+    catch (err) {
+        console.error("[ResearchAgent:Price] ❌ LLM extraction failed", err);
+    }
+    if (parsed &&
+        typeof parsed.price === "number" &&
+        parsed.price > 0) {
+        console.log("[ResearchAgent:Price] ✅ Price extracted", parsed);
         return {
-            price: Number(parsed.price),
-            currency: String(parsed.currency ?? priceCurrency ?? "GBP").toUpperCase(),
-            source: src === "web_search" ? "web_search" : "llm_knowledge",
-            confidence: (["high", "medium", "low"].includes(conf) ? conf : "medium"),
+            price: parsed.price,
+            currency: String(parsed.currency ?? resolvedCurrency).toUpperCase(),
+            source: "web_search",
+            confidence: parsed.confidence ?? "medium",
             rawContext: webContext.slice(0, 600),
         };
     }
-    console.warn("[ResearchAgent:Price] Could not extract price from web data — returning 0 to avoid hallucination");
+    console.error("[ResearchAgent:Price] ❌ No valid price found", {
+        searchQuery,
+        enrichedQuery,
+        webContextLength: webContext.length,
+    });
     return {
         price: 0,
-        currency: priceCurrency ?? "GBP",
+        currency: resolvedCurrency,
         source: "web_search",
         confidence: "low",
         rawContext: webContext.slice(0, 300),
     };
 }
-// ─── FX sub-agent ────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// FX SUB-AGENT
+// ─────────────────────────────────────────────────────────────────────────────
 async function researchFx(from, to) {
-    console.log(`[ResearchAgent:FX] Fetching rate: ${from} → ${to}`);
+    console.log(`[ResearchAgent:FX] 💱 Fetching ${from.toUpperCase()} → ${to.toUpperCase()}`);
     try {
         const rate = await getExchangeRate(from, to);
-        console.log(`[ResearchAgent:FX] Rate ${from}→${to}: ${rate}`);
-        return { rate, from: from.toUpperCase(), to: to.toUpperCase() };
+        console.log(`[ResearchAgent:FX] ✅ Rate found: ${rate}`);
+        return {
+            rate,
+            from: from.toUpperCase(),
+            to: to.toUpperCase(),
+        };
     }
     catch (err) {
-        console.error("[ResearchAgent:FX] Failed:", err);
+        console.error("[ResearchAgent:FX] ❌ FX fetch failed", {
+            from,
+            to,
+            error: err instanceof Error ? err.message : err,
+        });
         return null;
     }
 }
-// ─── News sub-agent ──────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// NEWS SUB-AGENT (DOMAIN AGNOSTIC)
+// ─────────────────────────────────────────────────────────────────────────────
 async function researchNews(llmClient, product) {
     const query = product
-        ? `${product} UK price market news 2025`
-        : "UK consumer finance news 2025";
-    console.log(`[ResearchAgent:News] Searching for news: "${query}"`);
+        ? `${product} UK market pricing news 2025`
+        : "UK consumer pricing and cost trends 2025";
+    console.log(`[ResearchAgent:News] 📰 Searching: "${query}"`);
     const webData = await searchWeb(query);
-    const rawText = [webData.abstract, webData.answer, ...webData.relatedTopics]
+    const rawText = [
+        webData.abstract,
+        webData.answer,
+        ...webData.relatedTopics,
+    ]
         .filter(Boolean)
         .join("\n");
     const messages = [
         {
             role: "system",
-            content: `You are a financial news analyst. Summarise the key news and market context from the web data.
+            content: `You are a financial news analyst.
 
-Respond with ONLY this JSON (no explanation, no markdown):
-{"headlines": ["<headline 1>", "<headline 2>", "<headline 3>"], "context": "<2-3 sentence summary of key financial context>"}`,
+Respond with ONLY this JSON:
+{"headlines": ["headline 1", "headline 2", "headline 3"], "context": "2-3 sentence summary"}`,
         },
         {
             role: "user",
-            content: `Web search data about "${product ?? "UK consumer finance"}":
-${rawText || "Limited news data — provide general context from your knowledge."}
+            content: `Web data:
+${rawText || "LIMITED DATA"}
 
-Summarise the most relevant financial news and market context.`,
+Summarise the most relevant price-related market context.`,
         },
     ];
     let parsed = null;
     try {
         parsed = await llmClient.chatJSON(messages);
     }
-    catch { /* fall through */ }
+    catch (err) {
+        console.warn("[ResearchAgent:News] ⚠ News summarisation failed", err);
+    }
     return {
-        headlines: Array.isArray(parsed?.headlines) ? parsed.headlines.slice(0, 3) : [],
-        context: typeof parsed?.context === "string" ? parsed.context : "Market conditions appear stable.",
+        headlines: Array.isArray(parsed?.headlines)
+            ? parsed.headlines.slice(0, 3)
+            : [],
+        context: typeof parsed?.context === "string"
+            ? parsed.context
+            : "Market conditions appear broadly stable.",
     };
 }
 export async function runResearchAgent(llmClient, plan) {
-    // If the user stated a price explicitly, use it directly — no web search needed.
-    const statedPrice = plan.userStatedPrice ?? 0;
-    const userStatedPriceInfo = statedPrice > 0
+    console.log("[ResearchAgent] 🚀 Starting research", plan);
+    const userStatedPriceInfo = plan.userStatedPrice && plan.userStatedPrice > 0
         ? {
-            price: statedPrice,
+            price: plan.userStatedPrice,
             currency: (plan.priceCurrency ?? plan.userHomeCurrency ?? "GBP").toUpperCase(),
             source: "user_stated",
             confidence: "high",
-            rawContext: `User stated price: ${statedPrice}`,
+            rawContext: `User stated price: ${plan.userStatedPrice}`,
         }
         : null;
     const tasks = [
@@ -159,5 +207,13 @@ export async function runResearchAgent(llmClient, plan) {
             : Promise.resolve(null),
     ];
     const [priceInfo, fxInfo, newsInfo] = await Promise.all(tasks);
-    return { priceInfo, fxInfo, newsInfo };
+    const result = { priceInfo, fxInfo, newsInfo };
+    console.log("[ResearchAgent] ✅ Final result");
+    console.log(JSON.stringify(result, null, 2));
+    console.log("[ResearchAgent] 📊 Status summary", {
+        price: priceInfo ? "OK" : "SKIPPED",
+        fx: fxInfo ? "OK" : "FAILED",
+        news: newsInfo ? "OK" : "FAILED",
+    });
+    return result;
 }

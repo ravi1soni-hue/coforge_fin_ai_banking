@@ -10,7 +10,7 @@
  *   Set PIPELINE_VERSION=v3 in your .env / Railway environment variables.
  *   The DI container reads this flag and wires the correct service automatically.
  */
-import { OpenAIClient } from "../agent_orchastration/llm/openAIClient.js";
+import { OpenAIClient } from "./llm/openAIClient.js";
 import { V3LlmClient } from "./llm/v3LlmClient.js";
 import { PipelineV3 } from "./PipelineV3.js";
 export class ChatServiceV3 {

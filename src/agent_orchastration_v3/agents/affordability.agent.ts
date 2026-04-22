@@ -12,6 +12,7 @@
 import type { V3LlmClient } from "../llm/v3LlmClient.js";
 import type { AgenticMessage } from "../types.js";
 import type { FinancialState, AffordabilityInfo } from "../graph/state.js";
+import { sanitizeUserInput } from "../../utils/sanitizeUserInput.js";
 
 const SYSTEM_PROMPT = `You are an expert personal financial advisor in the UK banking sector.
 Analyse whether the user can afford the described purchase based on their financial profile.
@@ -56,11 +57,13 @@ export async function runAffordabilityAgent(
   }
   priceInHome = Math.round(priceInHome);
 
+  // Sanitize the user message before LLM call
+  const sanitizedUserMessage = sanitizeUserInput(state.userMessage);
   const messages: AgenticMessage[] = [
     { role: "system", content: SYSTEM_PROMPT },
     {
       role: "user",
-      content: `User question: "${state.userMessage}"
+      content: `User question: "${sanitizedUserMessage}"
 
 User financial profile:
 - Available savings:   ${savings.toLocaleString("en-GB")} ${currency}

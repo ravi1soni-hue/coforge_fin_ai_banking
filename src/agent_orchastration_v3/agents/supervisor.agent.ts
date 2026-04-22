@@ -12,6 +12,7 @@
 import type { V3LlmClient } from "../llm/v3LlmClient.js";
 import type { AgenticMessage, UserProfile } from "../types.js";
 import type { AgentPlan, ConversationTurn } from "../graph/state.js";
+import { sanitizeUserInput } from "../../utils/sanitizeUserInput.js";
 
 const SYSTEM_PROMPT = `You are a financial assistant supervisor serving UK-based clients exclusively.
 
@@ -140,6 +141,7 @@ export async function runSupervisorAgent(
   userProfile: UserProfile | null,
   conversationHistory: ConversationTurn[] = [],
 ): Promise<AgentPlan> {
+  const sanitizedUserMessage = sanitizeUserInput(userMessage);
   const homeCurrency = String(userProfile?.homeCurrency ?? "GBP");
 
   // Pass ONLY user turns to the supervisor — the assistant's previous responses are outputs, not ground truth.
@@ -157,7 +159,7 @@ export async function runSupervisorAgent(
     { role: "system", content: SYSTEM_PROMPT },
     {
       role: "user",
-      content: `User's home currency: ${homeCurrency}${historyText}\n\nCurrent message: "${userMessage}"`,
+      content: `User's home currency: ${homeCurrency}${historyText}\n\nCurrent message: "${sanitizedUserMessage}"`,
     },
   ];
 

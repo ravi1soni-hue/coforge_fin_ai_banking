@@ -227,7 +227,8 @@ export const initWebSocket = (server) => {
                 }
                 const parsedMessage = parseIncomingMessage(messageString);
                 requestId = parsedMessage.requestId;
-                if (parsedMessage.sessionId) {
+                // ✅ Adopt client-provided sessionId ONLY ONCE
+                if (!ws.sessionId && parsedMessage.sessionId) {
                     ws.sessionId = parsedMessage.sessionId;
                 }
                 sessionId = parsedMessage.sessionId ?? ws.sessionId;

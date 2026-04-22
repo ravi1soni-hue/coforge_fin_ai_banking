@@ -13,7 +13,7 @@ import { runSupervisorAgent } from "../agents/supervisor.agent.js";
 import { runResearchAgent } from "../agents/research.agent.js";
 import { runAffordabilityAgent } from "../agents/affordability.agent.js";
 import { runSynthesisAgent } from "../agents/synthesis.agent.js";
-import { FinancialLoader } from "../../agent_orchastration_v2/financialLoader.js";
+import { FinancialLoader } from "../financialLoader.js";
 // ─── Node factory functions ───────────────────────────────────────────────────
 function makeLoadProfileNode(loader) {
     return async function loadProfileNode(state) {
@@ -23,10 +23,14 @@ function makeLoadProfileNode(loader) {
         return { userProfile: profile };
     };
 }
+import { sanitizeUserInput } from "../../utils/sanitizeUserInput.js";
 function makeSupervisorNode(llmClient) {
     return async function supervisorNode(state) {
-        console.log("[supervisor] Analysing query: " + state.userMessage.slice(0, 80));
-        const plan = await runSupervisorAgent(llmClient, state.userMessage, state.userProfile, state.conversationHistory ?? []);
+        const originalUserMessage = state.userMessage;
+        const sanitizedUserMessage = sanitizeUserInput(originalUserMessage);
+        console.log("[supervisor] Analysing query (original): " + originalUserMessage.slice(0, 80));
+        console.log("[supervisor] Analysing query (sanitized): " + sanitizedUserMessage.slice(0, 80));
+        const plan = await runSupervisorAgent(llmClient, sanitizedUserMessage, state.userProfile, state.conversationHistory ?? []);
         return { plan };
     };
 }
@@ -72,7 +76,9 @@ function routeAfterResearch(state) {
     // affordability agent produces a meaningless verdict and wastes an LLM call.
     // Synthesis already handles the "price unknown" case and will ask the user.
     const hasVerifiedPrice = (state.priceInfo?.price ?? 0) > 0;
-    if (state.plan?.needsAffordability && hasVerifiedPrice)
+    // Run affordability for both affordability AND EMI requests — EMI needs the
+    // priceInHomeCurrency anchor so synthesis doesn't have to guess the subject.
+    if ((state.plan?.needsAffordability || state.plan?.needsEmi) && hasVerifiedPrice)
         return "affordability";
     return "synthesis";
 }

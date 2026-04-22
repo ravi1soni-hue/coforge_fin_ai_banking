@@ -19,6 +19,7 @@ import type { AgenticMessage } from "../types.js";
 import type { AgentPlan, PriceInfo, FxInfo, NewsInfo } from "../graph/state.js";
 import { searchWeb } from "../tools/webSearch.js";
 import { getExchangeRate } from "../tools/exchangeRate.js";
+import { sanitizeUserInput } from "../../utils/sanitizeUserInput.js";
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -69,6 +70,8 @@ async function researchPrice(
 
   const fallbackJson = `{"price": 0, "currency": "${resolvedCurrency}", "source": "web_search", "confidence": "low"}`;
 
+  // Sanitize the search query before LLM call
+  const sanitizedSearchQuery = sanitizeUserInput(searchQuery);
   const messages: AgenticMessage[] = [
     {
       role: "system",
@@ -91,7 +94,7 @@ Rules:
     },
     {
       role: "user",
-      content: `Search term: "${searchQuery}"
+      content: `Search term: "${sanitizedSearchQuery}"
 Expected currency: ${resolvedCurrency}
 
 Web data:
