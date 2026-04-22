@@ -1,26 +1,26 @@
+dotenv.config();
 import dotenv from "dotenv";
 dotenv.config();
 function requireEnv(name) {
     const value = process.env[name];
-    if (!value) {
+    if (!value || !value.trim()) {
         throw new Error(`❌ Missing required environment variable: ${name}`);
     }
-    return value;
+    return value.trim();
 }
 function optionalEnv(name, fallback) {
     const value = process.env[name];
-    return value && value.trim() ? value : fallback;
+    return value && value.trim() ? value.trim() : fallback;
 }
 function optionalInt(name, fallback) {
     const value = process.env[name];
-    if (!value) {
+    if (!value || !value.trim())
         return fallback;
-    }
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
 }
 export const ENV = {
-    PORT: Number(process.env.PORT) || 3000,
+    PORT: optionalInt("PORT", 3000),
     OPENAI_API_KEY: requireEnv("OPENAI_API_KEY"),
     DATABASE_URL: requireEnv("DATABASE_URL"),
     MARKET_DATA_STOOQ_BASE_URL: optionalEnv("MARKET_DATA_STOOQ_BASE_URL", "https://stooq.com"),
