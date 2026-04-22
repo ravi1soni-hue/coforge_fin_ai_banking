@@ -13,10 +13,11 @@ export class UserRepository {
             .executeTakeFirst();
     }
     async findByExternalId(externalId) {
+        // Case-insensitive and trimmed lookup for robustness
         return this.db
             .selectFrom("users")
             .selectAll()
-            .where("external_user_id", "=", externalId)
+            .where(sql `LOWER(TRIM(external_user_id))`, "=", externalId.trim().toLowerCase())
             .executeTakeFirst();
     }
     async create(user) {

@@ -22,10 +22,11 @@ export class UserRepository {
   }
 
   async findByExternalId(externalId: string): Promise<User | undefined> {
+    // Case-insensitive and trimmed lookup for robustness
     return this.db
       .selectFrom("users")
       .selectAll()
-      .where("external_user_id", "=", externalId)
+      .where(sql`LOWER(TRIM(external_user_id))`, "=", externalId.trim().toLowerCase())
       .executeTakeFirst();
   }
 

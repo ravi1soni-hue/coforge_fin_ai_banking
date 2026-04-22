@@ -7,22 +7,26 @@ const c = new Client({
   ssl: { rejectUnauthorized: false },
 });
 
-c.connect().then(async () => {
+async function run() {
+    try {
+        console.log("Connecting...");
+        await c.connect();
+        console.log("Connected.");
 
-  const u = await c.query(
-    "SELECT id, external_user_id, full_name FROM users WHERE LOWER(TRIM(external_user_id)) = $1",
-    ["uk_user_001"]
-  );
+        const u = await c.query(
+            "SELECT id, external_user_id, full_name FROM users WHERE LOWER(TRIM(external_user_id)) = $1",
+            ["uk_user_001"]
+        );
 
-  if (!u.rows[0]) {
-    console.log("❌ uk_user_001 NOT found in DB");
-    await c.end();
-    return;
-  }
+        if (!u.rows[0]) {
+            console.log("❌ uk_user_001 NOT found in DB");
+            await c.end();
+            return;
+        }
 
-  const user = u.rows[0];
-  console.log("✅ User found:");
-  console.log("   external_user_id :", user.external_user_id);
+        const user = u.rows[0];
+        console.log("✅ User found:");
+        console.log("   external_user_id :", user.external_user_id);
   console.log("   internal UUID    :", user.id);
   console.log("   full_name        :", user.full_name);
 
@@ -44,7 +48,7 @@ c.connect().then(async () => {
   console.log("\n📊 All data linked to uk_user_001:");
   counts.rows.forEach((r) => {
     const icon = parseInt(r.count) > 0 ? "✅" : "❌";
-    console.log(`  ${icon}  ${r.tbl.padEnd(35)} ${r.count} rows`);
+    console.log("  " + icon + "  " + r.tbl.padEnd(35) + " " + r.count + " rows");
   });
 
   console.log("\n🔗 Flow: Flutter sends userId=uk_user_001");
@@ -53,7 +57,10 @@ c.connect().then(async () => {
   console.log("   AI queries structured tables  WHERE user_id =", uid);
 
   await c.end();
-}).catch((e) => {
-  console.error("❌", e.message);
-  process.exit(1);
-});
+    } catch (e) {
+        console.error("❌", e.message);
+        process.exit(1);
+    }
+}
+
+run();
