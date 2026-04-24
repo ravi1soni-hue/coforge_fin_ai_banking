@@ -63,6 +63,7 @@ export interface UserProfile {
   accountBalance?: number;
   accounts?: any[];
   investments?: any[];
+  topInvestments?: any[];
   loans?: any[];
   creditProfile?: any;
   monthlySummaries?: any[];

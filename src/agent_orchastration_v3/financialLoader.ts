@@ -31,7 +31,7 @@ export class FinancialLoader {
     userId: string,
     knownFacts: Record<string, unknown>,
   ): Promise<UserProfile> {
-    // Aggregate all relevant tables for a unified profile
+    console.log("[FinancialLoader] loadProfile called for userId:", userId);
     if (!this.db) throw new Error("DB required for full profile aggregation");
     let profile: UserProfile = {
       availableSavings: 0,
@@ -40,8 +40,10 @@ export class FinancialLoader {
 
     // 1. User Financial Profile
     const [ufp]: any[] = await this.db.selectFrom("user_financial_profiles" as any).selectAll().where("user_id" as any, "=", userId as any).execute();
+    console.log("[FinancialLoader] user_financial_profiles:", ufp);
     if (ufp) {
       profile.availableSavings = parseNum(ufp.current_balance) ?? 0;
+      profile.accountBalance = parseNum(ufp.current_balance) ?? 0;
       profile.monthlyIncome = parseNum(ufp.monthly_income);
       profile.monthlyExpenses = parseNum(ufp.monthly_expenses);
       profile.netMonthlySurplus = parseNum(ufp.net_monthly_savings);
@@ -50,22 +52,30 @@ export class FinancialLoader {
 
     // 2. All Account Balances
     profile.accounts = await this.db.selectFrom("account_balances" as any).selectAll().where("user_id" as any, "=", userId as any).execute();
+    console.log("[FinancialLoader] account_balances:", profile.accounts);
 
     // 3. Investments
-    profile.investments = await this.db.selectFrom("investment_summary" as any).selectAll().where("user_id" as any, "=", userId as any).execute();
+    const investments = await this.db.selectFrom("investment_summary" as any).selectAll().where("user_id" as any, "=", userId as any).execute();
+    profile.investments = investments;
+    profile.topInvestments = investments?.slice(0, 3) ?? [];
+    console.log("[FinancialLoader] investment_summary:", investments);
 
     // 4. Loans
     profile.loans = await this.db.selectFrom("loan_accounts" as any).selectAll().where("user_id" as any, "=", userId as any).execute();
+    console.log("[FinancialLoader] loan_accounts:", profile.loans);
 
     // 5. Monthly Financial Summary
     profile.monthlySummaries = await this.db.selectFrom("financial_summary_monthly" as any).selectAll().where("user_id" as any, "=", userId as any).execute();
+    console.log("[FinancialLoader] financial_summary_monthly:", profile.monthlySummaries);
 
     // 6. Credit Profile
     const [credit]: any[] = await this.db.selectFrom("credit_profile" as any).selectAll().where("user_id" as any, "=", userId as any).execute();
+    console.log("[FinancialLoader] credit_profile:", credit);
     if (credit) profile.creditProfile = credit;
 
     // 7. User name (from users table)
     const [user]: any[] = await this.db.selectFrom("users" as any).selectAll().where("id" as any, "=", userId as any).execute();
+    console.log("[FinancialLoader] users:", user);
     if (user) profile.userName = (user as any).full_name;
 
     // Fallback: If no data at all, return minimal
@@ -74,6 +84,7 @@ export class FinancialLoader {
       profile.homeCurrency = "GBP";
     }
 
+    console.log("[FinancialLoader] Final profile:", profile);
     return profile;
   }
 }

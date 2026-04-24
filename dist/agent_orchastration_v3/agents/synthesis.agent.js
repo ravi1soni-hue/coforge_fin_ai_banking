@@ -119,18 +119,64 @@ export async function runSynthesisAgent(llmClient, state) {
     if (state.plan?.fallbackIntent) {
         return "I'm not sure I understood your request fully, but I'm here to help with any banking, subscription, or investment questions. Could you clarify or rephrase?";
     }
+    // --- Unified schema-driven responses for all major intents ---
     if (state.plan?.intent === "subscription") {
+        // TODO: Add subscription DB logic if/when available
         return "Here's a summary of your active subscriptions and recurring payments. If you want details or to manage any, just let me know!";
     }
     if (state.plan?.intent === "investment") {
-        return "Here's an overview of your current investments. If you want to discuss performance, add new investments, or get advice, just ask!";
+        if (state.userProfile?.investments && state.userProfile.investments.length > 0) {
+            const top = state.userProfile.topInvestments || state.userProfile.investments.slice(0, 3);
+            let msg = `Here are your top investments:`;
+            top.forEach((inv, idx) => {
+                msg += `\n${idx + 1}. ${inv.investment_name || inv.name || "Investment"}: £${Number(inv.current_value || inv.value || 0).toLocaleString("en-GB")} ${inv.currency || state.userProfile?.homeCurrency || "GBP"}`;
+            });
+            return msg;
+        }
+        return "No investments found for your account.";
     }
     if (state.plan?.intent === "balance") {
-        // If no liquidity, fallback to warm message
-        if (state.userProfile?.accountBalance === 0 || state.userProfile?.accountBalance == null) {
-            return "It looks like there’s currently no available liquidity in your account in GBP. Let me know if you’d like me to review recent movements or upcoming payments so we can plan accordingly.";
+        if (typeof state.userProfile?.accountBalance === "number" && state.userProfile.accountBalance > 0) {
+            return `Your current account balance is £${state.userProfile.accountBalance.toLocaleString("en-GB")} GBP.`;
         }
-        return `Your current account balance is £${state.userProfile?.accountBalance?.toLocaleString("en-GB") ?? "unknown"} GBP.`;
+        if (state.userProfile?.accounts && state.userProfile.accounts.length > 0) {
+            const gbp = state.userProfile.accounts.find((a) => a.currency === "GBP");
+            if (gbp && typeof gbp.balance === "number") {
+                return `Your current GBP account balance is £${gbp.balance.toLocaleString("en-GB")} GBP.`;
+            }
+        }
+        return "No account balance data found.";
+    }
+    if (state.plan?.intent === "loan" || state.plan?.intent === "loans") {
+        if (state.userProfile?.loans && state.userProfile.loans.length > 0) {
+            let msg = `Here are your loans:`;
+            state.userProfile.loans.forEach((loan, idx) => {
+                msg += `\n${idx + 1}. ${loan.loan_type || "Loan"}: £${Number(loan.outstanding_amount || loan.outstanding_balance || 0).toLocaleString("en-GB")} ${loan.currency || state.userProfile?.homeCurrency || "GBP"}`;
+            });
+            return msg;
+        }
+        return "No loans found for your account.";
+    }
+    if (state.plan?.intent === "credit" || state.plan?.intent === "credit_profile") {
+        if (state.userProfile?.creditProfile) {
+            let msg = `Here is your credit profile:`;
+            Object.entries(state.userProfile.creditProfile).forEach(([k, v]) => {
+                if (v !== null && v !== undefined)
+                    msg += `\n- ${k}: ${v}`;
+            });
+            return msg;
+        }
+        return "No credit profile found for your account.";
+    }
+    if (state.plan?.intent === "summary" || state.plan?.intent === "monthly_summary") {
+        if (state.userProfile?.monthlySummaries && state.userProfile.monthlySummaries.length > 0) {
+            let msg = `Here is your monthly financial summary:`;
+            state.userProfile.monthlySummaries.forEach((ms) => {
+                msg += `\n- ${ms.month}: Income £${ms.total_income?.toLocaleString("en-GB") ?? "-"}, Expenses £${ms.total_expenses?.toLocaleString("en-GB") ?? "-"}, Savings £${ms.total_savings?.toLocaleString("en-GB") ?? "-"}, Investments £${ms.total_investments?.toLocaleString("en-GB") ?? "-"}, Net Cashflow £${ms.net_cashflow?.toLocaleString("en-GB") ?? "-"}`;
+            });
+            return msg;
+        }
+        return "No monthly summary data found.";
     }
     const messages = [
         { role: "system", content: SYSTEM_PROMPT },

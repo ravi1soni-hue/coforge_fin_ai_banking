@@ -35,6 +35,7 @@ export class FinancialLoader {
         const [ufp] = await this.db.selectFrom("user_financial_profiles").selectAll().where("user_id", "=", userId).execute();
         if (ufp) {
             profile.availableSavings = parseNum(ufp.current_balance) ?? 0;
+            profile.accountBalance = parseNum(ufp.current_balance) ?? 0; // Patch: set accountBalance for downstream
             profile.monthlyIncome = parseNum(ufp.monthly_income);
             profile.monthlyExpenses = parseNum(ufp.monthly_expenses);
             profile.netMonthlySurplus = parseNum(ufp.net_monthly_savings);
@@ -43,7 +44,10 @@ export class FinancialLoader {
         // 2. All Account Balances
         profile.accounts = await this.db.selectFrom("account_balances").selectAll().where("user_id", "=", userId).execute();
         // 3. Investments
-        profile.investments = await this.db.selectFrom("investment_summary").selectAll().where("user_id", "=", userId).execute();
+        const investments = await this.db.selectFrom("investment_summary").selectAll().where("user_id", "=", userId).execute();
+        profile.investments = investments;
+        // Patch: Also surface top 3 investments for summary
+        profile.topInvestments = investments?.slice(0, 3) ?? [];
         // 4. Loans
         profile.loans = await this.db.selectFrom("loan_accounts").selectAll().where("user_id", "=", userId).execute();
         // 5. Monthly Financial Summary
