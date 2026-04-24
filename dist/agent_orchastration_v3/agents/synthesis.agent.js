@@ -200,6 +200,69 @@ export async function runSynthesisAgent(llmClient, state) {
         console.log("[SynthesisAgent] No monthly summary data found");
         return "No monthly summary data found.";
     }
+    if (state.plan?.intent === "affordability" || state.plan?.goalType === "TRIP" || state.plan?.goalType === "PURCHASE") {
+        // Affordability/goal-based queries - enumerate all relevant DB data, add deep logging, and make responses context-aware
+        const af = state.affordabilityInfo;
+        const up = state.userProfile || {};
+        let msg = `Let me break down your affordability based on all available data:\n`;
+        msg += `- Monthly Income: £${up.monthlyIncome?.toLocaleString("en-GB") ?? "-"}\n`;
+        msg += `- Monthly Expenses: £${up.monthlyExpenses?.toLocaleString("en-GB") ?? "-"}\n`;
+        msg += `- Savings: £${up.availableSavings?.toLocaleString("en-GB") ?? "-"}\n`;
+        if (up.accountBalance !== undefined)
+            msg += `- Total Account Balance: £${up.accountBalance?.toLocaleString("en-GB") ?? "-"}\n`;
+        if (up.accounts && up.accounts.length > 0) {
+            msg += `- Accounts:\n`;
+            up.accounts.forEach((acc, idx) => {
+                msg += `    ${idx + 1}. ${acc.account_type || "Account"} (${acc.provider || "Provider"}): £${Number(acc.balance || 0).toLocaleString("en-GB")} ${acc.currency || up.homeCurrency || "GBP"}\n`;
+            });
+        }
+        if (up.loans && up.loans.length > 0) {
+            msg += `- Loans:\n`;
+            up.loans.forEach((loan, idx) => {
+                msg += `    ${idx + 1}. ${loan.loan_type || "Loan"}: £${Number(loan.outstanding_amount || loan.outstanding_balance || 0).toLocaleString("en-GB")} ${loan.currency || up.homeCurrency || "GBP"}\n`;
+            });
+        }
+        if (up.investments && up.investments.length > 0) {
+            msg += `- Investments:\n`;
+            up.investments.forEach((inv, idx) => {
+                msg += `    ${idx + 1}. ${(inv.investment_name || inv.name || inv.investment_type || "Investment")}: £${Number(inv.current_value || inv.value || 0).toLocaleString("en-GB")} ${inv.currency || up.homeCurrency || "GBP"}\n`;
+            });
+        }
+        if (up.monthlySummaries && up.monthlySummaries.length > 0) {
+            msg += `- Recent Monthly Summaries:\n`;
+            up.monthlySummaries.slice(-3).forEach((ms) => {
+                msg += `    ${ms.month}: Income £${ms.total_income?.toLocaleString("en-GB") ?? "-"}, Expenses £${ms.total_expenses?.toLocaleString("en-GB") ?? "-"}, Savings £${ms.total_savings?.toLocaleString("en-GB") ?? "-"}, Investments £${ms.total_investments?.toLocaleString("en-GB") ?? "-"}, Net Cashflow £${ms.net_cashflow?.toLocaleString("en-GB") ?? "-"}\n`;
+            });
+        }
+        if (up.creditProfile) {
+            msg += `- Credit Profile:\n`;
+            Object.entries(up.creditProfile).forEach(([k, v]) => {
+                if (v !== null && v !== undefined)
+                    msg += `    - ${k}: ${v}\n`;
+            });
+        }
+        if (af && af.priceInHomeCurrency && af.priceInHomeCurrency > 0) {
+            msg += `\nThe cost you provided is £${af.priceInHomeCurrency.toLocaleString("en-GB")} ${up.homeCurrency || "GBP"}.`;
+            if (af.priceInHomeCurrency < (up.availableSavings ?? 0)) {
+                msg += `\nYou can comfortably afford this from your savings.`;
+            }
+            else if (af.priceInHomeCurrency < (up.accountBalance ?? 0)) {
+                msg += `\nYou can afford this from your total account balances.`;
+            }
+            else {
+                msg += `\nThis may stretch your finances; consider spreading the cost or reviewing your upcoming expenses.`;
+            }
+            if (af.emiSuggested || state.plan?.needsEmi) {
+                msg += `\n\nWould you like me to help you plan how to spread the cost so it doesn’t impact your savings too much?`;
+            }
+        }
+        else {
+            msg += `\nYou should be able to afford this ${state.plan?.goalType === "TRIP" ? "trip" : "purchase"} without straining your budget, based on your current profile.`;
+        }
+        msg += `\n\n[Trace] Data used: income, expenses, savings, accounts, loans, investments, credit profile, monthly summaries.`;
+        console.log("[SynthesisAgent] Affordability response:", msg, "\n[Trace] state:", JSON.stringify(state, null, 2));
+        return msg;
+    }
     const messages = [
         { role: "system", content: SYSTEM_PROMPT },
         {

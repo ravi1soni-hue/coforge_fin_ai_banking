@@ -21,42 +21,42 @@ function buildDataContext(state: FinancialState): string {
   if (up) {
     parts.push(`USER FINANCIAL PROFILE:`);
     if (up.userName) parts.push(`- Name: ${up.userName}`);
-    if (up.availableSavings !== undefined) parts.push(`- Available savings: £${up.availableSavings.toLocaleString("en-GB")} ${homeCurrency}`);
-    if (up.monthlyIncome !== undefined) parts.push(`- Monthly income: £${up.monthlyIncome.toLocaleString("en-GB")} ${homeCurrency}`);
-    if (up.monthlyExpenses !== undefined) parts.push(`- Monthly expenses: £${up.monthlyExpenses.toLocaleString("en-GB")} ${homeCurrency}`);
+    if ((up as any).availableSavings !== undefined) parts.push(`- Available savings: £${(up as any).availableSavings.toLocaleString("en-GB")} ${homeCurrency}`);
+    if ((up as any).monthlyIncome !== undefined) parts.push(`- Monthly income: £${(up as any).monthlyIncome.toLocaleString("en-GB")} ${homeCurrency}`);
+    if ((up as any).monthlyExpenses !== undefined) parts.push(`- Monthly expenses: £${(up as any).monthlyExpenses.toLocaleString("en-GB")} ${homeCurrency}`);
     if (up.netMonthlySurplus !== undefined) parts.push(`- Net monthly surplus: £${up.netMonthlySurplus.toLocaleString("en-GB")} ${homeCurrency}`);
     // All accounts
-    if (up.accounts && up.accounts.length > 0) {
+    if ((up as any).accounts && (up as any).accounts.length > 0) {
       parts.push(`\nACCOUNTS:`);
-      up.accounts.forEach((acc: any) => {
+      (up as any).accounts.forEach((acc: any) => {
         parts.push(`- ${acc.account_type || "Account"}: £${Number(acc.balance).toLocaleString("en-GB")} ${acc.currency || homeCurrency}`);
       });
     }
     // Investments
-    if (up.investments && up.investments.length > 0) {
+    if ((up as any).investments && (up as any).investments.length > 0) {
       parts.push(`\nINVESTMENTS:`);
-      up.investments.forEach((inv: any) => {
+      (up as any).investments.forEach((inv: any) => {
         parts.push(`- ${inv.investment_type || "Investment"}: £${Number(inv.current_value).toLocaleString("en-GB")} ${inv.currency || homeCurrency}`);
       });
     }
     // Loans
-    if (up.loans && up.loans.length > 0) {
+    if ((up as any).loans && (up as any).loans.length > 0) {
       parts.push(`\nLOANS:`);
-      up.loans.forEach((loan: any) => {
+      (up as any).loans.forEach((loan: any) => {
         parts.push(`- ${loan.loan_type || "Loan"}: £${Number(loan.outstanding_balance).toLocaleString("en-GB")} ${loan.currency || homeCurrency}`);
       });
     }
     // Credit profile
-    if (up.creditProfile) {
+    if ((up as any).creditProfile) {
       parts.push(`\nCREDIT PROFILE:`);
-      Object.entries(up.creditProfile).forEach(([k, v]) => {
+      Object.entries((up as any).creditProfile).forEach(([k, v]) => {
         if (v !== null && v !== undefined) parts.push(`- ${k}: ${v}`);
       });
     }
     // Monthly summaries
-    if (up.monthlySummaries && up.monthlySummaries.length > 0) {
+    if ((up as any).monthlySummaries && (up as any).monthlySummaries.length > 0) {
       parts.push(`\nMONTHLY SUMMARY:`);
-      up.monthlySummaries.forEach((ms: any) => {
+      (up as any).monthlySummaries.forEach((ms: any) => {
         parts.push(`- ${ms.month}: Income £${ms.income?.toLocaleString("en-GB") ?? "-"}, Expenses £${ms.expenses?.toLocaleString("en-GB") ?? "-"}, Savings £${ms.savings?.toLocaleString("en-GB") ?? "-"}`);
       });
     }
@@ -203,6 +203,64 @@ export async function runSynthesisAgent(
     return "No monthly summary data found.";
   }
 
+  if ((state.plan?.intent as any) === "affordability" || (state.plan as any)?.goalType === "TRIP" || (state.plan as any)?.goalType === "PURCHASE") {
+    // Affordability/goal-based queries - enumerate all relevant DB data, add deep logging, and make responses context-aware
+    const af = state.affordabilityInfo;
+    const up = state.userProfile || {};
+    let msg = `Let me break down your affordability based on all available data:\n`;
+    msg += `- Monthly Income: £${(up as any).monthlyIncome?.toLocaleString("en-GB") ?? "-"}\n`;
+    msg += `- Monthly Expenses: £${(up as any).monthlyExpenses?.toLocaleString("en-GB") ?? "-"}\n`;
+    msg += `- Savings: £${(up as any).availableSavings?.toLocaleString("en-GB") ?? "-"}\n`;
+    if ((up as any).accountBalance !== undefined) msg += `- Total Account Balance: £${(up as any).accountBalance?.toLocaleString("en-GB") ?? "-"}\n`;
+    if ((up as any).accounts && (up as any).accounts.length > 0) {
+      msg += `- Accounts:\n`;
+      (up as any).accounts.forEach((acc: any, idx: number) => {
+        msg += `    ${idx + 1}. ${acc.account_type || "Account"} (${acc.provider || "Provider"}): £${Number(acc.balance || 0).toLocaleString("en-GB")} ${acc.currency || (up as any).homeCurrency || "GBP"}\n`;
+      });
+    }
+    if ((up as any).loans && (up as any).loans.length > 0) {
+      msg += `- Loans:\n`;
+      (up as any).loans.forEach((loan: any, idx: number) => {
+        msg += `    ${idx + 1}. ${loan.loan_type || "Loan"}: £${Number(loan.outstanding_amount || loan.outstanding_balance || 0).toLocaleString("en-GB")} ${loan.currency || (up as any).homeCurrency || "GBP"}\n`;
+      });
+    }
+    if ((up as any).investments && (up as any).investments.length > 0) {
+      msg += `- Investments:\n`;
+      (up as any).investments.forEach((inv: any, idx: number) => {
+        msg += `    ${idx + 1}. ${(inv.investment_name || inv.name || inv.investment_type || "Investment")}: £${Number(inv.current_value || inv.value || 0).toLocaleString("en-GB")} ${inv.currency || (up as any).homeCurrency || "GBP"}\n`;
+      });
+    }
+    if ((up as any).monthlySummaries && (up as any).monthlySummaries.length > 0) {
+      msg += `- Recent Monthly Summaries:\n`;
+      (up as any).monthlySummaries.slice(-3).forEach((ms: any) => {
+        msg += `    ${ms.month}: Income £${ms.total_income?.toLocaleString("en-GB") ?? "-"}, Expenses £${ms.total_expenses?.toLocaleString("en-GB") ?? "-"}, Savings £${ms.total_savings?.toLocaleString("en-GB") ?? "-"}, Investments £${ms.total_investments?.toLocaleString("en-GB") ?? "-"}, Net Cashflow £${ms.net_cashflow?.toLocaleString("en-GB") ?? "-"}\n`;
+      });
+    }
+    if ((up as any).creditProfile) {
+      msg += `- Credit Profile:\n`;
+      Object.entries((up as any).creditProfile).forEach(([k, v]) => {
+        if (v !== null && v !== undefined) msg += `    - ${k}: ${v}\n`;
+      });
+    }
+    if (af && af.priceInHomeCurrency && af.priceInHomeCurrency > 0) {
+      msg += `\nThe cost you provided is £${af.priceInHomeCurrency.toLocaleString("en-GB")} ${(up as any).homeCurrency || "GBP"}.`;
+      if (af.priceInHomeCurrency < ((up as any).availableSavings ?? 0)) {
+        msg += `\nYou can comfortably afford this from your savings.`;
+      } else if (af.priceInHomeCurrency < ((up as any).accountBalance ?? 0)) {
+        msg += `\nYou can afford this from your total account balances.`;
+      } else {
+        msg += `\nThis may stretch your finances; consider spreading the cost or reviewing your upcoming expenses.`;
+      }
+      if (af.emiSuggested || state.plan?.needsEmi) {
+        msg += `\n\nWould you like me to help you plan how to spread the cost so it doesn’t impact your savings too much?`;
+      }
+    } else {
+      msg += `\nYou should be able to afford this ${(state.plan as any)?.goalType === "TRIP" ? "trip" : "purchase"} without straining your budget, based on your current profile.`;
+    }
+    msg += `\n\n[Trace] Data used: income, expenses, savings, accounts, loans, investments, credit profile, monthly summaries.`;
+    console.log("[SynthesisAgent] Affordability response:", msg, "\n[Trace] state:", JSON.stringify(state, null, 2));
+    return msg;
+  }
   const messages: AgenticMessage[] = [
     { role: "system", content: SYSTEM_PROMPT },
     {
