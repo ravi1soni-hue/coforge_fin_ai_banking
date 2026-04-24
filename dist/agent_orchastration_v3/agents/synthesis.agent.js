@@ -94,7 +94,10 @@ function buildDataContext(state) {
     return parts.join("\n");
 }
 export async function runSynthesisAgent(llmClient, state) {
+    console.log("[SynthesisAgent] runSynthesisAgent called");
+    console.log("[SynthesisAgent] state.plan:", state.plan);
     const dataContext = buildDataContext(state);
+    console.log("[SynthesisAgent] dataContext:\n", dataContext);
     const historyText = state.conversationHistory && state.conversationHistory.length > 0
         ? "\n\nConversation history (most recent last):\n" +
             state.conversationHistory
@@ -114,68 +117,88 @@ export async function runSynthesisAgent(llmClient, state) {
     const sanitizedUserMessage = sanitizeUserInput(state.userMessage);
     // --- Unified Patch: Add cold start/fallback/generic intent handling ---
     if (state.plan?.dbWakingUp) {
+        console.log("[SynthesisAgent] DB waking up fallback");
         return "I'm waking up your account data now—please hold on just a moment. This can take a few seconds if the system was idle.";
     }
     if (state.plan?.fallbackIntent) {
+        console.log("[SynthesisAgent] Fallback intent");
         return "I'm not sure I understood your request fully, but I'm here to help with any banking, subscription, or investment questions. Could you clarify or rephrase?";
     }
     // --- Unified schema-driven responses for all major intents ---
     if (state.plan?.intent === "subscription") {
-        // TODO: Add subscription DB logic if/when available
+        console.log("[SynthesisAgent] Subscription intent");
         return "Here's a summary of your active subscriptions and recurring payments. If you want details or to manage any, just let me know!";
     }
     if (state.plan?.intent === "investment") {
+        console.log("[SynthesisAgent] Investment intent, investments:", state.userProfile?.investments);
         if (state.userProfile?.investments && state.userProfile.investments.length > 0) {
             const top = state.userProfile.topInvestments || state.userProfile.investments.slice(0, 3);
             let msg = `Here are your top investments:`;
             top.forEach((inv, idx) => {
                 msg += `\n${idx + 1}. ${inv.investment_name || inv.name || "Investment"}: £${Number(inv.current_value || inv.value || 0).toLocaleString("en-GB")} ${inv.currency || state.userProfile?.homeCurrency || "GBP"}`;
             });
+            console.log("[SynthesisAgent] Investment response:", msg);
             return msg;
         }
+        console.log("[SynthesisAgent] No investments found");
         return "No investments found for your account.";
     }
     if (state.plan?.intent === "balance") {
+        console.log("[SynthesisAgent] Balance intent, accountBalance:", state.userProfile?.accountBalance, "accounts:", state.userProfile?.accounts);
         if (typeof state.userProfile?.accountBalance === "number" && state.userProfile.accountBalance > 0) {
-            return `Your current account balance is £${state.userProfile.accountBalance.toLocaleString("en-GB")} GBP.`;
+            const msg = `Your current account balance is £${state.userProfile.accountBalance.toLocaleString("en-GB")} GBP.`;
+            console.log("[SynthesisAgent] Balance response:", msg);
+            return msg;
         }
         if (state.userProfile?.accounts && state.userProfile.accounts.length > 0) {
             const gbp = state.userProfile.accounts.find((a) => a.currency === "GBP");
             if (gbp && typeof gbp.balance === "number") {
-                return `Your current GBP account balance is £${gbp.balance.toLocaleString("en-GB")} GBP.`;
+                const msg = `Your current GBP account balance is £${gbp.balance.toLocaleString("en-GB")} GBP.`;
+                console.log("[SynthesisAgent] GBP account balance response:", msg);
+                return msg;
             }
         }
+        console.log("[SynthesisAgent] No account balance data found");
         return "No account balance data found.";
     }
     if (state.plan?.intent === "loan" || state.plan?.intent === "loans") {
+        console.log("[SynthesisAgent] Loan intent, loans:", state.userProfile?.loans);
         if (state.userProfile?.loans && state.userProfile.loans.length > 0) {
             let msg = `Here are your loans:`;
             state.userProfile.loans.forEach((loan, idx) => {
                 msg += `\n${idx + 1}. ${loan.loan_type || "Loan"}: £${Number(loan.outstanding_amount || loan.outstanding_balance || 0).toLocaleString("en-GB")} ${loan.currency || state.userProfile?.homeCurrency || "GBP"}`;
             });
+            console.log("[SynthesisAgent] Loan response:", msg);
             return msg;
         }
+        console.log("[SynthesisAgent] No loans found");
         return "No loans found for your account.";
     }
     if (state.plan?.intent === "credit" || state.plan?.intent === "credit_profile") {
+        console.log("[SynthesisAgent] Credit intent, creditProfile:", state.userProfile?.creditProfile);
         if (state.userProfile?.creditProfile) {
             let msg = `Here is your credit profile:`;
             Object.entries(state.userProfile.creditProfile).forEach(([k, v]) => {
                 if (v !== null && v !== undefined)
                     msg += `\n- ${k}: ${v}`;
             });
+            console.log("[SynthesisAgent] Credit profile response:", msg);
             return msg;
         }
+        console.log("[SynthesisAgent] No credit profile found");
         return "No credit profile found for your account.";
     }
     if (state.plan?.intent === "summary" || state.plan?.intent === "monthly_summary") {
+        console.log("[SynthesisAgent] Summary intent, monthlySummaries:", state.userProfile?.monthlySummaries);
         if (state.userProfile?.monthlySummaries && state.userProfile.monthlySummaries.length > 0) {
             let msg = `Here is your monthly financial summary:`;
             state.userProfile.monthlySummaries.forEach((ms) => {
                 msg += `\n- ${ms.month}: Income £${ms.total_income?.toLocaleString("en-GB") ?? "-"}, Expenses £${ms.total_expenses?.toLocaleString("en-GB") ?? "-"}, Savings £${ms.total_savings?.toLocaleString("en-GB") ?? "-"}, Investments £${ms.total_investments?.toLocaleString("en-GB") ?? "-"}, Net Cashflow £${ms.net_cashflow?.toLocaleString("en-GB") ?? "-"}`;
             });
+            console.log("[SynthesisAgent] Summary response:", msg);
             return msg;
         }
+        console.log("[SynthesisAgent] No monthly summary data found");
         return "No monthly summary data found.";
     }
     const messages = [

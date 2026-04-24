@@ -50,15 +50,24 @@ export class FinancialLoader {
       profile.homeCurrency = ufp.currency ?? "GBP";
     }
 
+
     // 2. All Account Balances
-    profile.accounts = await this.db.selectFrom("account_balances" as any).selectAll().where("user_id" as any, "=", userId as any).execute();
-    console.log("[FinancialLoader] account_balances:", profile.accounts);
+    const accounts = await this.db.selectFrom("account_balances" as any).selectAll().where("user_id" as any, "=", userId as any).execute();
+    profile.accounts = accounts;
+    const totalBalance = accounts.reduce((sum: number, acc: any) => sum + (parseNum(acc.balance) ?? 0), 0);
+    profile.accountBalance = totalBalance;
+    console.log("[FinancialLoader] account_balances rows:", accounts);
+    console.log("[FinancialLoader] Computed total accountBalance:", totalBalance);
+
 
     // 3. Investments
     const investments = await this.db.selectFrom("investment_summary" as any).selectAll().where("user_id" as any, "=", userId as any).execute();
     profile.investments = investments;
-    profile.topInvestments = investments?.slice(0, 3) ?? [];
-    console.log("[FinancialLoader] investment_summary:", investments);
+    // Sort by current_value or value descending, then take top 3
+    const sortedInvestments = [...investments].sort((a, b) => (parseNum(b.current_value ?? b.value) ?? 0) - (parseNum(a.current_value ?? a.value) ?? 0));
+    profile.topInvestments = sortedInvestments.slice(0, 3);
+    console.log("[FinancialLoader] investment_summary rows:", investments);
+    console.log("[FinancialLoader] Computed topInvestments:", profile.topInvestments);
 
     // 4. Loans
     profile.loans = await this.db.selectFrom("loan_accounts" as any).selectAll().where("user_id" as any, "=", userId as any).execute();
