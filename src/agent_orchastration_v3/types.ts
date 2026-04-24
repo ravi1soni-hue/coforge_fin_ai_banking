@@ -59,6 +59,8 @@ export interface UserProfile {
   netMonthlySurplus?: number;
   homeCurrency: string;
   userName?: string;
+  // Unified patch addition:
+  accountBalance?: number;
 }
 
 // ─── Conversation history ─────────────────────────────────────────────────────

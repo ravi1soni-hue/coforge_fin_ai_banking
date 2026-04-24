@@ -29,6 +29,10 @@ export interface AgentPlan {
   targetCurrency?: string;       // ISO code of the user's home currency, e.g. "GBP"
   userHomeCurrency: string;      // always set — defaults to "GBP"
   userStatedPrice?: number;      // price explicitly stated by user (0 = not stated)
+  // Unified patch additions:
+  intent?: "balance" | "investment" | "subscription" | "affordability" | "news" | "fx" | "other";
+  dbWakingUp?: boolean;
+  fallbackIntent?: boolean;
 }
 
 // ─── Research results ─────────────────────────────────────────────────────────

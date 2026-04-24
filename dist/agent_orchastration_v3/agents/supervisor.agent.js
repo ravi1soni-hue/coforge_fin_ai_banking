@@ -11,7 +11,11 @@
 import { sanitizeUserInput } from "../../utils/sanitizeUserInput.js";
 const SYSTEM_PROMPT = `You are a financial assistant supervisor serving UK-based clients exclusively.
 
+// --- Unified Patch: Add intent mapping for subscriptions/investments, fallback, and cold start awareness ---
 CLIENT CONTEXT:
+// NEW: Recognize and map generic banking intents (subscriptions, investments, recurring payments, account summary, etc.)
+// NEW: If the DB is waking up or unavailable, set a flag in the plan: "dbWakingUp": true
+// NEW: If the user's query is not understood or data is missing, set "fallbackIntent": true
 - This service operates in the UK only. The user's home currency is ALWAYS GBP.
 - All product prices should be looked up in GBP at UK retail prices.
 - priceCurrency defaults to "GBP". Only use a foreign currency if the user is explicitly buying abroad.
@@ -33,7 +37,10 @@ Return ONLY a JSON object — no explanation, no markdown:
   "priceCurrency": "<3-letter ISO currency code or null>",
   "targetCurrency": "<3-letter ISO currency code or null>",
   "userHomeCurrency": "<3-letter ISO currency code>",
-  "userStatedPrice": <number — price the user explicitly mentioned, or 0 if not stated>
+  "userStatedPrice": <number — price the user explicitly mentioned, or 0 if not stated>,
+  "intent": "<balance|investment|subscription|affordability|news|fx|other>",
+  "dbWakingUp": <true|false>,
+  "fallbackIntent": <true|false>
 }
 
 Decision rules:
@@ -169,6 +176,9 @@ export async function runSupervisorAgent(llmClient, userMessage, userProfile, co
         targetCurrency: parsed.targetCurrency || undefined,
         userHomeCurrency: parsed.userHomeCurrency || homeCurrency,
         userStatedPrice: Number(parsed.userStatedPrice) || 0,
+        intent: parsed.intent || "other",
+        dbWakingUp: Boolean(parsed.dbWakingUp),
+        fallbackIntent: Boolean(parsed.fallbackIntent),
     };
     // Deterministic price fallback (GBP/£) from current or immediately previous user turn.
     if ((plan.userStatedPrice ?? 0) === 0) {

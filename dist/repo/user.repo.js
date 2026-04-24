@@ -1,3 +1,4 @@
+import { withDbRetry } from "../utils/dbRetry.js";
 import { sql } from "kysely";
 import { UserStatus } from "../db/schema/user.js";
 export class UserRepository {
@@ -6,29 +7,29 @@ export class UserRepository {
         this.db = db;
     }
     async findById(id) {
-        return this.db
+        return withDbRetry(() => this.db
             .selectFrom("users")
             .selectAll()
             .where("id", "=", id)
-            .executeTakeFirst();
+            .executeTakeFirst());
     }
     async findByExternalId(externalId) {
         // Case-insensitive and trimmed lookup for robustness
-        return this.db
+        return withDbRetry(() => this.db
             .selectFrom("users")
             .selectAll()
             .where(sql `LOWER(TRIM(external_user_id))`, "=", externalId.trim().toLowerCase())
-            .executeTakeFirst();
+            .executeTakeFirst());
     }
     async create(user) {
-        return this.db
+        return withDbRetry(() => this.db
             .insertInto("users")
             .values(user)
             .returningAll()
-            .executeTakeFirstOrThrow();
+            .executeTakeFirstOrThrow());
     }
     async update(id, updateWith) {
-        return this.db
+        return withDbRetry(() => this.db
             .updateTable("users")
             .set({
             ...updateWith,
@@ -36,17 +37,17 @@ export class UserRepository {
         })
             .where("id", "=", id)
             .returningAll()
-            .executeTakeFirst();
+            .executeTakeFirst());
     }
     async softDelete(id) {
-        return this.update(id, { status: UserStatus.DELETED });
+        return withDbRetry(() => this.update(id, { status: UserStatus.DELETED }));
     }
     async listByStatus(status) {
-        return this.db
+        return withDbRetry(() => this.db
             .selectFrom("users")
             .selectAll()
             .where("status", "=", status)
             .orderBy("created_at", "desc")
-            .execute();
+            .execute());
     }
 }

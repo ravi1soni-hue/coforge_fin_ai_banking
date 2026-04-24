@@ -73,6 +73,26 @@ export async function runSynthesisAgent(llmClient, state) {
                 .join("\n")
         : "";
     const sanitizedUserMessage = sanitizeUserInput(state.userMessage);
+    // --- Unified Patch: Add cold start/fallback/generic intent handling ---
+    if (state.plan?.dbWakingUp) {
+        return "I'm waking up your account data now—please hold on just a moment. This can take a few seconds if the system was idle.";
+    }
+    if (state.plan?.fallbackIntent) {
+        return "I'm not sure I understood your request fully, but I'm here to help with any banking, subscription, or investment questions. Could you clarify or rephrase?";
+    }
+    if (state.plan?.intent === "subscription") {
+        return "Here's a summary of your active subscriptions and recurring payments. If you want details or to manage any, just let me know!";
+    }
+    if (state.plan?.intent === "investment") {
+        return "Here's an overview of your current investments. If you want to discuss performance, add new investments, or get advice, just ask!";
+    }
+    if (state.plan?.intent === "balance") {
+        // If no liquidity, fallback to warm message
+        if (state.userProfile?.accountBalance === 0 || state.userProfile?.accountBalance == null) {
+            return "It looks like there’s currently no available liquidity in your account in GBP. Let me know if you’d like me to review recent movements or upcoming payments so we can plan accordingly.";
+        }
+        return `Your current account balance is £${state.userProfile?.accountBalance?.toLocaleString("en-GB") ?? "unknown"} GBP.`;
+    }
     const messages = [
         { role: "system", content: SYSTEM_PROMPT },
         {

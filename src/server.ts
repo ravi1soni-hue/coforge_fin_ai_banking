@@ -1,3 +1,4 @@
+import keepDbWarm from "./keepDbWarm.js";
 import http from "http";
 import { db } from "./db.js";
 
@@ -31,6 +32,9 @@ async function start() {
       console.log(`🚀 Server running on port ${ENV.PORT}`);
       console.log(`📡 WebSocket ready at wss://coforgefinaibanking-development-ebdd.up.railway.app/ws`);
     });
+
+    // Start DB heartbeat to keep Neon compute warm
+    keepDbWarm();
 
     // 🔄 Run bootstrap in background - non-blocking
     //bootstrapAndSync();
