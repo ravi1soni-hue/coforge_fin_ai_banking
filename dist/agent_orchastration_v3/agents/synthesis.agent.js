@@ -132,10 +132,9 @@ export async function runSynthesisAgent(llmClient, state) {
     if (state.plan?.intent === "investment") {
         console.log("[SynthesisAgent] Investment intent, investments:", state.userProfile?.investments);
         if (state.userProfile?.investments && state.userProfile.investments.length > 0) {
-            const top = state.userProfile.topInvestments || state.userProfile.investments.slice(0, 3);
-            let msg = `Here are your top investments:`;
-            top.forEach((inv, idx) => {
-                msg += `\n${idx + 1}. ${inv.investment_name || inv.name || "Investment"}: £${Number(inv.current_value || inv.value || 0).toLocaleString("en-GB")} ${inv.currency || state.userProfile?.homeCurrency || "GBP"}`;
+            let msg = `Here are your investments:`;
+            state.userProfile.investments.forEach((inv, idx) => {
+                msg += `\n${idx + 1}. ${(inv.investment_name || inv.name || inv.investment_type || "Investment")} - £${Number(inv.current_value || inv.value || 0).toLocaleString("en-GB")} ${inv.currency || state.userProfile?.homeCurrency || "GBP"}`;
             });
             console.log("[SynthesisAgent] Investment response:", msg);
             return msg;
@@ -144,19 +143,19 @@ export async function runSynthesisAgent(llmClient, state) {
         return "No investments found for your account.";
     }
     if (state.plan?.intent === "balance") {
-        console.log("[SynthesisAgent] Balance intent, accountBalance:", state.userProfile?.accountBalance, "accounts:", state.userProfile?.accounts);
+        console.log("[SynthesisAgent] Balance intent, accounts:", state.userProfile?.accounts);
+        if (state.userProfile?.accounts && state.userProfile.accounts.length > 0) {
+            let msg = `Here are your accounts:`;
+            state.userProfile.accounts.forEach((acc, idx) => {
+                msg += `\n${idx + 1}. ${(acc.account_type || "Account")} (${acc.provider || "Provider"}): £${Number(acc.balance || 0).toLocaleString("en-GB")} ${acc.currency || state.userProfile?.homeCurrency || "GBP"}`;
+            });
+            console.log("[SynthesisAgent] Accounts response:", msg);
+            return msg;
+        }
         if (typeof state.userProfile?.accountBalance === "number" && state.userProfile.accountBalance > 0) {
             const msg = `Your current account balance is £${state.userProfile.accountBalance.toLocaleString("en-GB")} GBP.`;
             console.log("[SynthesisAgent] Balance response:", msg);
             return msg;
-        }
-        if (state.userProfile?.accounts && state.userProfile.accounts.length > 0) {
-            const gbp = state.userProfile.accounts.find((a) => a.currency === "GBP");
-            if (gbp && typeof gbp.balance === "number") {
-                const msg = `Your current GBP account balance is £${gbp.balance.toLocaleString("en-GB")} GBP.`;
-                console.log("[SynthesisAgent] GBP account balance response:", msg);
-                return msg;
-            }
         }
         console.log("[SynthesisAgent] No account balance data found");
         return "No account balance data found.";
