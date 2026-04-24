@@ -11,16 +11,55 @@ const SYSTEM_PROMPT = `You are a warm, conversational financial assistant. Detec
  - Your output will be checked for warmth, clarity, and natural flow.`;
 function buildDataContext(state) {
     const parts = [];
-    const homeCurrency = state.userProfile?.homeCurrency ?? state.plan?.userHomeCurrency ?? "GBP";
-    if (state.userProfile) {
-        const up = state.userProfile;
+    const up = state.userProfile;
+    const homeCurrency = up?.homeCurrency ?? state.plan?.userHomeCurrency ?? "GBP";
+    if (up) {
         parts.push(`USER FINANCIAL PROFILE:`);
-        parts.push(`- Monthly income: ${up.monthlyIncome != null ? up.monthlyIncome.toLocaleString("en-GB") + " " + homeCurrency : "Unknown"}`);
-        parts.push(`- Monthly expenses: ${up.monthlyExpenses != null ? up.monthlyExpenses.toLocaleString("en-GB") + " " + homeCurrency : "Unknown"}`);
-        parts.push(`- Available savings: ${up.availableSavings.toLocaleString("en-GB")} ${homeCurrency}`);
-        if (up.monthlyIncome != null && up.monthlyExpenses != null) {
-            const leftover = up.monthlyIncome - up.monthlyExpenses;
-            parts.push(`- Left after expenses: ${leftover.toLocaleString("en-GB")} ${homeCurrency}`);
+        if (up.userName)
+            parts.push(`- Name: ${up.userName}`);
+        if (up.availableSavings !== undefined)
+            parts.push(`- Available savings: £${up.availableSavings.toLocaleString("en-GB")} ${homeCurrency}`);
+        if (up.monthlyIncome !== undefined)
+            parts.push(`- Monthly income: £${up.monthlyIncome.toLocaleString("en-GB")} ${homeCurrency}`);
+        if (up.monthlyExpenses !== undefined)
+            parts.push(`- Monthly expenses: £${up.monthlyExpenses.toLocaleString("en-GB")} ${homeCurrency}`);
+        if (up.netMonthlySurplus !== undefined)
+            parts.push(`- Net monthly surplus: £${up.netMonthlySurplus.toLocaleString("en-GB")} ${homeCurrency}`);
+        // All accounts
+        if (up.accounts && up.accounts.length > 0) {
+            parts.push(`\nACCOUNTS:`);
+            up.accounts.forEach((acc) => {
+                parts.push(`- ${acc.account_type || "Account"}: £${Number(acc.balance).toLocaleString("en-GB")} ${acc.currency || homeCurrency}`);
+            });
+        }
+        // Investments
+        if (up.investments && up.investments.length > 0) {
+            parts.push(`\nINVESTMENTS:`);
+            up.investments.forEach((inv) => {
+                parts.push(`- ${inv.investment_type || "Investment"}: £${Number(inv.current_value).toLocaleString("en-GB")} ${inv.currency || homeCurrency}`);
+            });
+        }
+        // Loans
+        if (up.loans && up.loans.length > 0) {
+            parts.push(`\nLOANS:`);
+            up.loans.forEach((loan) => {
+                parts.push(`- ${loan.loan_type || "Loan"}: £${Number(loan.outstanding_balance).toLocaleString("en-GB")} ${loan.currency || homeCurrency}`);
+            });
+        }
+        // Credit profile
+        if (up.creditProfile) {
+            parts.push(`\nCREDIT PROFILE:`);
+            Object.entries(up.creditProfile).forEach(([k, v]) => {
+                if (v !== null && v !== undefined)
+                    parts.push(`- ${k}: ${v}`);
+            });
+        }
+        // Monthly summaries
+        if (up.monthlySummaries && up.monthlySummaries.length > 0) {
+            parts.push(`\nMONTHLY SUMMARY:`);
+            up.monthlySummaries.forEach((ms) => {
+                parts.push(`- ${ms.month}: Income £${ms.income?.toLocaleString("en-GB") ?? "-"}, Expenses £${ms.expenses?.toLocaleString("en-GB") ?? "-"}, Savings £${ms.savings?.toLocaleString("en-GB") ?? "-"}`);
+            });
         }
     }
     if (state.plan?.product) {

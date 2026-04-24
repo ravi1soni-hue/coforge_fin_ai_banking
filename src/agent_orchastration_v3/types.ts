@@ -61,6 +61,11 @@ export interface UserProfile {
   userName?: string;
   // Unified patch addition:
   accountBalance?: number;
+  accounts?: any[];
+  investments?: any[];
+  loans?: any[];
+  creditProfile?: any;
+  monthlySummaries?: any[];
 }
 
 // ─── Conversation history ─────────────────────────────────────────────────────
