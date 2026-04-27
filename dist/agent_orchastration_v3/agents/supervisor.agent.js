@@ -134,15 +134,23 @@ function inferTripProductFromUserHistory(userMessage, conversationHistory) {
 export async function runSupervisorAgent(llmClient, userMessage, userProfile, conversationHistory = []) {
     const sanitizedUserMessage = sanitizeUserInput(userMessage);
     const homeCurrency = String(userProfile?.homeCurrency ?? "GBP");
-    // Pass ONLY user turns to the supervisor — the assistant's previous responses are outputs, not ground truth.
-    // Feeding assistant history back in causes the LLM to anchor on whatever the assistant said before
-    // (even if it was wrong), poisoning product detection for follow-up messages.
-    const recentUserTurns = conversationHistory.filter(m => m.role === "user").slice(-5);
-    const historyText = recentUserTurns.length > 0
-        ? "\n\nWhat the user has said so far (most recent last):\n" +
-            recentUserTurns
-                .map(m => `User: ${m.content.slice(0, 300)}`)
-                .join("\n")
+    // Patch: Include last assistant turn for better context on follow-ups
+    const lastTurns = [];
+    const userTurns = conversationHistory.filter(m => m.role === "user");
+    const assistantTurns = conversationHistory.filter(m => m.role === "assistant");
+    // Get up to 2 last user turns and 1 last assistant turn interleaved
+    const lastUser = userTurns.slice(-2);
+    const lastAssistant = assistantTurns.slice(-1);
+    // Interleave: user, assistant, user (if available)
+    if (lastUser.length > 0)
+        lastTurns.push({ role: "user", content: lastUser[0].content });
+    if (lastAssistant.length > 0)
+        lastTurns.push({ role: "assistant", content: lastAssistant[0].content });
+    if (lastUser.length > 1)
+        lastTurns.push({ role: "user", content: lastUser[1].content });
+    const historyText = lastTurns.length > 0
+        ? "\n\nRecent conversation (most recent last):\n" +
+            lastTurns.map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content.slice(0, 300)}`).join("\n")
         : "";
     const messages = [
         { role: "system", content: SYSTEM_PROMPT },
@@ -152,15 +160,17 @@ export async function runSupervisorAgent(llmClient, userMessage, userProfile, co
         },
     ];
     console.log("[SupervisorAgent] Calling LLM to classify query...");
+    console.log("[SupervisorAgent] LLM prompt context:", messages[1].content);
     let parsed = null;
     try {
         parsed = await llmClient.chatJSON(messages);
     }
-    catch {
-        console.warn("[SupervisorAgent] Could not parse LLM plan, using default.");
+    catch (e) {
+        console.warn("[SupervisorAgent] Could not parse LLM plan, using default.", e);
         return { ...DEFAULT_PLAN, userHomeCurrency: homeCurrency };
     }
     if (!parsed || typeof parsed !== "object") {
+        console.warn("[SupervisorAgent] LLM plan parse failed, using default.");
         return { ...DEFAULT_PLAN, userHomeCurrency: homeCurrency };
     }
     const plan = {
@@ -180,6 +190,7 @@ export async function runSupervisorAgent(llmClient, userMessage, userProfile, co
         dbWakingUp: Boolean(parsed.dbWakingUp),
         fallbackIntent: Boolean(parsed.fallbackIntent),
     };
+    console.log("[SupervisorAgent] LLM plan:", plan);
     // Deterministic price fallback (GBP/£) from current or immediately previous user turn.
     if ((plan.userStatedPrice ?? 0) === 0) {
         const currentPrice = extractStatedGbpPrice(userMessage);
