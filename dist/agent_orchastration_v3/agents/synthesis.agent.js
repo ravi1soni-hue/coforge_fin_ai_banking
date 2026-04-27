@@ -133,10 +133,7 @@ export async function runSynthesisAgent(llmClient, state) {
         return "I'm not sure I understood your request fully, but I'm here to help with any banking, subscription, or investment questions. Could you clarify or rephrase?";
     }
     // --- Unified schema-driven responses for all major intents ---
-    if (state.plan?.intent === "subscription") {
-        console.log("[SynthesisAgent] Subscription intent");
-        return "Here's a summary of your active subscriptions and recurring payments. If you want details or to manage any, just let me know!";
-    }
+    // Removed fixed subscription response. Always use LLM for contextual answers.
     if (state.plan?.intent === "investment") {
         console.log("[SynthesisAgent] Investment intent, investments:", state.userProfile?.investments);
         if (state.userProfile?.investments && state.userProfile.investments.length > 0) {

@@ -178,6 +178,54 @@ export async function runSupervisorAgent(
   ];
 
   console.log("[SupervisorAgent] Calling LLM to classify query...");
+    // Fallback: If user message is a short confirmation/plan selection, bias intent to last major topic
+    const confirmationPhrases = [
+      "yes", "let's go", "lets go", "sure", "okay", "ok", "sounds good", "do it", "go ahead", "confirm", "please help", "help me", "3 month plan", "6 month plan", "installment", "spread it", "that works", "continue", "next"
+    ];
+    const isConfirmation = confirmationPhrases.some(phrase => sanitizedUserMessage.toLowerCase().includes(phrase));
+    if (isConfirmation && conversationHistory.length > 0) {
+      // Find last major user intent in history (not a confirmation)
+      const lastMajor = [...conversationHistory].reverse().find(m => m.role === "user" && !confirmationPhrases.some(p => m.content.toLowerCase().includes(p)));
+      if (lastMajor) {
+        console.log("[SupervisorAgent] Detected confirmation/follow-up. Biasing intent to last major topic.");
+        // Call LLM as usual, but if it returns subscription, override with last detected intent
+        let parsed: Record<string, unknown> | null = null;
+        try {
+          parsed = await llmClient.chatJSON<Record<string, unknown>>(messages);
+        } catch (e) {
+          console.warn("[SupervisorAgent] Could not parse LLM plan, using default.", e);
+          return { ...DEFAULT_PLAN, userHomeCurrency: homeCurrency };
+        }
+        let planIntent = (parsed?.intent as any) || "other";
+        if (planIntent === "subscription") {
+          // Try to infer last major intent from history
+          const lastIntentMatch = /affordability|balance|investment|loan|credit|summary|trip|travel|purchase|spend|save|plan|installment/i.exec(lastMajor.content);
+          if (lastIntentMatch) {
+            planIntent = lastIntentMatch[0].toLowerCase();
+            console.log("[SupervisorAgent] Overriding subscription intent with:", planIntent);
+          }
+        }
+        const plan: AgentPlan = {
+          needsWebSearch:     Boolean(parsed?.needsWebSearch),
+          needsFxConversion:  Boolean(parsed?.needsFxConversion),
+          needsNews:          Boolean(parsed?.needsNews),
+          needsAffordability: Boolean(parsed?.needsAffordability),
+          needsEmi:           Boolean(parsed?.needsEmi),
+          conversationalOnly: Boolean(parsed?.conversationalOnly),
+          product:            (parsed?.product as string)        || undefined,
+          searchQuery:        (parsed?.searchQuery as string)    || undefined,
+          priceCurrency:      (parsed?.priceCurrency as string)  || undefined,
+          targetCurrency:     (parsed?.targetCurrency as string) || undefined,
+          userHomeCurrency:   (parsed?.userHomeCurrency as string) || homeCurrency,
+          userStatedPrice:    Number(parsed?.userStatedPrice)    || 0,
+          intent:             planIntent,
+          dbWakingUp:         Boolean(parsed?.dbWakingUp),
+          fallbackIntent:     Boolean(parsed?.fallbackIntent),
+        };
+        console.log("[SupervisorAgent] LLM plan (confirmation/follow-up):", plan);
+        return plan;
+      }
+    }
   console.log("[SupervisorAgent] LLM prompt context:", messages[1].content);
 
 
