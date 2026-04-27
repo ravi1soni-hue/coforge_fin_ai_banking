@@ -212,7 +212,7 @@ export async function runSynthesisAgent(llmClient, state) {
     const needsRecommendation = dataContext.includes("RECOMMENDATION_TRIGGER: true");
     let userPrompt = `${historyText}\n\nCurrent message: "${sanitizedUserMessage}"\n\nFinancial data:\n${dataContext}\n\nWrite a clear, natural response using this information.`;
     if (needsRecommendation) {
-        userPrompt += `\n\nIf the user is at risk of overspending, or their savings will dip significantly, or affordability is borderline/risky, suggest a warm, relevant financial product, plan, or action (such as a savings plan, EMI, or other contextual recommendation) that fits their situation. Do NOT suggest products if not appropriate. Make the recommendation natural and not salesy.`;
+        userPrompt += `\n\nIf the user is at risk of overspending, or their savings will dip significantly, or affordability is borderline/risky:\n- Clearly name the most relevant financial product, plan, or action (such as "EMI", "Savings Plan", "Installment Option", etc.) that fits their situation.\n- Offer a warm, actionable next step (e.g., "Would you like me to help you set up a plan?"), phrased naturally and contextually based on the conversation.\n- Do NOT suggest products if not appropriate.\n- Make the recommendation and action item feel like a natural part of the conversation, not a template or sales pitch.`;
     }
     const messages = [
         { role: "system", content: SYSTEM_PROMPT },
