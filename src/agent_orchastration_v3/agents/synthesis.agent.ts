@@ -212,9 +212,19 @@ export async function runSynthesisAgent(
 
   // Detect if recommendation is needed
   const needsRecommendation = dataContext.includes("RECOMMENDATION_TRIGGER: true");
+  // Detect if user is confirming, asking for summary, or closing
+  const closingPhrases = [
+    "yes", "that's all", "thank you", "thanks", "no more", "done", "confirm", "looks good", "go ahead", "please proceed", "finalize", "finish", "close", "wrap up", "all set", "perfect", "great", "sounds good", "ok", "okay"
+  ];
+  const isClosing = closingPhrases.some(phrase => sanitizedUserMessage.toLowerCase().includes(phrase));
   let userPrompt = `${historyText}\n\nCurrent message: "${sanitizedUserMessage}"\n\nFinancial data:\n${dataContext}\n\nWrite a clear, natural response using this information.`;
   if (needsRecommendation) {
     userPrompt += `\n\nIf the user is at risk of overspending, or their savings will dip significantly, or affordability is borderline/risky:\n- Clearly name the most relevant financial product, plan, or action (such as "EMI", "Savings Plan", "Installment Option", etc.) that fits their situation.\n- Offer a warm, actionable next step (e.g., "Would you like me to help you set up a plan?"), phrased naturally and contextually based on the conversation.\n- Do NOT suggest products if not appropriate.\n- Make the recommendation and action item feel like a natural part of the conversation, not a template or sales pitch.`;
+  }
+  if (isClosing) {
+    userPrompt += `\n\nIf the user is confirming, satisfied, or asking to close, summarize the key outcome, acknowledge their confirmation, and move the conversation towards closure. Do not ask further questions. End with a warm, natural closing line.`;
+  } else {
+    userPrompt += `\n\nIf the user is still exploring options or has not confirmed, you may ask a single, clear follow-up question if needed, but do not keep the conversation open-ended. If the user has all the info, summarize and move towards closure.`;
   }
   const messages: AgenticMessage[] = [
     { role: "system", content: SYSTEM_PROMPT },
