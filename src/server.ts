@@ -14,10 +14,13 @@ import ingestionRoutes from "./routes/ingestion.route.js";
 
 const server = http.createServer(app);
 
-// ⚡ Railway aggressive keep-alive (Railway terminates idle connections after ~15-20s)
-server.keepAliveTimeout = 10000;    // 10s keep-alive
-server.headersTimeout = 11000;       // 11s headers timeout
+// ⚡ Railway keep-alive — must exceed Railway's 15-20s idle timeout
+server.keepAliveTimeout = 60000;    // 60s keep-alive (well above Railway's ~15-20s idle cutoff)
+server.headersTimeout = 65000;       // 65s headers timeout (must be > keepAliveTimeout)
 server.requestTimeout = 0;           // No global request timeout
+
+// ⚡ 120s socket timeout for long-lived WebSocket connections
+(server as any).setTimeout(120000);
 
 app.use("/api", ingestionRoutes);
 
@@ -51,5 +54,33 @@ async function bootstrapAndSync() {
   // console.log("✅ Financial profiles synced");
   return;
 }
+
+// ─── Graceful shutdown ────────────────────────────────────────────────────────
+process.on("SIGTERM", () => {
+  console.log("⚠️  SIGTERM received — starting graceful shutdown");
+
+  // Stop accepting new connections
+  server.close(() => {
+    console.log("✅ HTTP server closed — all connections drained");
+    process.exit(0);
+  });
+
+  // Force-exit after 10s if connections haven't drained
+  setTimeout(() => {
+    console.error("❌ Graceful shutdown timed out — forcing exit");
+    process.exit(1);
+  }, 10_000).unref();
+});
+
+// ─── Safety nets for unhandled errors ────────────────────────────────────────
+process.on("uncaughtException", (err) => {
+  console.error("❌ Uncaught exception:", err);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("❌ Unhandled promise rejection:", reason);
+  process.exit(1);
+});
 
 start();
