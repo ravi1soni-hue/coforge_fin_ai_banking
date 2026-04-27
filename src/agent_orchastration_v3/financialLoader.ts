@@ -61,40 +61,12 @@ export class FinancialLoader {
 
 
     // 3. Investments
-    const investmentSummaries = await this.db.selectFrom("investment_summary" as any).selectAll().where("user_id" as any, "=", userId as any).execute();
-    console.log("[FinancialLoader] investment_summary rows:", investmentSummaries);
-
-    // Flatten all investments from investment_info (if present)
-    let allInvestments: any[] = [];
-    for (const summary of investmentSummaries) {
-      if (summary.investment_info) {
-        try {
-          const info = typeof summary.investment_info === "string" ? JSON.parse(summary.investment_info) : summary.investment_info;
-          if (Array.isArray(info)) {
-            allInvestments.push(...info);
-          } else if (info && typeof info === "object") {
-            // Sometimes it's a single object, not array
-            allInvestments.push(info);
-          }
-        } catch (e) {
-          console.warn("[FinancialLoader] Failed to parse investment_info", summary.investment_info, e);
-        }
-      } else {
-        // Fallback: treat the summary row as a single investment
-        allInvestments.push({
-          investment_type: summary.investment_type || "Investment",
-          current_value: summary.total_current_value,
-          value: summary.total_current_value,
-          currency: summary.currency || profile.homeCurrency || "GBP",
-          as_of_month: summary.as_of_month,
-        });
-      }
-    }
-    profile.investments = allInvestments;
+    const investments = await this.db.selectFrom("investment_summary" as any).selectAll().where("user_id" as any, "=", userId as any).execute();
+    profile.investments = investments;
     // Sort by current_value or value descending, then take top 3
-    const sortedInvestments = [...allInvestments].sort((a, b) => (parseNum(b.current_value ?? b.value) ?? 0) - (parseNum(a.current_value ?? a.value) ?? 0));
+    const sortedInvestments = [...investments].sort((a, b) => (parseNum(b.current_value ?? b.value) ?? 0) - (parseNum(a.current_value ?? a.value) ?? 0));
     profile.topInvestments = sortedInvestments.slice(0, 3);
-    console.log("[FinancialLoader] Flattened investments:", allInvestments);
+    console.log("[FinancialLoader] investment_summary rows:", investments);
     console.log("[FinancialLoader] Computed topInvestments:", profile.topInvestments);
 
     // 4. Loans
