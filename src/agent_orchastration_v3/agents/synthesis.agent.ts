@@ -88,6 +88,16 @@ function buildDataContext(state: FinancialState): string {
       parts.push(`- 6 months: ${Math.round(price / 6).toLocaleString("en-GB")} ${homeCurrency} per month`);
       parts.push(`- 12 months: ${Math.round(price / 12).toLocaleString("en-GB")} ${homeCurrency} per month`);
     }
+    // Add contextual recommendation trigger
+    if (
+      af.verdict === "BORDERLINE" ||
+      af.verdict === "RISKY" ||
+      (typeof state.userProfile?.availableSavings === "number" &&
+        af.priceInHomeCurrency > 0 &&
+        state.userProfile.availableSavings - af.priceInHomeCurrency < (state.userProfile.availableSavings * 0.5))
+    ) {
+      parts.push("\nRECOMMENDATION_TRIGGER: true");
+    }
   }
   return parts.join("\n");
 }
@@ -203,11 +213,17 @@ export async function runSynthesisAgent(
     return "No monthly summary data found.";
   }
 
+  // Detect if recommendation is needed
+  const needsRecommendation = dataContext.includes("RECOMMENDATION_TRIGGER: true");
+  let userPrompt = `${historyText}\n\nCurrent message: "${sanitizedUserMessage}"\n\nFinancial data:\n${dataContext}\n\nWrite a clear, natural response using this information.`;
+  if (needsRecommendation) {
+    userPrompt += `\n\nIf the user is at risk of overspending, or their savings will dip significantly, or affordability is borderline/risky, suggest a warm, relevant financial product, plan, or action (such as a savings plan, EMI, or other contextual recommendation) that fits their situation. Do NOT suggest products if not appropriate. Make the recommendation natural and not salesy.`;
+  }
   const messages: AgenticMessage[] = [
     { role: "system", content: SYSTEM_PROMPT },
     {
       role: "user",
-      content: `${historyText}\n\nCurrent message: "${sanitizedUserMessage}"\n\nFinancial data:\n${dataContext}\n\nWrite a clear, natural response using this information.`,
+      content: userPrompt,
     },
   ];
   const finalText = await llmClient.chat(messages);
